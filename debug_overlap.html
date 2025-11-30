@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Overlap Diarization Debug Tool</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #4a9eff;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #888;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .card {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card h2 {
+            color: #4a9eff;
+            margin-bottom: 15px;
+            font-size: 20px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+        }
+
+        .upload-area {
+            border: 2px dashed #4a9eff;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            background: #0f0f0f;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .upload-area:hover {
+            border-color: #6ab4ff;
+            background: #151515;
+        }
+
+        .upload-area.dragover {
+            border-color: #6ab4ff;
+            background: #1a1a1a;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .btn {
+            background: #4a9eff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+            margin: 5px;
+        }
+
+        .btn:hover {
+            background: #6ab4ff;
+        }
+
+        .btn:disabled {
+            background: #444;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #555;
+        }
+
+        .btn-secondary:hover {
+            background: #666;
+        }
+
+        .status {
+            padding: 12px;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+
+        .status.info {
+            background: #1a3a5a;
+            border-left: 4px solid #4a9eff;
+        }
+
+        .status.success {
+            background: #1a3a3a;
+            border-left: 4px solid #4aff4a;
+        }
+
+        .status.error {
+            background: #3a1a1a;
+            border-left: 4px solid #ff4a4a;
+        }
+
+        .status.warning {
+            background: #3a3a1a;
+            border-left: 4px solid #ffaa4a;
+        }
+
+        .step {
+            margin: 20px 0;
+            padding: 15px;
+            background: #151515;
+            border-left: 4px solid #4a9eff;
+            border-radius: 4px;
+        }
+
+        .step.active {
+            border-left-color: #4aff4a;
+            background: #1a2a1a;
+        }
+
+        .step.completed {
+            border-left-color: #888;
+            opacity: 0.7;
+        }
+
+        .step h3 {
+            color: #4a9eff;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .step.active h3 {
+            color: #4aff4a;
+        }
+
+        .json-viewer {
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            margin-top: 15px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #333;
+        }
+
+        th {
+            background: #1a1a1a;
+            color: #4a9eff;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+
+        tr:hover {
+            background: #1a1a1a;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-right: 5px;
+        }
+
+        .badge-success {
+            background: #1a3a1a;
+            color: #4aff4a;
+        }
+
+        .badge-error {
+            background: #3a1a1a;
+            color: #ff4a4a;
+        }
+
+        .badge-warning {
+            background: #3a3a1a;
+            color: #ffaa4a;
+        }
+
+        .badge-info {
+            background: #1a3a5a;
+            color: #4a9eff;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #333;
+            border-top-color: #4a9eff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .transcript-preview {
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            color: #ccc;
+        }
+
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        .metric {
+            background: #151515;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #4a9eff;
+        }
+
+        .metric-label {
+            color: #888;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+
+        .metric-value {
+            color: #4a9eff;
+            font-size: 24px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Overlap Diarization Debug Tool</h1>
+        <p class="subtitle">Mode 3 (SpeechBrain) | Language: English | Step-by-step debugging</p>
+
+        <!-- Upload Section -->
+        <div class="card">
+            <h2>📤 Step 0: Upload Audio File</h2>
+            <div class="upload-area" id="uploadArea">
+                <p style="margin-bottom: 15px; font-size: 16px;">Click to select or drag & drop audio file</p>
+                <input type="file" id="audioFile" accept="audio/*">
+                <button class="btn" id="selectFileBtn">Select Audio File</button>
+            </div>
+            <div id="fileInfo" class="hidden" style="margin-top: 15px;">
+                <div class="status info">
+                    <strong>Selected file:</strong> <span id="fileName"></span> (<span id="fileSize"></span>)
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 1: Primary Diarization -->
+        <div class="card">
+            <div class="step" id="step1">
+                <h3>📊 Step 1: Primary Diarization (Speechmatics)</h3>
+                <div id="step1Status" class="status info hidden">Waiting for audio upload...</div>
+                <div id="step1Results" class="hidden">
+                    <div class="metrics">
+                        <div class="metric">
+                            <div class="metric-label">Segments</div>
+                            <div class="metric-value" id="step1Segments">0</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">Duration</div>
+                            <div class="metric-value" id="step1Duration">0s</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">Speakers</div>
+                            <div class="metric-value" id="step1Speakers">0</div>
+                        </div>
+                    </div>
+                    <h4 style="margin-top: 20px; color: #4a9eff;">Primary Diarization JSON:</h4>
+                    <div class="json-viewer" id="step1Json"></div>
+                    <h4 style="margin-top: 20px; color: #4a9eff;">Primary Transcript (for LLM):</h4>
+                    <div class="transcript-preview" id="step1Transcript"></div>
+                    <h4 style="margin-top: 20px; color: #4a9eff;">Segments Table:</h4>
+                    <div class="table-container">
+                        <table id="step1Table">
+                            <thead>
+                                <tr>
+                                    <th>Speaker</th>
+                                    <th>Start</th>
+                                    <th>End</th>
+                                    <th>Text</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: Speaker Separation -->
+        <div class="card">
+            <div class="step" id="step2">
+                <h3>🎤 Step 2: Speaker Separation (SpeechBrain Mode 3)</h3>
+                <div id="step2Status" class="status info hidden">Waiting for Step 1...</div>
+                <div id="step2Results" class="hidden">
+                    <div class="metrics">
+                        <div class="metric">
+                            <div class="metric-label">Separated Tracks</div>
+                            <div class="metric-value" id="step2Tracks">0</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">Duration</div>
+                            <div class="metric-value" id="step2Duration">0s</div>
+                        </div>
+                    </div>
+                    <h4 style="margin-top: 20px; color: #4a9eff;">Separation Results JSON:</h4>
+                    <div class="json-viewer" id="step2Json"></div>
+                    <div id="step2TracksList"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3: Voice Track Transcription -->
+        <div class="card">
+            <div class="step" id="step3">
+                <h3>📝 Step 3: Voice Track Transcription</h3>
+                <div id="step3Status" class="status info hidden">Waiting for Step 2...</div>
+                <div id="step3Results" class="hidden">
+                    <div class="metrics">
+                        <div class="metric">
+                            <div class="metric-label">Transcribed Tracks</div>
+                            <div class="metric-value" id="step3Tracks">0</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">Total Segments</div>
+                            <div class="metric-value" id="step3Segments">0</div>
+                        </div>
+                    </div>
+                    <h4 style="margin-top: 20px; color: #4a9eff;">Voice Tracks JSON:</h4>
+                    <div class="json-viewer" id="step3Json"></div>
+                    <div id="step3TracksDetails"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 4: Transcript Merging -->
+        <div class="card">
+            <div class="step" id="step4">
+                <h3>🔗 Step 4: Transcript Merging</h3>
+                <div id="step4Status" class="status info hidden">Waiting for Step 3...</div>
+                <div id="step4Results" class="hidden">
+                    <div class="metrics">
+                        <div class="metric">
+                            <div class="metric-label">Merged Length</div>
+                            <div class="metric-value" id="step4Length">0 chars</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">Words</div>
+                            <div class="metric-value" id="step4Words">0</div>
+                        </div>
+                    </div>
+                    <h4 style="margin-top: 20px; color: #4a9eff;">Merged Transcript (Input for LLM):</h4>
+                    <div class="transcript-preview" id="step4Transcript"></div>
+                    <h4 style="margin-top: 20px; color: #4a9eff;">Transcript Comparison:</h4>
+                    <div class="status info">
+                        <strong>Primary transcript length:</strong> <span id="step4PrimaryLength">0</span> chars<br>
+                        <strong>Merged transcript length:</strong> <span id="step4MergedLength">0</span> chars<br>
+                        <strong>Difference:</strong> <span id="step4Diff">0</span> chars
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 5: LLM Diarization -->
+        <div class="card">
+            <div class="step" id="step5">
+                <h3>🤖 Step 5: LLM Diarization (Overlap Correction)</h3>
+                <div id="step5Status" class="status info hidden">Waiting for Step 4...</div>
+                <div id="step5Results" class="hidden">
+                    <div class="metrics">
+                        <div class="metric">
+                            <div class="metric-label">LLM Segments</div>
+                            <div class="metric-value" id="step5Segments">0</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">Overlap Segments</div>
+                            <div class="metric-value" id="step5Overlaps">0</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">Duration</div>
+                            <div class="metric-value" id="step5Duration">0s</div>
+                        </div>
+                    </div>
+                    <h4 style="margin-top: 20px; color: #4a9eff;">LLM Prompt (Preview):</h4>
+                    <div class="transcript-preview" id="step5Prompt" style="max-height: 200px;"></div>
+                    <h4 style="margin-top: 20px; color: #4a9eff;">LLM Raw Output:</h4>
+                    <div class="json-viewer" id="step5RawOutput"></div>
+                    <h4 style="margin-top: 20px; color: #4a9eff;">LLM Parsed Result:</h4>
+                    <div class="json-viewer" id="step5Parsed"></div>
+                    <h4 style="margin-top: 20px; color: #4a9eff;">Final Segments Table:</h4>
+                    <div class="table-container">
+                        <table id="step5Table">
+                            <thead>
+                                <tr>
+                                    <th>Speaker</th>
+                                    <th>Start</th>
+                                    <th>End</th>
+                                    <th>Text</th>
+                                    <th>Role</th>
+                                    <th>Overlap</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Final Comparison -->
+        <div class="card">
+            <div class="step" id="step6">
+                <h3>📊 Step 6: Final Comparison</h3>
+                <div id="step6Status" class="status info hidden">Waiting for Step 5...</div>
+                <div id="step6Results" class="hidden">
+                    <div class="metrics">
+                        <div class="metric">
+                            <div class="metric-label">Primary Segments</div>
+                            <div class="metric-value" id="step6Primary">0</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">Corrected Segments</div>
+                            <div class="metric-value" id="step6Corrected">0</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">Difference</div>
+                            <div class="metric-value" id="step6Diff">0</div>
+                        </div>
+                    </div>
+                    <h4 style="margin-top: 20px; color: #4a9eff;">Final Result JSON:</h4>
+                    <div class="json-viewer" id="step6Json"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = window.location.origin;
+        let currentFile = null;
+        let step1Result = null;
+        let step2Result = null;
+        let step3Result = null;
+        let step4Transcript = null;
+        let step5Result = null;
+
+        // Upload handling
+        const uploadArea = document.getElementById('uploadArea');
+        const audioFileInput = document.getElementById('audioFile');
+        const selectFileBtn = document.getElementById('selectFileBtn');
+
+        uploadArea.addEventListener('click', (e) => {
+            // Don't trigger if clicking the button
+            if (e.target !== selectFileBtn && !selectFileBtn.contains(e.target)) {
+                audioFileInput.click();
+            }
+        });
+        
+        selectFileBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            audioFileInput.click();
+        });
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                audioFileInput.files = files;
+                handleFileSelect();
+            }
+        });
+
+        audioFileInput.addEventListener('change', handleFileSelect);
+
+        function handleFileSelect() {
+            const file = audioFileInput.files[0];
+            if (!file) {
+                console.warn('⚠️ No file selected');
+                return;
+            }
+
+            console.log('✅ File selected:', file.name, 'Size:', file.size, 'Type:', file.type);
+            currentFile = file;
+            
+            document.getElementById('fileInfo').classList.remove('hidden');
+            document.getElementById('fileName').textContent = file.name;
+            document.getElementById('fileSize').textContent = formatFileSize(file.size);
+
+            // Reset all steps
+            resetSteps();
+            
+            // Start Step 1
+            runStep1();
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        function resetSteps() {
+            for (let i = 1; i <= 6; i++) {
+                document.getElementById(`step${i}`).classList.remove('active', 'completed');
+                document.getElementById(`step${i}Status`).classList.add('hidden');
+                document.getElementById(`step${i}Results`).classList.add('hidden');
+            }
+        }
+
+        function updateStepStatus(stepNum, status, message, isActive = false, isCompleted = false) {
+            const stepEl = document.getElementById(`step${stepNum}`);
+            const statusEl = document.getElementById(`step${stepNum}Status`);
+            
+            stepEl.classList.remove('active', 'completed');
+            if (isActive) stepEl.classList.add('active');
+            if (isCompleted) stepEl.classList.add('completed');
+            
+            statusEl.classList.remove('hidden', 'info', 'success', 'error', 'warning');
+            statusEl.classList.add(status);
+            statusEl.innerHTML = message;
+            statusEl.classList.remove('hidden');
+        }
+
+        async function processAllSteps(result) {
+            // Step 1: Primary Diarization
+            const primaryDiarization = result?.primaryDiarization;
+            step1Result = primaryDiarization;
+            step2Result = result;
+
+            let primarySegments = [];
+            if (primaryDiarization) {
+                const recording = primaryDiarization?.recordings?.[0];
+                const speechmatics = recording?.results?.speechmatics;
+                primarySegments = speechmatics?.segments || [];
+
+                document.getElementById('step1Segments').textContent = primarySegments.length;
+                document.getElementById('step1Duration').textContent = `${(recording?.duration || 0).toFixed(1)}s`;
+                document.getElementById('step1Speakers').textContent = recording?.speakerCount || '2';
+                document.getElementById('step1Json').textContent = JSON.stringify(primaryDiarization, null, 2);
+
+                const transcript = primarySegments.map(s => s.text).join(' ').trim();
+                document.getElementById('step1Transcript').textContent = transcript;
+
+                const tbody = document.querySelector('#step1Table tbody');
+                tbody.innerHTML = primarySegments.map(seg => `
+                    <tr>
+                        <td>${escapeHtml(seg.speaker || 'Unknown')}</td>
+                        <td>${formatTime(seg.start || 0)}</td>
+                        <td>${formatTime(seg.end || 0)}</td>
+                        <td>${escapeHtml(seg.text || '')}</td>
+                    </tr>
+                `).join('');
+
+                document.getElementById('step1Results').classList.remove('hidden');
+                updateStepStatus(1, 'success', `✅ Primary diarization completed (${result?.steps?.step1?.duration || 'N/A'})`, false, true);
+            }
+
+            // Step 2: Speaker Separation
+            const separation = result?.separation;
+            if (separation) {
+                const speakers = separation?.speakers || [];
+                document.getElementById('step2Tracks').textContent = speakers.length;
+                document.getElementById('step2Duration').textContent = `${(separation?.duration || 0).toFixed(1)}s`;
+                document.getElementById('step2Json').textContent = JSON.stringify(separation, null, 2);
+
+                // Detailed separation info
+                let separationDetails = `
+                    <div class="metrics" style="margin-top: 15px;">
+                        <div class="metric">
+                            <div class="metric-label">Task ID</div>
+                            <div class="metric-value" style="font-size: 14px;">${separation.taskId || 'N/A'}</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">Cost</div>
+                            <div class="metric-value" style="font-size: 14px;">${separation.cost || '0.0000'}</div>
+                        </div>
+                    </div>
+                `;
+                
+                const tracksList = document.getElementById('step2TracksList');
+                tracksList.innerHTML = separationDetails + speakers.map((speaker, idx) => `
+                    <div class="card" style="margin-top: 15px; padding: 15px;">
+                        <h4 style="color: #4a9eff; margin-bottom: 10px;">${speaker.name || `SPEAKER_${idx.toString().padStart(2, '0')}`}</h4>
+                        <div class="status info">
+                            <strong>Audio URL:</strong> ${speaker.audioUrl || 'N/A'}<br>
+                            <strong>Download URL:</strong> ${speaker.downloadUrl || 'N/A'}<br>
+                            <strong>Timeline:</strong> ${speaker.timeline ? JSON.stringify(speaker.timeline).substring(0, 200) + '...' : 'N/A'}
+                        </div>
+                    </div>
+                `).join('');
+
+                document.getElementById('step2Results').classList.remove('hidden');
+                updateStepStatus(2, 'success', `✅ Speaker separation completed (${result?.steps?.step2?.duration || 'N/A'})`, false, true);
+            }
+
+            // Step 3: Voice Track Transcription
+            const voiceTracks = result?.voiceTracks || [];
+            step3Result = voiceTracks;
+            if (voiceTracks.length > 0) {
+                let totalSegments = 0;
+                let totalWords = 0;
+                const tracksDetails = [];
+                const errorTracks = [];
+
+                voiceTracks.forEach(track => {
+                    if (track.error) {
+                        errorTracks.push(track);
+                        return;
+                    }
+                    const recording = track.transcription?.recordings?.[0];
+                    const segments = recording?.results?.speechmatics?.segments || [];
+                    const words = segments.reduce((sum, seg) => sum + (seg.words?.length || 0), 0);
+                    totalSegments += segments.length;
+                    totalWords += words;
+                    tracksDetails.push({
+                        speaker: track.speaker,
+                        role: track.role,
+                        confidence: track.confidence,
+                        segments: segments.length,
+                        words: words,
+                        duration: recording?.duration || 0,
+                        transcription: recording
+                    });
+                });
+
+                document.getElementById('step3Tracks').textContent = voiceTracks.filter(t => !t.error).length;
+                document.getElementById('step3Segments').textContent = totalSegments;
+                document.getElementById('step3Json').textContent = JSON.stringify(voiceTracks, null, 2);
+
+                // Detailed tracks info
+                let tracksInfo = `
+                    <div class="metrics" style="margin-top: 15px;">
+                        <div class="metric">
+                            <div class="metric-label">Total Words</div>
+                            <div class="metric-value">${totalWords}</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">Error Tracks</div>
+                            <div class="metric-value" style="color: ${errorTracks.length > 0 ? '#ff4a4a' : '#4aff4a'}">${errorTracks.length}</div>
+                        </div>
+                    </div>
+                `;
+
+                const tracksDetailsEl = document.getElementById('step3TracksDetails');
+                tracksDetailsEl.innerHTML = tracksInfo + tracksDetails.map(track => `
+                    <div class="card" style="margin-top: 15px; padding: 15px;">
+                        <h4 style="color: #4a9eff; margin-bottom: 10px;">
+                            ${track.speaker}
+                            ${track.role ? `<span class="badge badge-info" style="margin-left: 10px;">${track.role}</span>` : ''}
+                            ${track.confidence ? `<span class="badge badge-success" style="margin-left: 5px;">${(track.confidence * 100).toFixed(0)}%</span>` : ''}
+                        </h4>
+                        <div class="status info">
+                            <strong>Segments:</strong> ${track.segments}<br>
+                            <strong>Words:</strong> ${track.words}<br>
+                            <strong>Duration:</strong> ${track.duration.toFixed(1)}s<br>
+                            <strong>Transcript:</strong> ${(track.transcription?.results?.speechmatics?.segments || [])
+                                .map(s => s.text).join(' ').substring(0, 300)}...
+                        </div>
+                    </div>
+                `).join('') + (errorTracks.length > 0 ? `
+                    <div class="card" style="margin-top: 15px; padding: 15px; border-left: 4px solid #ff4a4a;">
+                        <h4 style="color: #ff4a4a; margin-bottom: 10px;">Error Tracks</h4>
+                        ${errorTracks.map(t => `<div class="status error">${t.speaker}: ${t.error}</div>`).join('')}
+                    </div>
+                ` : '');
+
+                document.getElementById('step3Results').classList.remove('hidden');
+                updateStepStatus(3, 'success', `✅ Voice track transcription completed (${result?.steps?.['step3-4']?.duration || 'N/A'})`, false, true);
+            }
+
+            // Step 4: Transcript Merging (use diagnostics from result)
+            const diagnostics = result?.diagnostics;
+            if (diagnostics) {
+                const combinedTranscript = diagnostics.combinedTranscript || '';
+                const primaryTranscript = primarySegments.map(s => s.text).join(' ').trim();
+                
+                document.getElementById('step4Length').textContent = combinedTranscript.length + ' chars';
+                document.getElementById('step4Words').textContent = combinedTranscript.split(/\s+/).filter(w => w.length > 0).length;
+                document.getElementById('step4Transcript').textContent = combinedTranscript;
+                document.getElementById('step4PrimaryLength').textContent = primaryTranscript.length;
+                document.getElementById('step4MergedLength').textContent = combinedTranscript.length;
+                document.getElementById('step4Diff').textContent = (combinedTranscript.length - primaryTranscript.length);
+
+                // Show detailed diagnostics
+                const missingReplicas = diagnostics.missingReplicas || [];
+                const comparison = diagnostics.comparison || {};
+                
+                let diagnosticsHtml = `<div class="status info" style="margin-top: 15px;">
+                    <strong>Missing Replicas:</strong> ${missingReplicas.length}<br>
+                    <strong>Comparison Analysis:</strong> ${comparison.segmentsDifference || 0} segments difference
+                </div>`;
+                
+                if (missingReplicas.length > 0) {
+                    diagnosticsHtml += `<div class="card" style="margin-top: 15px; padding: 15px;">
+                        <h4 style="color: #ffaa4a; margin-bottom: 10px;">Missing Replicas Details:</h4>
+                        <div class="json-viewer" style="max-height: 200px;">${JSON.stringify(missingReplicas.slice(0, 10), null, 2)}</div>
+                    </div>`;
+                }
+                
+                const step4Container = document.getElementById('step4Results');
+                if (!step4Container.querySelector('.diagnostics-info')) {
+                    const diagnosticsDiv = document.createElement('div');
+                    diagnosticsDiv.className = 'diagnostics-info';
+                    diagnosticsDiv.innerHTML = diagnosticsHtml;
+                    step4Container.appendChild(diagnosticsDiv);
+                }
+
+                document.getElementById('step4Results').classList.remove('hidden');
+                updateStepStatus(4, 'success', '✅ Transcript merging completed', false, true);
+                step4Transcript = combinedTranscript;
+            }
+
+            // Step 5: LLM Diarization (use correctedDiarization from result)
+            const correctedDiarization = result?.correctedDiarization;
+            step5Result = correctedDiarization;
+            if (correctedDiarization) {
+                const recording = correctedDiarization?.recordings?.[0];
+                const llmResult = recording?.results?.['overlap-corrected'] || recording?.results?.['text-service'] || {};
+                const segments = llmResult?.segments || [];
+                const overlapSegments = segments.filter(s => s.overlap);
+                const speakers = new Set(segments.map(s => s.speaker));
+
+                document.getElementById('step5Segments').textContent = segments.length;
+                document.getElementById('step5Overlaps').textContent = overlapSegments.length;
+                document.getElementById('step5Duration').textContent = `${(llmResult?.processingTime || 0).toFixed(1)}s`;
+
+                const promptPreview = `⚠️ OVERLAP CORRECTION MODE ⚠️\n\nThis transcript was created by combining separated audio tracks.\nThe LLM should identify overlaps and add missing replicas.\n\n[TRANSCRIPT]\n${step4Transcript?.substring(0, 500) || 'N/A'}...`;
+                document.getElementById('step5Prompt').textContent = promptPreview;
+                document.getElementById('step5RawOutput').textContent = 'Raw LLM output not available in this view. Check server logs for full LLM response.';
+                document.getElementById('step5Parsed').textContent = JSON.stringify(correctedDiarization, null, 2);
+
+                // Detailed metrics
+                const step5Details = `
+                    <div class="metrics" style="margin-top: 15px;">
+                        <div class="metric">
+                            <div class="metric-label">Total Segments</div>
+                            <div class="metric-value">${segments.length}</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">Overlap Segments</div>
+                            <div class="metric-value" style="color: #ffaa4a;">${overlapSegments.length}</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">Speakers</div>
+                            <div class="metric-value">${speakers.size}</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">Processing Time</div>
+                            <div class="metric-value">${(llmResult?.processingTime || 0).toFixed(2)}s</div>
+                        </div>
+                    </div>
+                    <div class="status info" style="margin-top: 15px;">
+                        <strong>Service:</strong> ${llmResult?.serviceName || 'overlap-corrected'}<br>
+                        <strong>Cost:</strong> ${llmResult?.cost || '0.0000'}<br>
+                        <strong>Speed Factor:</strong> ${llmResult?.speedFactor || 0}x
+                    </div>
+                `;
+                
+                const step5Container = document.getElementById('step5Results');
+                if (!step5Container.querySelector('.step5-details')) {
+                    const detailsDiv = document.createElement('div');
+                    detailsDiv.className = 'step5-details';
+                    detailsDiv.innerHTML = step5Details;
+                    step5Container.insertBefore(detailsDiv, step5Container.querySelector('h4'));
+                }
+
+                const tbody = document.querySelector('#step5Table tbody');
+                tbody.innerHTML = segments.map(seg => `
+                    <tr style="${seg.overlap ? 'background: rgba(255, 170, 74, 0.1);' : ''}">
+                        <td>${escapeHtml(seg.speaker || 'Unknown')}</td>
+                        <td>${formatTime(seg.start || 0)}</td>
+                        <td>${formatTime(seg.end || 0)}</td>
+                        <td>${escapeHtml(seg.text || '')}</td>
+                        <td><span class="badge badge-info">${escapeHtml(seg.role || 'unknown')}</span></td>
+                        <td>${seg.overlap ? '<span class="badge badge-warning">Yes</span>' : '<span class="badge badge-success">No</span>'}</td>
+                    </tr>
+                `).join('');
+
+                document.getElementById('step5Results').classList.remove('hidden');
+                updateStepStatus(5, 'success', `✅ LLM diarization completed (${result?.steps?.step5?.duration || 'N/A'})`, false, true);
+            }
+
+            // Step 6: Final Comparison
+            const primarySegments = primaryDiarization?.recordings?.[0]?.results?.speechmatics?.segments || [];
+            const correctedSegments = correctedDiarization?.recordings?.[0]?.results?.['overlap-corrected']?.segments || 
+                                     correctedDiarization?.recordings?.[0]?.results?.['text-service']?.segments || [];
+
+            document.getElementById('step6Primary').textContent = primarySegments.length;
+            document.getElementById('step6Corrected').textContent = correctedSegments.length;
+            document.getElementById('step6Diff').textContent = (correctedSegments.length - primarySegments.length);
+
+            const finalResult = {
+                primary: {
+                    segments: primarySegments.length,
+                    transcript: primarySegments.map(s => s.text).join(' ').trim()
+                },
+                corrected: {
+                    segments: correctedSegments.length,
+                    transcript: correctedSegments.map(s => s.text).join(' ').trim(),
+                    overlaps: correctedSegments.filter(s => s.overlap).length
+                },
+                comparison: {
+                    segmentsDifference: correctedSegments.length - primarySegments.length,
+                    transcriptLengthDifference: (correctedSegments.map(s => s.text).join(' ').trim().length - 
+                                                 primarySegments.map(s => s.text).join(' ').trim().length)
+                },
+                steps: result?.steps,
+                totalDuration: result?.totalDuration
+            };
+
+            document.getElementById('step6Json').textContent = JSON.stringify(finalResult, null, 2);
+            document.getElementById('step6Results').classList.remove('hidden');
+            updateStepStatus(6, 'success', `✅ Final comparison completed (Total: ${result?.totalDuration || 'N/A'})`, false, true);
+        }
+
+        async function runStep1() {
+            // Check if file is selected
+            if (!currentFile) {
+                updateStepStatus(1, 'error', '❌ No file selected. Please select an audio file first.');
+                return;
+            }
+
+            // Show that we're running the full pipeline
+            updateStepStatus(1, 'info', '<span class="loading"></span> Running full overlap diarization pipeline (Steps 1-5)... This may take several minutes.', true);
+            updateStepStatus(2, 'info', '<span class="loading"></span> Waiting for Step 1 to complete...', false);
+            updateStepStatus(3, 'info', '<span class="loading"></span> Waiting for Step 2 to complete...', false);
+            updateStepStatus(4, 'info', '<span class="loading"></span> Waiting for Step 3 to complete...', false);
+            updateStepStatus(5, 'info', '<span class="loading"></span> Waiting for Step 4 to complete...', false);
+            updateStepStatus(6, 'info', '<span class="loading"></span> Waiting for Step 5 to complete...', false);
+            
+            try {
+                console.log('📤 Uploading file:', currentFile.name, 'Size:', currentFile.size, 'Type:', currentFile.type);
+                
+                const formData = new FormData();
+                formData.append('audio', currentFile);
+                formData.append('language', 'en');
+                formData.append('speakerCount', '2');
+                formData.append('mode', 'smart');
+                formData.append('pipelineMode', 'mode3');
+                
+                // Verify FormData
+                console.log('📋 FormData entries:');
+                for (const [key, value] of formData.entries()) {
+                    if (value instanceof File) {
+                        console.log(`  ${key}: File(${value.name}, ${value.size} bytes, ${value.type})`);
+                    } else {
+                        console.log(`  ${key}: ${value}`);
+                    }
+                }
+
+                // Use the same endpoint as the original app for overlap diarization
+                // This endpoint runs all steps (1-5) and returns complete results
+                const response = await fetch(`${API_URL}/api/diarize-overlap`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                    try {
+                        const errorData = await response.json();
+                        errorMessage += `\n\nError details: ${JSON.stringify(errorData, null, 2)}`;
+                    } catch (e) {
+                        const errorText = await response.text();
+                        errorMessage += `\n\nResponse body: ${errorText.substring(0, 1000)}`;
+                    }
+                    throw new Error(errorMessage);
+                }
+
+                const result = await response.json();
+                
+                // Now process all steps from the complete response
+                await processAllSteps(result);
+
+            } catch (error) {
+                const errorMessage = error.message || 'Unknown error';
+                updateStepStatus(1, 'error', `❌ Error: ${errorMessage}`);
+                
+                // Show error details in JSON viewer
+                document.getElementById('step1Json').textContent = JSON.stringify({
+                    error: errorMessage,
+                    stack: error.stack
+                }, null, 2);
+                document.getElementById('step1Results').classList.remove('hidden');
+                
+                console.error('Step 1 error:', error);
+            }
+        }
+
+        async function runStep2() {
+            updateStepStatus(2, 'info', '<span class="loading"></span> Separating speakers using SpeechBrain Mode 3...', true);
+
+            try {
+                // Use data from Step 1 response (already contains separation results)
+                const result = step2Result;
+
+                // Display results
+                const separation = result?.separation;
+                const speakers = separation?.speakers || [];
+
+                document.getElementById('step2Tracks').textContent = speakers.length;
+                document.getElementById('step2Duration').textContent = `${(separation?.duration || 0).toFixed(1)}s`;
+
+                // Show JSON
+                document.getElementById('step2Json').textContent = JSON.stringify(separation, null, 2);
+
+                // Show tracks list
+                const tracksList = document.getElementById('step2TracksList');
+                tracksList.innerHTML = speakers.map((speaker, idx) => `
+                    <div class="status info" style="margin-top: 10px;">
+                        <strong>${speaker.name || `SPEAKER_${idx.toString().padStart(2, '0')}`}</strong><br>
+                        <small>URL: ${speaker.audioUrl || speaker.downloadUrl || 'N/A'}</small>
+                    </div>
+                `).join('');
+
+                document.getElementById('step2Results').classList.remove('hidden');
+                updateStepStatus(2, 'success', '✅ Speaker separation completed', false, true);
+
+                // Note: Steps 3-6 are now handled in processAllSteps
+
+            } catch (error) {
+                updateStepStatus(2, 'error', `❌ Error: ${error.message}`);
+                console.error('Step 2 error:', error);
+            }
+        }
+
+        async function runStep3() {
+            updateStepStatus(3, 'info', '<span class="loading"></span> Transcribing voice tracks...', true);
+
+            // Voice tracks are already in step2Result
+            const voiceTracks = step2Result?.voiceTracks || [];
+
+            let totalSegments = 0;
+            const tracksDetails = [];
+
+            for (const track of voiceTracks) {
+                if (track.error) continue;
+                const recording = track.transcription?.recordings?.[0];
+                const segments = recording?.results?.speechmatics?.segments || [];
+                totalSegments += segments.length;
+                tracksDetails.push({
+                    speaker: track.speaker,
+                    segments: segments.length,
+                    transcription: recording
+                });
+            }
+
+            document.getElementById('step3Tracks').textContent = voiceTracks.filter(t => !t.error).length;
+            document.getElementById('step3Segments').textContent = totalSegments;
+
+            // Show JSON
+            document.getElementById('step3Json').textContent = JSON.stringify(voiceTracks, null, 2);
+
+            // Show tracks details
+            const tracksDetailsEl = document.getElementById('step3TracksDetails');
+            tracksDetailsEl.innerHTML = tracksDetails.map(track => `
+                <div class="card" style="margin-top: 15px; padding: 15px;">
+                    <h4 style="color: #4a9eff; margin-bottom: 10px;">${track.speaker}</h4>
+                    <div class="status info">
+                        <strong>Segments:</strong> ${track.segments}<br>
+                        <strong>Transcript:</strong> ${(track.transcription?.results?.speechmatics?.segments || [])
+                            .map(s => s.text).join(' ').substring(0, 200)}...
+                    </div>
+                </div>
+            `).join('');
+
+            document.getElementById('step3Results').classList.remove('hidden');
+            updateStepStatus(3, 'success', '✅ Voice track transcription completed', false, true);
+
+            // Note: Steps 4-6 are now handled in processAllSteps
+        }
+
+        // Note: runStep4, runStep5, runStep6 are no longer needed - all handled in processAllSteps
+            updateStepStatus(4, 'info', '<span class="loading"></span> Merging transcripts...', true);
+
+            // Get primary transcript
+            const primarySegments = step1Result?.recordings?.[0]?.results?.speechmatics?.segments || [];
+            const primaryTranscript = primarySegments.map(s => s.text).join(' ').trim();
+
+            // Get voice track segments
+            const voiceTracks = step2Result?.voiceTracks || [];
+            const voiceSegments = [];
+            
+            voiceTracks.forEach(track => {
+                if (track.error) return;
+                const recording = track.transcription?.recordings?.[0];
+                const segments = recording?.results?.speechmatics?.segments || [];
+                segments.forEach(seg => {
+                    voiceSegments.push({
+                        text: seg.text || '',
+                        start: typeof seg.start === 'number' ? seg.start : parseFloat(seg.start) || 0,
+                        end: typeof seg.end === 'number' ? seg.end : parseFloat(seg.end) || 0
+                    });
+                });
+            });
+
+            // Sort by time
+            voiceSegments.sort((a, b) => {
+                const startDiff = (a.start || 0) - (b.start || 0);
+                if (startDiff !== 0) return startDiff;
+                return (a.end || 0) - (b.end || 0);
+            });
+
+            // Filter errors and duplicates (simplified version)
+            const filteredSegments = [];
+            for (let i = 0; i < voiceSegments.length; i++) {
+                const seg = voiceSegments[i];
+                const text = (seg.text || '').trim();
+                if (!text) continue;
+                
+                const textLower = text.toLowerCase();
+                
+                // Skip obvious errors
+                if (textLower.includes('human health') && !textLower.includes('future health')) {
+                    continue;
+                }
+                
+                // Check for duplicates
+                let isDuplicate = false;
+                for (let j = 0; j < filteredSegments.length; j++) {
+                    const prev = filteredSegments[j];
+                    const prevText = (prev.text || '').trim().toLowerCase();
+                    const timeDiff = Math.abs((seg.start || 0) - (prev.start || 0));
+                    
+                    if (textLower === prevText && timeDiff < 3.0) {
+                        isDuplicate = true;
+                        break;
+                    }
+                }
+                
+                if (!isDuplicate) {
+                    filteredSegments.push(seg);
+                }
+            }
+
+            // Build merged transcript (using primary as base, adding non-overlapping voice tracks)
+            const primaryTimeRanges = primarySegments.map(seg => ({
+                start: typeof seg.start === 'number' ? seg.start : parseFloat(seg.start) || 0,
+                end: typeof seg.end === 'number' ? seg.end : parseFloat(seg.end) || 0
+            }));
+
+            const mergedSegments = [...primarySegments.map(seg => ({
+                text: seg.text || '',
+                start: typeof seg.start === 'number' ? seg.start : parseFloat(seg.start) || 0,
+                end: typeof seg.end === 'number' ? seg.end : parseFloat(seg.end) || 0,
+                source: 'primary'
+            }))];
+
+            filteredSegments.forEach(voiceSeg => {
+                const voiceStart = voiceSeg.start || 0;
+                const voiceEnd = voiceSeg.end || 0;
+                
+                // Check if overlaps with primary
+                let overlaps = false;
+                for (const primaryRange of primaryTimeRanges) {
+                    const overlapStart = Math.max(voiceStart, primaryRange.start);
+                    const overlapEnd = Math.min(voiceEnd, primaryRange.end);
+                    if (overlapEnd > overlapStart) {
+                        overlaps = true;
+                        break;
+                    }
+                }
+                
+                if (!overlaps) {
+                    mergedSegments.push({
+                        text: voiceSeg.text,
+                        start: voiceStart,
+                        end: voiceEnd,
+                        source: 'voice-track'
+                    });
+                }
+            });
+
+            mergedSegments.sort((a, b) => {
+                const startDiff = (a.start || 0) - (b.start || 0);
+                if (startDiff !== 0) return startDiff;
+                return (a.end || 0) - (b.end || 0);
+            });
+
+            step4Transcript = mergedSegments.map(seg => seg.text).join(' ').trim();
+
+            document.getElementById('step4Length').textContent = step4Transcript.length + ' chars';
+            document.getElementById('step4Words').textContent = step4Transcript.split(/\s+/).filter(w => w.length > 0).length;
+            document.getElementById('step4Transcript').textContent = step4Transcript;
+            document.getElementById('step4PrimaryLength').textContent = primaryTranscript.length;
+            document.getElementById('step4MergedLength').textContent = step4Transcript.length;
+            document.getElementById('step4Diff').textContent = (step4Transcript.length - primaryTranscript.length);
+
+            // Note: Step 4 is now handled in processAllSteps, no need for separate function
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = (seconds % 60).toFixed(1);
+            return `${mins}:${secs.padStart(4, '0')}`;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
+

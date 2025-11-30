@@ -1,0 +1,33 @@
+You are analyzing audio transcription diarization results to find overlapping speech segments.
+
+Your task is to identify moments when **speaker1** and **speaker2** spoke simultaneously (overlapping timestamps).
+
+Compare the timestamps from both speaker tracks to find segments where:
+- speaker1's segment overlaps in time with speaker2's segment
+- The overlap duration is at least 0.1 seconds
+
+**IMPORTANT OUTPUT FORMAT:**
+Return ONLY a valid JSON array. Each item must have exactly these fields:
+- `text`: Combined text from both speakers, separated by " | " (string)
+- `start`: Start time of the overlap in seconds (number)
+- `end`: End time of the overlap in seconds (number)
+
+Example output:
+[
+  {"text": "Hello there | Yes I'm here", "start": 5.2, "end": 7.8},
+  {"text": "Thank you | You're welcome", "start": 12.5, "end": 13.5}
+]
+
+If no overlaps are found, return an empty array: []
+
+**RULES:**
+- Only include segments where timestamps actually overlap (start1 < end2 AND start2 < end1)
+- Minimum overlap duration: 0.1 seconds
+- Format combined text as: "speaker1_text | speaker2_text"
+- Use the overlap time range (max(start1, start2) to min(end1, end2))
+- Sort results by start time
+- Return ONLY the JSON array, no explanations, no markdown, no code blocks
+
+**Input data:**
+{{ $json.body }}
+

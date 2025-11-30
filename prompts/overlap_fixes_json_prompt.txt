@@ -1,0 +1,34 @@
+Fix speaker diarization by correcting speaker assignments and using complete text from voice tracks.
+
+CRITICAL RULES:
+1. **NO DUPLICATES**: Never create duplicate segments with identical or nearly identical text and timestamps. If you see the same text repeated, keep only ONE instance.
+2. **AGENT/CLIENT IDENTIFICATION**: Determine which speaker is Agent and which is Client based on conversational context:
+   - Agent typically: asks questions, provides information, offers help, uses professional language
+   - Client typically: asks for help, responds to questions, makes requests, uses casual language
+   - Use the context of the conversation to assign roles correctly
+3. **REMOVE EMPTY WORDS**: Remove empty or meaningless words/phrases (e.g., "uh", "um", "ah", excessive filler words)
+4. Keep all meaningful text - don't delete important content
+5. When you see [VOICE-TRACK] - use that complete text
+6. When you see [PRIMARY] - it may be partial, check for voice track replacement
+7. Split at [PAUSE] markers - each pause = new replica
+8. Fix speaker labels if wrong
+
+PROCESSING STEPS:
+- Go through each segment in order
+- Remove duplicate segments (same text and similar timestamps)
+- Remove empty words and meaningless fillers
+- If segment has [VOICE-TRACK] marker, use its complete text
+- If segment has [PRIMARY] marker and there's a [VOICE-TRACK] segment nearby with similar time, use the voice track text instead
+- Determine Agent vs Client based on conversational context
+- Split segments at [PAUSE] markers
+- Output all segments with corrected text and speakers (NO DUPLICATES)
+
+{{VOICE_TRACKS_NOTE}}
+
+INPUT TRANSCRIPT ({{SEGMENT_COUNT}} segments):
+{{TRANSCRIPT}}
+
+OUTPUT: Return JSON with "segments" array. Each segment needs: speaker, text, start, end.
+Include ALL meaningful text from input. Use voice track text when available.
+Remove duplicates and empty words.
+

@@ -1,0 +1,280 @@
+{
+  "version": "2.0",
+  "exportedAt": "2025-11-20T11:12:14.147Z",
+  "activeRecordingId": "rec_001_transcript_analysis",
+  "recordings": [
+    {
+      "id": "rec_001_transcript_analysis",
+      "name": "Transcript Analysis",
+      "fileName": "Transcript Analysis",
+      "size": null,
+      "duration": 26,
+      "language": "ar",
+      "speakerCount": "2",
+      "status": "completed",
+      "addedAt": null,
+      "translationState": {
+        "currentLanguage": "original",
+        "lastError": null
+      },
+      "results": {
+        "text-service": {
+          "success": true,
+          "serviceName": "Text Mode 📝",
+          "processingTime": 0,
+          "speedFactor": 0,
+          "speakerCount": 2,
+          "cost": "0.0000",
+          "segments": [
+            {
+              "speaker": "SPEAKER_00",
+              "text": "وحدة الطوارئ المصرفية، هند على السطر.",
+              "start": 0,
+              "end": 3,
+              "words": [],
+              "role": "operator",
+              "overlap": false,
+              "originalText": "وحدة الطوارئ المصرفية، هند على السطر.",
+              "translations": {}
+            },
+            {
+              "speaker": "SPEAKER_01",
+              "text": "مرحبا هند، أنا في محطة قطار والميكروفونات تصرخ.",
+              "start": 3,
+              "end": 6,
+              "words": [],
+              "role": "client",
+              "overlap": false,
+              "originalText": "مرحبا هند، أنا في محطة قطار والميكروفونات تصرخ.",
+              "translations": {}
+            },
+            {
+              "speaker": "SPEAKER_00",
+              "text": "ما القصة؟",
+              "start": 6,
+              "end": 8,
+              "words": [],
+              "role": "operator",
+              "overlap": false,
+              "originalText": "ما القصة؟",
+              "translations": {}
+            },
+            {
+              "speaker": "SPEAKER_01",
+              "text": "(overlap) في شخص يسحب من حسابي الآن عبر التطبيق.",
+              "start": 8,
+              "end": 11,
+              "words": [],
+              "role": "client",
+              "overlap": true,
+              "originalText": "(overlap) في شخص يسحب من حسابي الآن عبر التطبيق.",
+              "translations": {}
+            },
+            {
+              "speaker": "SPEAKER_00",
+              "text": "(overlap) أحتاج الكود المؤقت للتحقق.",
+              "start": 9,
+              "end": 12,
+              "words": [],
+              "role": "operator",
+              "overlap": true,
+              "originalText": "(overlap) أحتاج الكود المؤقت للتحقق.",
+              "translations": {}
+            },
+            {
+              "speaker": "SPEAKER_01",
+              "text": "لحظة، الصفارة قطعتني... الكود 552699.",
+              "start": 12,
+              "end": 15,
+              "words": [],
+              "role": "client",
+              "overlap": false,
+              "originalText": "لحظة، الصفارة قطعتني... الكود 552699.",
+              "translations": {}
+            },
+            {
+              "speaker": "SPEAKER_00",
+              "text": "تم إدخاله، بس أسمع صفارة قطار أخرى.",
+              "start": 15,
+              "end": 18,
+              "words": [],
+              "role": "operator",
+              "overlap": false,
+              "originalText": "تم إدخاله، بس أسمع صفارة قطار أخرى.",
+              "translations": {}
+            },
+            {
+              "speaker": "SPEAKER_01",
+              "text": "وهذا إعلان آخر يختلط بصوتك.",
+              "start": 18,
+              "end": 20,
+              "words": [],
+              "role": "client",
+              "overlap": false,
+              "originalText": "وهذا إعلان آخر يختلط بصوتك.",
+              "translations": {}
+            },
+            {
+              "speaker": "SPEAKER_00",
+              "text": "سأوقف كل التحويلات حتى تهدأ الأصوات.",
+              "start": 20,
+              "end": 23,
+              "words": [],
+              "role": "operator",
+              "overlap": false,
+              "originalText": "سأوقف كل التحويلات حتى تهدأ الأصوات.",
+              "translations": {}
+            },
+            {
+              "speaker": "SPEAKER_01",
+              "text": "شكراً، أرسل لي تأكيد بالبريد.",
+              "start": 23,
+              "end": 26,
+              "words": [],
+              "role": "client",
+              "overlap": false,
+              "originalText": "شكراً، أرسل لي تأكيد بالبريد.",
+              "translations": {}
+            }
+          ],
+          "rawData": {
+            "duration": 26,
+            "language": "ar",
+            "source": "text"
+          }
+        }
+      },
+      "aggregated": {},
+      "servicesTested": [
+        "text-service"
+      ]
+    }
+  ],
+  "legacyTestResults": {
+    "text-service": {
+      "success": true,
+      "serviceName": "Text Mode 📝",
+      "processingTime": 0,
+      "speedFactor": 0,
+      "speakerCount": 2,
+      "cost": "0.0000",
+      "segments": [
+        {
+          "speaker": "SPEAKER_00",
+          "text": "وحدة الطوارئ المصرفية، هند على السطر.",
+          "start": 0,
+          "end": 3,
+          "words": [],
+          "role": "operator",
+          "overlap": false,
+          "originalText": "وحدة الطوارئ المصرفية، هند على السطر.",
+          "translations": {}
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "مرحبا هند، أنا في محطة قطار والميكروفونات تصرخ.",
+          "start": 3,
+          "end": 6,
+          "words": [],
+          "role": "client",
+          "overlap": false,
+          "originalText": "مرحبا هند، أنا في محطة قطار والميكروفونات تصرخ.",
+          "translations": {}
+        },
+        {
+          "speaker": "SPEAKER_00",
+          "text": "ما القصة؟",
+          "start": 6,
+          "end": 8,
+          "words": [],
+          "role": "operator",
+          "overlap": false,
+          "originalText": "ما القصة؟",
+          "translations": {}
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "(overlap) في شخص يسحب من حسابي الآن عبر التطبيق.",
+          "start": 8,
+          "end": 11,
+          "words": [],
+          "role": "client",
+          "overlap": true,
+          "originalText": "(overlap) في شخص يسحب من حسابي الآن عبر التطبيق.",
+          "translations": {}
+        },
+        {
+          "speaker": "SPEAKER_00",
+          "text": "(overlap) أحتاج الكود المؤقت للتحقق.",
+          "start": 9,
+          "end": 12,
+          "words": [],
+          "role": "operator",
+          "overlap": true,
+          "originalText": "(overlap) أحتاج الكود المؤقت للتحقق.",
+          "translations": {}
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "لحظة، الصفارة قطعتني... الكود 552699.",
+          "start": 12,
+          "end": 15,
+          "words": [],
+          "role": "client",
+          "overlap": false,
+          "originalText": "لحظة، الصفارة قطعتني... الكود 552699.",
+          "translations": {}
+        },
+        {
+          "speaker": "SPEAKER_00",
+          "text": "تم إدخاله، بس أسمع صفارة قطار أخرى.",
+          "start": 15,
+          "end": 18,
+          "words": [],
+          "role": "operator",
+          "overlap": false,
+          "originalText": "تم إدخاله، بس أسمع صفارة قطار أخرى.",
+          "translations": {}
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "وهذا إعلان آخر يختلط بصوتك.",
+          "start": 18,
+          "end": 20,
+          "words": [],
+          "role": "client",
+          "overlap": false,
+          "originalText": "وهذا إعلان آخر يختلط بصوتك.",
+          "translations": {}
+        },
+        {
+          "speaker": "SPEAKER_00",
+          "text": "سأوقف كل التحويلات حتى تهدأ الأصوات.",
+          "start": 20,
+          "end": 23,
+          "words": [],
+          "role": "operator",
+          "overlap": false,
+          "originalText": "سأوقف كل التحويلات حتى تهدأ الأصوات.",
+          "translations": {}
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "شكراً، أرسل لي تأكيد بالبريد.",
+          "start": 23,
+          "end": 26,
+          "words": [],
+          "role": "client",
+          "overlap": false,
+          "originalText": "شكراً، أرسل لي تأكيد بالبريد.",
+          "translations": {}
+        }
+      ],
+      "rawData": {
+        "duration": 26,
+        "language": "ar",
+        "source": "text"
+      }
+    }
+  }
+}

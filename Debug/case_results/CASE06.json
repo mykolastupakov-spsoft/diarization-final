@@ -1,0 +1,280 @@
+{
+  "version": "2.0",
+  "exportedAt": "2025-11-20T11:07:24.371Z",
+  "activeRecordingId": "rec_001_transcript_analysis",
+  "recordings": [
+    {
+      "id": "rec_001_transcript_analysis",
+      "name": "Transcript Analysis",
+      "fileName": "Transcript Analysis",
+      "size": null,
+      "duration": 25.9,
+      "language": "ar",
+      "speakerCount": "2",
+      "status": "completed",
+      "addedAt": null,
+      "translationState": {
+        "currentLanguage": "original",
+        "lastError": null
+      },
+      "results": {
+        "text-service": {
+          "success": true,
+          "serviceName": "Text Mode 📝",
+          "processingTime": 0,
+          "speedFactor": 0,
+          "speakerCount": 2,
+          "cost": "0.0000",
+          "segments": [
+            {
+              "speaker": "SPEAKER_00",
+              "text": "طيران الخليج، مركز البطاقات الائتمانية، نور تتحدث.",
+              "start": 0,
+              "end": 2,
+              "words": [],
+              "role": "operator",
+              "overlap": false,
+              "originalText": "طيران الخليج، مركز البطاقات الائتمانية، نور تتحدث.",
+              "translations": {}
+            },
+            {
+              "speaker": "SPEAKER_01",
+              "text": "أهلا نور، أنا في حفل عرس والدي جي مشغل أغاني بصوت عالي.",
+              "start": 4,
+              "end": 7.4,
+              "words": [],
+              "role": "client",
+              "overlap": true,
+              "originalText": "أهلا نور، أنا في حفل عرس والدي جي مشغل أغاني بصوت عالي.",
+              "translations": {}
+            },
+            {
+              "speaker": "SPEAKER_00",
+              "text": "أحتاج أراجع عملياتك الأخيرة.",
+              "start": 7,
+              "end": 8.1,
+              "words": [],
+              "role": "operator",
+              "overlap": true,
+              "originalText": "أحتاج أراجع عملياتك الأخيرة.",
+              "translations": {}
+            },
+            {
+              "speaker": "SPEAKER_01",
+              "text": "(overlap) لحظة بس بنت عمتي تصرخ بإسمي.",
+              "start": 9,
+              "end": 11,
+              "words": [],
+              "role": "client",
+              "overlap": true,
+              "originalText": "(overlap) لحظة بس بنت عمتي تصرخ بإسمي.",
+              "translations": {}
+            },
+            {
+              "speaker": "SPEAKER_00",
+              "text": "(overlap) ركزي معي، في طلب سحب عند مجوهرات اليمامة.",
+              "start": 10,
+              "end": 12.6,
+              "words": [],
+              "role": "operator",
+              "overlap": true,
+              "originalText": "(overlap) ركزي معي، في طلب سحب عند مجوهرات اليمامة.",
+              "translations": {}
+            },
+            {
+              "speaker": "SPEAKER_01",
+              "text": "سمعت، بس في طبلة قوية تغطي صوتك.",
+              "start": 13,
+              "end": 15,
+              "words": [],
+              "role": "client",
+              "overlap": false,
+              "originalText": "سمعت، بس في طبلة قوية تغطي صوتك.",
+              "translations": {}
+            },
+            {
+              "speaker": "SPEAKER_00",
+              "text": "راح أوقف السحب مؤقتًا لحد ما تؤكدين.",
+              "start": 15,
+              "end": 17,
+              "words": [],
+              "role": "operator",
+              "overlap": false,
+              "originalText": "راح أوقف السحب مؤقتًا لحد ما تؤكدين.",
+              "translations": {}
+            },
+            {
+              "speaker": "SPEAKER_01",
+              "text": "أيوه أوقفيه وخلي التنبيه يوصلني برسالة.",
+              "start": 18,
+              "end": 19.7,
+              "words": [],
+              "role": "client",
+              "overlap": false,
+              "originalText": "أيوه أوقفيه وخلي التنبيه يوصلني برسالة.",
+              "translations": {}
+            },
+            {
+              "speaker": "SPEAKER_00",
+              "text": "تم، هل في أي صفقات أخرى أراجعها؟",
+              "start": 20,
+              "end": 22,
+              "words": [],
+              "role": "operator",
+              "overlap": false,
+              "originalText": "تم، هل في أي صفقات أخرى أراجعها؟",
+              "translations": {}
+            },
+            {
+              "speaker": "SPEAKER_01",
+              "text": "يمكن في اشتراك كوفي، بس غير كذا كل شيء تمام.",
+              "start": 23,
+              "end": 25.9,
+              "words": [],
+              "role": "client",
+              "overlap": false,
+              "originalText": "يمكن في اشتراك كوفي، بس غير كذا كل شيء تمام.",
+              "translations": {}
+            }
+          ],
+          "rawData": {
+            "duration": 25.9,
+            "language": "ar",
+            "source": "text"
+          }
+        }
+      },
+      "aggregated": {},
+      "servicesTested": [
+        "text-service"
+      ]
+    }
+  ],
+  "legacyTestResults": {
+    "text-service": {
+      "success": true,
+      "serviceName": "Text Mode 📝",
+      "processingTime": 0,
+      "speedFactor": 0,
+      "speakerCount": 2,
+      "cost": "0.0000",
+      "segments": [
+        {
+          "speaker": "SPEAKER_00",
+          "text": "طيران الخليج، مركز البطاقات الائتمانية، نور تتحدث.",
+          "start": 0,
+          "end": 2,
+          "words": [],
+          "role": "operator",
+          "overlap": false,
+          "originalText": "طيران الخليج، مركز البطاقات الائتمانية، نور تتحدث.",
+          "translations": {}
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "أهلا نور، أنا في حفل عرس والدي جي مشغل أغاني بصوت عالي.",
+          "start": 4,
+          "end": 7.4,
+          "words": [],
+          "role": "client",
+          "overlap": true,
+          "originalText": "أهلا نور، أنا في حفل عرس والدي جي مشغل أغاني بصوت عالي.",
+          "translations": {}
+        },
+        {
+          "speaker": "SPEAKER_00",
+          "text": "أحتاج أراجع عملياتك الأخيرة.",
+          "start": 7,
+          "end": 8.1,
+          "words": [],
+          "role": "operator",
+          "overlap": true,
+          "originalText": "أحتاج أراجع عملياتك الأخيرة.",
+          "translations": {}
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "(overlap) لحظة بس بنت عمتي تصرخ بإسمي.",
+          "start": 9,
+          "end": 11,
+          "words": [],
+          "role": "client",
+          "overlap": true,
+          "originalText": "(overlap) لحظة بس بنت عمتي تصرخ بإسمي.",
+          "translations": {}
+        },
+        {
+          "speaker": "SPEAKER_00",
+          "text": "(overlap) ركزي معي، في طلب سحب عند مجوهرات اليمامة.",
+          "start": 10,
+          "end": 12.6,
+          "words": [],
+          "role": "operator",
+          "overlap": true,
+          "originalText": "(overlap) ركزي معي، في طلب سحب عند مجوهرات اليمامة.",
+          "translations": {}
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "سمعت، بس في طبلة قوية تغطي صوتك.",
+          "start": 13,
+          "end": 15,
+          "words": [],
+          "role": "client",
+          "overlap": false,
+          "originalText": "سمعت، بس في طبلة قوية تغطي صوتك.",
+          "translations": {}
+        },
+        {
+          "speaker": "SPEAKER_00",
+          "text": "راح أوقف السحب مؤقتًا لحد ما تؤكدين.",
+          "start": 15,
+          "end": 17,
+          "words": [],
+          "role": "operator",
+          "overlap": false,
+          "originalText": "راح أوقف السحب مؤقتًا لحد ما تؤكدين.",
+          "translations": {}
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "أيوه أوقفيه وخلي التنبيه يوصلني برسالة.",
+          "start": 18,
+          "end": 19.7,
+          "words": [],
+          "role": "client",
+          "overlap": false,
+          "originalText": "أيوه أوقفيه وخلي التنبيه يوصلني برسالة.",
+          "translations": {}
+        },
+        {
+          "speaker": "SPEAKER_00",
+          "text": "تم، هل في أي صفقات أخرى أراجعها؟",
+          "start": 20,
+          "end": 22,
+          "words": [],
+          "role": "operator",
+          "overlap": false,
+          "originalText": "تم، هل في أي صفقات أخرى أراجعها؟",
+          "translations": {}
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "يمكن في اشتراك كوفي، بس غير كذا كل شيء تمام.",
+          "start": 23,
+          "end": 25.9,
+          "words": [],
+          "role": "client",
+          "overlap": false,
+          "originalText": "يمكن في اشتراك كوفي، بس غير كذا كل شيء تمام.",
+          "translations": {}
+        }
+      ],
+      "rawData": {
+        "duration": 25.9,
+        "language": "ar",
+        "source": "text"
+      }
+    }
+  }
+}

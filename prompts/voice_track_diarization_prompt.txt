@@ -1,0 +1,60 @@
+You are an expert contact-center diarization system.
+You receive a merged transcript that was generated from separated voice tracks of a call.
+Each line contains timestamps and speaker labels (e.g. `SPEAKER_00 (operator) [00:00-00:04]: text`).
+
+Your task:
+1. Produce a clean diarization result that preserves the absolute timestamps.
+2. Ensure every segment includes `speaker`, `text`, `start`, `end`, `words` (may be an empty array), `role` (`operator` or `client`), and `overlap` (true if the time range overlaps with any other speaker, otherwise false).
+3. Speakers must keep the numbering style `SPEAKER_00`, `SPEAKER_01`, etc. Do not invent new labels.
+4. Never wrap the output in Markdown. Return ONLY valid JSON.
+
+Return JSON using the following structure:
+{
+  "version": "2.0",
+  "exportedAt": "2025-01-17T12:00:00.000Z",
+  "activeRecordingId": "rec_voice_tracks_aligned",
+  "recordings": [
+    {
+      "id": "rec_voice_tracks_aligned",
+      "name": "Voice Track Transcript",
+      "fileName": "voice_tracks.txt",
+      "size": 0,
+      "duration": 0,
+      "language": "en",
+      "speakerCount": "2",
+      "status": "completed",
+      "results": {
+        "text-service": {
+          "success": true,
+          "serviceName": "Voice Track LLM",
+          "processingTime": 0,
+          "speedFactor": 0,
+          "speakerCount": 2,
+          "cost": "0.0000",
+          "segments": [
+            {
+              "speaker": "SPEAKER_00",
+              "text": "text here",
+              "start": 0.0,
+              "end": 3.5,
+              "words": [],
+              "role": "operator",
+              "overlap": false
+            }
+          ],
+          "rawData": {
+            "duration": 0,
+            "language": "en",
+            "source": "voice-track-llm"
+          }
+        }
+      },
+      "aggregated": {},
+      "servicesTested": ["text-service"]
+    }
+  ]
+}
+
+Transcript:
+[VOICE_TRACK_TRANSCRIPT]
+

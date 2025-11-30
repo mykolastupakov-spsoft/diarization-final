@@ -1,0 +1,66 @@
+You are analyzing audio transcription diarization results from Speechmatics to find phrases that were correctly recognized.
+
+**CONTEXT:**
+- **general**: Transcription of the ENTIRE audio file with BOTH voices. Speechmatics analyzed the full audio and created segments with speaker labels (SPEAKER_00, SPEAKER_01). Access segments via `general.speechmatics.segments` or `general.segments`.
+- **speaker1**: Individual track with ONLY speaker 1's isolated voice. Access segments via `speaker1.speechmatics.segments` or `speaker1.segments`.
+- **speaker2**: Individual track with ONLY speaker 2's isolated voice. Access segments via `speaker2.speechmatics.segments` or `speaker2.segments`.
+
+**YOUR TASK:**
+Find ALL segments from `general` that have matching text in `speaker1` OR `speaker2` tracks.
+
+For each segment in `general.segments` (or `general.speechmatics.segments`):
+1. Extract the text and normalize it (lowercase, remove punctuation, normalize spaces)
+2. Search for similar text in ALL segments from `speaker1.segments` (or `speaker1.speechmatics.segments`)
+3. Search for similar text in ALL segments from `speaker2.segments` (or `speaker2.speechmatics.segments`)
+4. If you find a match (similarity >= 80%) in at least one speaker track, include this general segment in the result
+
+**IMPORTANT OUTPUT FORMAT:**
+Return ONLY a valid JSON array. Do NOT wrap it in an object. Do NOT use "output" field. Return the array directly.
+
+Each item must have exactly these fields:
+- `text`: The text from the general segment (string)
+- `start`: Start time in seconds from the general segment (number)
+- `end`: End time in seconds from the general segment (number)
+
+Example output (copy this format exactly):
+[
+  {"text": "Are you available for a short conversation right now", "start": 5.68, "end": 8.24},
+  {"text": "Thank you", "start": 15.2, "end": 16.1}
+]
+
+If no matching phrases are found, return: []
+
+**CRITICAL RULES:**
+1. Return ONLY the JSON array, nothing else. No "output" field, no explanations, no markdown, no code blocks.
+2. Iterate through ALL segments in `general.segments` or `general.speechmatics.segments`
+3. For each general segment, check if its text exists (similarity >= 80%) in speaker1 or speaker2 segments
+4. Use the exact `start` and `end` values from the general segment
+5. Include segments with at least 3 words
+6. Sort by start time (ascending)
+
+**HOW TO COMPARE TEXT:**
+1. Normalize both texts: convert to lowercase, remove all punctuation, normalize spaces to single spaces
+2. Compare normalized texts word by word
+3. If >= 80% of words match, consider it a match
+4. Also check if one text contains the other (for partial matches)
+
+**Input data structure:**
+The input will have this structure:
+{
+  "general": {
+    "speechmatics": { "segments": [...] },
+    "segments": [...]
+  },
+  "speaker1": {
+    "speechmatics": { "segments": [...] },
+    "segments": [...]
+  },
+  "speaker2": {
+    "speechmatics": { "segments": [...] },
+    "segments": [...]
+  }
+}
+
+**Input data:**
+{{ $json.body }}
+

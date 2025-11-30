@@ -1,0 +1,1316 @@
+[
+  {
+    "name": "Call center 1.wav",
+    "data": {
+      "success": true,
+      "primaryDiarization": {
+        "version": "2.0",
+        "exportedAt": "2025-11-25T01:45:23.093403+00:00",
+        "activeRecordingId": "rec_1764035123093",
+        "recordings": [
+          {
+            "id": "rec_1764035123093",
+            "name": "030b118a15bfd2cef684ede08b6ddfa0",
+            "fileName": "030b118a15bfd2cef684ede08b6ddfa0",
+            "size": 49698732,
+            "language": "en",
+            "speakerCount": "2",
+            "status": "completed",
+            "results": {
+              "speechmatics": {
+                "success": true,
+                "serviceName": "Model3",
+                "segments": [
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Hi I'm Jessica I'm calling on behalf of Future Health to reconfirm your appointment with our doctor Are you available for a short conversation right now",
+                    "start": 0.64,
+                    "end": 8.16
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Yeah Jessica I do available What do you have for me",
+                    "start": 9.4,
+                    "end": 12.76
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Great To ensure I have the correct information for you could you please confirm your date of birth for me please",
+                    "start": 15.84,
+                    "end": 22.8
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Uh April 29th 1980",
+                    "start": 23.76,
+                    "end": 25.72
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Thank you I see you have an appointment scheduled with Doctor Eleanor Vance in general practitioner GP",
+                    "start": 32,
+                    "end": 37.92
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Can you please make the correction in my date of birth",
+                    "start": 38.88,
+                    "end": 42.84
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "I'm not able to update your date of birth directly but I can connect you with our team Who can help with that Would you like me to transfer you to a human agent right now",
+                    "start": 46.68,
+                    "end": 55.4
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "No let's Let's uh move forward to the schedule",
+                    "start": 58.04,
+                    "end": 62.6
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "No problem Are you looking to reschedule your existing appointment with Doctor Eleanor Vance or would you like to book a completely new appointment Of course Your appointment is with Doctor Eleanor Vance General practitioner GP on June 25th at 1:00 pm at Future Health Harley Street Clinic 120 Harley Street London one seven JS Please arrive 15 minutes early and bring your insurance card and any necessary documents Would you like me to send you a reminder via SMS or email",
+                    "start": 65.73,
+                    "end": 100.01
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "I want to reschedule this one",
+                    "start": 101.17,
+                    "end": 103.65
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Sure we can do that Would you like to see available dates with Doctor Eleanor Vance or are you open to another General Practitioner GP at a different location",
+                    "start": 106.85,
+                    "end": 115.77
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "I'd like this appointment to be the soonest possible",
+                    "start": 118.21,
+                    "end": 121.89
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Got it The soonest available dates with doctor Eleanor Vance General Practitioner GP hour June 27th June 20th",
+                    "start": 124.97,
+                    "end": 133.07
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "9th",
+                    "start": 133.11,
+                    "end": 133.53
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Or July 3rd Would any of these days work for you Absolutely You can Would you like to stick with a general practitioner GP or are you looking for a different specialty If GP is fine I can check the soonest dates with other available GPS for you",
+                    "start": 133.53,
+                    "end": 149.55
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "I have some issues with lungs Can I visit the doctor",
+                    "start": 150.19,
+                    "end": 154.47
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Yes you can For lung issues you might want to see a pulmonologist Would you like to check the soonest available appointments with a pulmonology specialist",
+                    "start": 159.27,
+                    "end": 168.47
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Yes please",
+                    "start": 168.99,
+                    "end": 169.67
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "The soonest available dates with our pulmonologist doctor Chloe Adams are June 30th July 2nd or July 6th Do any of these days work for you",
+                    "start": 173.51,
+                    "end": 182.59
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Any of these works",
+                    "start": 184.03,
+                    "end": 185.15
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Great for June 30th The available times with Doctor Chloe Adams are 9:15 a.m. 10 a.m. or 10:45 a.m. Which of these times would suit you best Perfect I've booked your appointment with Doctor Chloe Adams pulmonologist on June 30th at 10 a.m. at Future Health City Medical Hub 15 Bishopsgate London EC 2N3 AR Would you like me to send you a reminder for this appointment via SMS or email",
+                    "start": 187.79,
+                    "end": 222.44
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Yes SMS would be great",
+                    "start": 223.2,
+                    "end": 225.16
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "All set You'll get an SMS reminder for your appointment with Doctor Chloe Adams on June 30th No problem I'll send you both an SMS and an email reminder for your appointment Do you have all the information you need or is there anything else I can help with today",
+                    "start": 227.4,
+                    "end": 244.56
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "We are good for today",
+                    "start": 245.2,
+                    "end": 246.16
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Glad to hear everything's good for today We look forward to seeing you at your appointment Have a great day",
+                    "start": 249.36,
+                    "end": 255
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Thanks Bye",
+                    "start": 256.04,
+                    "end": 256.88
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "separation": {
+        "taskId": "pyannote_1764035474407",
+        "speakers": [
+          {
+            "name": "SPEAKER_00",
+            "format": "wav",
+            "url": "https://poor-lines-notice.loca.lt/uploads/1764035474387_0_SPEAKER_00.wav",
+            "downloadUrl": "https://poor-lines-notice.loca.lt/uploads/1764035474387_0_SPEAKER_00.wav",
+            "isBackground": false,
+            "local_path": "/Users/nikolajstupakov/Library/Mobile Documents/com~apple~CloudDocs/SPsoft /diarization-final/uploads/1764035474387_0_SPEAKER_00.wav"
+          },
+          {
+            "name": "SPEAKER_01",
+            "format": "wav",
+            "url": "https://poor-lines-notice.loca.lt/uploads/1764035474387_1_SPEAKER_01.wav",
+            "downloadUrl": "https://poor-lines-notice.loca.lt/uploads/1764035474387_1_SPEAKER_01.wav",
+            "isBackground": false,
+            "local_path": "/Users/nikolajstupakov/Library/Mobile Documents/com~apple~CloudDocs/SPsoft /diarization-final/uploads/1764035474387_1_SPEAKER_01.wav"
+          }
+        ],
+        "cost": null,
+        "duration": null
+      },
+      "voiceTracks": [
+        {
+          "speaker": "SPEAKER_00",
+          "audioUrl": "https://poor-lines-notice.loca.lt/uploads/1764035474387_0_SPEAKER_00.wav",
+          "transcription": {
+            "version": "2.0",
+            "exportedAt": "2025-11-25T01:54:12.159776+00:00",
+            "activeRecordingId": "rec_1764035652159",
+            "recordings": [
+              {
+                "id": "rec_1764035652159",
+                "name": "1764035474387_0_SPEAKER_00.wav",
+                "fileName": "1764035474387_0_SPEAKER_00.wav",
+                "size": 16576062,
+                "language": "en",
+                "speakerCount": "2",
+                "status": "completed",
+                "results": {
+                  "speechmatics": {
+                    "success": true,
+                    "serviceName": "Model3",
+                    "segments": [
+                      {
+                        "speaker": "SPEAKER_00",
+                        "text": "Hi I'm Jessica I'm calling on behalf of Future Health to reconfirm their appointment with our doctor Are you available for a short conversation right now Yeah Jessica Go ahead Thank you Great To ensure I have the correct information for you could you please confirm your date of birth for me please April 29th 1980 Thank you I see you have an appointment scheduled with Doctor Eleanor Vance in General practitioner GP Can you please see your doctor I'm not able to update your date of birth directly but I can connect you with our team Who can help with that Would you like me to transfer you to a human agent right now No let's Let's uh move forward to the schedule No problem Are you looking to reschedule your existing appointment with Doctor Eleanor Vance Would you like to go to complete the installment Of course Your appointment is with Doctor Eleanor Vance General practitioner GP on June 25th at 1 p.m. at Future Health Harley Street Clinic 120 Harley Street London one seven JS Please arrive 15 minutes early and bring your insurance card and any necessary documents Would you like me to send you a reminder via SMS or email Uh I want to discover the story Sure we can do that Would you like to see available dates with Doctor Eleanor Vance or are you open to another general practitioner GP at a different location Uh I'd like this appointment to be as soon as possible Got it The soonest available dates with doctor Eleanor Vance general practitioner GP R June 27th June 29th July 3rd But any of those days work for you Absolutely Would you like to stick with a general practitioner GP or are you looking for a different specialty If GP is fine I can check the soonest dates with other available GPS for you I have some issues with logs Can I visit the doctor Yes you can For lung issues you might want to see a pulmonologist Would you like to check the soonest available appointments with a pulmonology specialist Yes The soonest available dates with our pulmonologist doctor Chloe Adams are June 30th July 2nd or July 6th Do any of these days work for you",
+                        "start": 0.64,
+                        "end": 182.62
+                      },
+                      {
+                        "speaker": "SPEAKER_01",
+                        "text": "Any of this",
+                        "start": 184.06,
+                        "end": 184.7
+                      },
+                      {
+                        "speaker": "SPEAKER_00",
+                        "text": "Great For June 30th the available times with Doctor Chloe Adams are 9:15 15 a.m. 10 a.m. or 10:45 a.m. Which of these times would suit you best Perfect I've booked your appointment with Doctor Chloe Adams pulmonologist on June 30th at 10 a.m. at Future Health City Medical Hub 15 Bishopsgate London EC2 Three would you like me to send you a reminder for this appointment via SMS or email Yes",
+                        "start": 187.86,
+                        "end": 223.79
+                      },
+                      {
+                        "speaker": "SPEAKER_01",
+                        "text": "SMS will be",
+                        "start": 224.11,
+                        "end": 224.83
+                      },
+                      {
+                        "speaker": "SPEAKER_00",
+                        "text": "All set You'll get an SMS reminder for your appointment with doctor close on June 30th No problem I'll send you both an SMS and an email reminder for your appointment Do you have all the information you need or is there anything else I can help with today",
+                        "start": 227.43,
+                        "end": 244.59
+                      },
+                      {
+                        "speaker": "SPEAKER_01",
+                        "text": "Have a good for today",
+                        "start": 245.03,
+                        "end": 246.11
+                      },
+                      {
+                        "speaker": "SPEAKER_00",
+                        "text": "Glad to hear everything's good for today We look forward to seeing you at your appointment Have a great day",
+                        "start": 249.43,
+                        "end": 255.03
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          "transcriptText": "Hi I'm Jessica I'm calling on behalf of Future Health to reconfirm their appointment with our doctor Are you available for a short conversation right now Yeah Jessica Go ahead Thank you Great To ensure I have the correct information for you could you please confirm your date of birth for me please April 29th 1980 Thank you I see you have an appointment scheduled with Doctor Eleanor Vance in General practitioner GP Can you please see your doctor I'm not able to update your date of birth directly but I can connect you with our team Who can help with that Would you like me to transfer you to a human agent right now No let's Let's uh move forward to the schedule No problem Are you looking to reschedule your existing appointment with Doctor Eleanor Vance Would you like to go to complete the installment Of course Your appointment is with Doctor Eleanor Vance General practitioner GP on June 25th at 1 p.m. at Future Health Harley Street Clinic 120 Harley Street London one seven JS Please arrive 15 minutes early and bring your insurance card and any necessary documents Would you like me to send you a reminder via SMS or email Uh I want to discover the story Sure we can do that Would you like to see available dates with Doctor Eleanor Vance or are you open to another general practitioner GP at a different location Uh I'd like this appointment to be as soon as possible Got it The soonest available dates with doctor Eleanor Vance general practitioner GP R June 27th June 29th July 3rd But any of those days work for you Absolutely Would you like to stick with a general practitioner GP or are you looking for a different specialty If GP is fine I can check the soonest dates with other available GPS for you I have some issues with logs Can I visit the doctor Yes you can For lung issues you might want to see a pulmonologist Would you like to check the soonest available appointments with a pulmonology specialist Yes The soonest available dates with our pulmonologist doctor Chloe Adams are June 30th July 2nd or July 6th Do any of these days work for you Any of this Great For June 30th the available times with Doctor Chloe Adams are 9:15 15 a.m. 10 a.m. or 10:45 a.m. Which of these times would suit you best Perfect I've booked your appointment with Doctor Chloe Adams pulmonologist on June 30th at 10 a.m. at Future Health City Medical Hub 15 Bishopsgate London EC2 Three would you like me to send you a reminder for this appointment via SMS or email Yes SMS will be All set You'll get an SMS reminder for your appointment with doctor close on June 30th No problem I'll send you both an SMS and an email reminder for your appointment Do you have all the information you need or is there anything else I can help with today Have a good for today Glad to hear everything's good for today We look forward to seeing you at your appointment Have a great day",
+          "roleAnalysis": {
+            "role": "operator",
+            "confidence": 0.86,
+            "summary": "The speaker is confirming, scheduling, and managing a medical appointment, providing details and reminders to the caller."
+          }
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "audioUrl": "https://poor-lines-notice.loca.lt/uploads/1764035474387_1_SPEAKER_01.wav",
+          "transcription": {
+            "version": "2.0",
+            "exportedAt": "2025-11-25T01:57:16.705018+00:00",
+            "activeRecordingId": "rec_1764035836705",
+            "recordings": [
+              {
+                "id": "rec_1764035836705",
+                "name": "1764035474387_1_SPEAKER_01.wav",
+                "fileName": "1764035474387_1_SPEAKER_01.wav",
+                "size": 16576062,
+                "language": "en",
+                "speakerCount": "1",
+                "status": "completed",
+                "results": {
+                  "speechmatics": {
+                    "success": true,
+                    "serviceName": "Model3",
+                    "segments": [
+                      {
+                        "speaker": "SPEAKER_00",
+                        "text": "Arts in general See First directly their team Who can help with that Would you like to go to my Aunt's general practitioner GP And Harley Street GMP On 29th July another version of Yes you can For June 30th the available At 10 a.m. The doctor called",
+                        "start": 35.84,
+                        "end": 231.95
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          "transcriptText": "Arts in general See First directly their team Who can help with that Would you like to go to my Aunt's general practitioner GP And Harley Street GMP On 29th July another version of Yes you can For June 30th the available At 10 a.m. The doctor called",
+          "roleAnalysis": {
+            "role": "operator",
+            "confidence": 0.6,
+            "summary": "Offering to schedule a general practitioner appointment for the caller"
+          }
+        }
+      ],
+      "correctedDiarization": {
+        "version": "2.0",
+        "exportedAt": "2025-11-25T02:00:00.000Z",
+        "activeRecordingId": "rec_1764035123093",
+        "recordings": [
+          {
+            "id": "rec_1764035123093",
+            "name": "Overlap Corrected Diarization",
+            "fileName": "transcript.txt",
+            "size": 0,
+            "duration": 256.88,
+            "language": "en",
+            "speakerCount": "2",
+            "status": "completed",
+            "addedAt": null,
+            "translationState": {
+              "currentLanguage": "original",
+              "lastError": null
+            },
+            "results": {
+              "overlap-corrected": {
+                "success": true,
+                "serviceName": "Overlap Corrected (Primary + Voice Tracks)",
+                "processingTime": 0,
+                "speedFactor": 0,
+                "speakerCount": 2,
+                "cost": "0.0000",
+                "segments": [
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Hi I'm Jessica I'm calling on behalf of Future Health to reconfirm your appointment with our doctor Are you available for a short conversation right now",
+                    "start": 0.64,
+                    "end": 8.16,
+                    "words": [],
+                    "role": "operator",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Yeah Jessica I do available What do you have for me",
+                    "start": 9.4,
+                    "end": 12.76,
+                    "words": [],
+                    "role": "client",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Great To ensure I have the correct information for you could you please confirm your date of birth for me please",
+                    "start": 15.84,
+                    "end": 22.8,
+                    "words": [],
+                    "role": "operator",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Uh April 29th 1980",
+                    "start": 23.76,
+                    "end": 25.72,
+                    "words": [],
+                    "role": "client",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Thank you I see you have an appointment scheduled with Doctor Eleanor Vance in general practitioner GP",
+                    "start": 32,
+                    "end": 37.92,
+                    "words": [],
+                    "role": "operator",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Can you please make the correction in my date of birth",
+                    "start": 38.88,
+                    "end": 42.84,
+                    "words": [],
+                    "role": "client",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "I'm not able to update your date of birth directly but I can connect you with our team Who can help with that Would you like me to transfer you to a human agent right now",
+                    "start": 46.68,
+                    "end": 55.4,
+                    "words": [],
+                    "role": "operator",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "No let's Let's uh move forward to the schedule",
+                    "start": 58.04,
+                    "end": 62.6,
+                    "words": [],
+                    "role": "client",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "No problem Are you looking to reschedule your existing appointment with Doctor Eleanor Vance or would you like to book a completely new appointment Of course Your appointment is with Doctor Eleanor Vance General practitioner GP on June 25th at 1:00 pm at Future Health Harley Street Clinic 120 Harley Street London one seven JS Please arrive 15 minutes early and bring your insurance card and any necessary documents Would you like me to send you a reminder via SMS or email",
+                    "start": 65.73,
+                    "end": 100.01,
+                    "words": [],
+                    "role": "operator",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "I want to reschedule this one",
+                    "start": 101.17,
+                    "end": 103.65,
+                    "words": [],
+                    "role": "client",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Sure we can do that Would you like to see available dates with Doctor Eleanor Vance or are you open to another General Practitioner GP at a different location",
+                    "start": 106.85,
+                    "end": 115.77,
+                    "words": [],
+                    "role": "operator",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "I'd like this appointment to be the soonest possible",
+                    "start": 118.21,
+                    "end": 121.89,
+                    "words": [],
+                    "role": "client",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Got it The soonest available dates with doctor Eleanor Vance General Practitioner GP hour June 27th June 20th",
+                    "start": 124.97,
+                    "end": 133.07,
+                    "words": [],
+                    "role": "operator",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "9th",
+                    "start": 133.11,
+                    "end": 133.53,
+                    "words": [],
+                    "role": "client",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Or July 3rd Would any of these days work for you Absolutely You can Would you like to stick with a general practitioner GP or are you looking for a different specialty If GP is fine I can check the soonest dates with other available GPS for you",
+                    "start": 133.53,
+                    "end": 149.55,
+                    "words": [],
+                    "role": "operator",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "I have some issues with lungs Can I visit the doctor",
+                    "start": 150.19,
+                    "end": 154.47,
+                    "words": [],
+                    "role": "client",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Yes you can For lung issues you might want to see a pulmonologist Would you like to check the soonest available appointments with a pulmonology specialist",
+                    "start": 159.27,
+                    "end": 168.47,
+                    "words": [],
+                    "role": "operator",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Yes please",
+                    "start": 168.99,
+                    "end": 169.67,
+                    "words": [],
+                    "role": "client",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "The soonest available dates with our pulmonologist doctor Chloe Adams are June 30th July 2nd or July 6th Do any of these days work for you",
+                    "start": 173.51,
+                    "end": 182.59,
+                    "words": [],
+                    "role": "operator",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Any of these works",
+                    "start": 184.03,
+                    "end": 185.15,
+                    "words": [],
+                    "role": "client",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Great for June 30th The available times with Doctor Chloe Adams are 9:15 a.m. 10 a.m. or 10:45 a.m. Which of these times would suit you best Perfect I've booked your appointment with Doctor Chloe Adams pulmonologist on June 30th at 10 a.m. at Future Health City Medical Hub 15 Bishopsgate London EC 2N3 AR Would you like me to send you a reminder for this appointment via SMS or email",
+                    "start": 187.79,
+                    "end": 222.44,
+                    "words": [],
+                    "role": "operator",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Yes SMS would be great",
+                    "start": 223.2,
+                    "end": 225.16,
+                    "words": [],
+                    "role": "client",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "All set You'll get an SMS reminder for your appointment with Doctor Chloe Adams on June 30th No problem I'll send you both an SMS and an email reminder for your appointment Do you have all the information you need or is there anything else I can help with today",
+                    "start": 227.4,
+                    "end": 244.56,
+                    "words": [],
+                    "role": "operator",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "We are good for today",
+                    "start": 245.2,
+                    "end": 246.16,
+                    "words": [],
+                    "role": "client",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Glad to hear everything's good for today We look forward to seeing you at your appointment Have a great day",
+                    "start": 249.36,
+                    "end": 255,
+                    "words": [],
+                    "role": "operator",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Thanks Bye",
+                    "start": 256.04,
+                    "end": 256.88,
+                    "words": [],
+                    "role": "client",
+                    "overlap": false
+                  }
+                ],
+                "rawData": {
+                  "duration": 256.88,
+                  "language": "en",
+                  "source": "overlap-corrected"
+                }
+              }
+            },
+            "aggregated": {},
+            "servicesTested": [
+              "overlap-corrected"
+            ]
+          }
+        ]
+      },
+      "steps": {
+        "step1": {
+          "name": "Initial Audio Analysis",
+          "status": "completed",
+          "duration": "23.78s",
+          "segmentsCount": 26
+        },
+        "step2": {
+          "name": "Speaker Separation",
+          "status": "completed",
+          "duration": "351.29s",
+          "speakersCount": 2,
+          "taskId": "pyannote_1764035474407"
+        },
+        "step3": {
+          "name": "Voice Track Transcription & Role Analysis",
+          "status": "completed",
+          "duration": "365.68s",
+          "processedTracks": 2,
+          "totalTracks": 2,
+          "failedTracks": 0
+        },
+        "step5": {
+          "name": "Overlap Correction",
+          "status": "completed",
+          "duration": "36.74s",
+          "segmentsCount": 26
+        }
+      },
+      "totalDuration": "777.50s",
+      "requestId": "overlap_1764035099335_rx19h7f5ig",
+      "pipelineMode": "mode2"
+    }
+  },
+  {
+    "name": "OverlappingCallCenterWithoutBackground.MP3",
+    "data": {
+      "success": true,
+      "primaryDiarization": {
+        "version": "2.0",
+        "exportedAt": "2025-11-25T01:59:06.485438+00:00",
+        "activeRecordingId": "rec_1764035946485",
+        "recordings": [
+          {
+            "id": "rec_1764035946485",
+            "name": "0bca766f02024698f426e81c1187f73b",
+            "fileName": "0bca766f02024698f426e81c1187f73b",
+            "size": 6212386,
+            "language": "en",
+            "speakerCount": "2",
+            "status": "completed",
+            "results": {
+              "speechmatics": {
+                "success": true,
+                "serviceName": "Model3",
+                "segments": [
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Hi I'm Jessica I'm calling on behalf of Future Health to reconfirm your appointment with our doctor Are you available for a short conversation right now",
+                    "start": 0.6,
+                    "end": 8.24
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Yeah Jessica I do available What do you have for me",
+                    "start": 9.36,
+                    "end": 12.8
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Great To ensure I have the correct information for you could you please confirm your date of birth for me please",
+                    "start": 15.76,
+                    "end": 22.88
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Uh April 29th 1981",
+                    "start": 23.8,
+                    "end": 26
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Thank you I see you have an appointment scheduled with Doctor Eleanor Vance in general practitioner GP",
+                    "start": 31.96,
+                    "end": 37.88
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Can you please make the correction in my date of birth",
+                    "start": 38.88,
+                    "end": 42.84
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "I'm not able to update your date of birth directly but I can connect you with our team Who can help with that Would you like me to transfer you to a human agent right now",
+                    "start": 46.64,
+                    "end": 55.44
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Um no Let's let's uh move forward to the uh scheduling",
+                    "start": 56.28,
+                    "end": 62.68
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "No problem Are you looking to reschedule your existing appointment with Doctor Eleanor Vance or would you like to book a completely new appointment Of course Your appointment is with Doctor Eleanor Vance General practitioner GP on June 25th at 1:00 pm at Future Health Harley Street Clinic 120 Harley Street London one seven JS Please arrive 15 minutes early and bring your insurance card and any necessary documents Would you like me to send you a reminder via SMS or email",
+                    "start": 65.73,
+                    "end": 100.01
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "I want to reschedule this one",
+                    "start": 101.17,
+                    "end": 103.61
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Sure we can do that Would you like to see available dates with Doctor Eleanor Vance or are you open to another General Practitioner GP at a different location",
+                    "start": 106.81,
+                    "end": 115.81
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "I'd like this appointment to be the soonest possible",
+                    "start": 118.21,
+                    "end": 121.93
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Got it The soonest available dates with doctor Eleanor Vance General Practitioner GP hour June 27th June 20th",
+                    "start": 124.97,
+                    "end": 133.07
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "9th or",
+                    "start": 133.11,
+                    "end": 133.95
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "July",
+                    "start": 133.95,
+                    "end": 134.37
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "3rd",
+                    "start": 134.37,
+                    "end": 134.79
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Would any of these days work for you Absolutely You can Would you like to stick with a general practitioner GP or are you looking for a different specialty If GP is fine I can check the soonest dates with other available GPS for you",
+                    "start": 135.07,
+                    "end": 149.55
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "I have some issues with lungs Can I visit the doctor",
+                    "start": 150.15,
+                    "end": 154.51
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Yes you can For lung issues you might want to see a pulmonologist Would you like to check the soonest available appointments with a pulmonology specialist",
+                    "start": 159.19,
+                    "end": 168.51
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Yes please",
+                    "start": 168.95,
+                    "end": 169.71
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "The soonest available dates with our pulmonologist doctor Chloe Adams are June 30th July 2nd or July 6th Do any of these days work for you",
+                    "start": 173.47,
+                    "end": 182.63
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Any of this works",
+                    "start": 183.99,
+                    "end": 185.15
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Great for June 30th The available times with Doctor Chloe Adams are 9:15 a.m. 10 a.m. or 10:45 a.m. Which of these times would suit you best",
+                    "start": 187.75,
+                    "end": 198.88
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Let's do ten",
+                    "start": 199.6,
+                    "end": 200.44
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Perfect I've booked your appointment with Doctor Chloe Adams pulmonologist on June 30th at 10 a.m. at Future Health City Medical Hub 15 Bishopsgate London EC 2N3 AR Would you like me to send you a reminder for this appointment via SMS or email",
+                    "start": 204.44,
+                    "end": 222.48
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Yes SMS would be great",
+                    "start": 223.16,
+                    "end": 225.2
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "All set You'll get an SMS reminder for your appointment with Doctor Chloe Adams on June 30th No problem I'll send you both an SMS and an email reminder for your appointment Do you have all the information you need or is there anything else I can help with today",
+                    "start": 227.36,
+                    "end": 244.56
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Yeah we are good for today",
+                    "start": 245,
+                    "end": 246.2
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Glad to hear everything's good for today We look forward to seeing you at your appointment Have a great day",
+                    "start": 249.4,
+                    "end": 255
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Thanks Bye",
+                    "start": 255.96,
+                    "end": 256.92
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "separation": {
+        "taskId": "pyannote_1764036291219",
+        "speakers": [
+          {
+            "name": "SPEAKER_00",
+            "format": "wav",
+            "url": "https://poor-lines-notice.loca.lt/uploads/1764036291200_0_SPEAKER_00.wav",
+            "downloadUrl": "https://poor-lines-notice.loca.lt/uploads/1764036291200_0_SPEAKER_00.wav",
+            "isBackground": false,
+            "local_path": "/Users/nikolajstupakov/Library/Mobile Documents/com~apple~CloudDocs/SPsoft /diarization-final/uploads/1764036291200_0_SPEAKER_00.wav"
+          },
+          {
+            "name": "SPEAKER_01",
+            "format": "wav",
+            "url": "https://poor-lines-notice.loca.lt/uploads/1764036291200_1_SPEAKER_01.wav",
+            "downloadUrl": "https://poor-lines-notice.loca.lt/uploads/1764036291200_1_SPEAKER_01.wav",
+            "isBackground": false,
+            "local_path": "/Users/nikolajstupakov/Library/Mobile Documents/com~apple~CloudDocs/SPsoft /diarization-final/uploads/1764036291200_1_SPEAKER_01.wav"
+          }
+        ],
+        "cost": null,
+        "duration": null
+      },
+      "voiceTracks": [
+        {
+          "speaker": "SPEAKER_00",
+          "audioUrl": "https://poor-lines-notice.loca.lt/uploads/1764036291200_0_SPEAKER_00.wav",
+          "transcription": {
+            "version": "2.0",
+            "exportedAt": "2025-11-25T02:09:30.684058+00:00",
+            "activeRecordingId": "rec_1764036570684",
+            "recordings": [
+              {
+                "id": "rec_1764036570684",
+                "name": "1764036291200_0_SPEAKER_00.wav",
+                "fileName": "1764036291200_0_SPEAKER_00.wav",
+                "size": 16576062,
+                "language": "en",
+                "speakerCount": "3",
+                "status": "completed",
+                "results": {
+                  "speechmatics": {
+                    "success": true,
+                    "serviceName": "Model3",
+                    "segments": [
+                      {
+                        "speaker": "SPEAKER_00",
+                        "text": "Yeah Jessica I do available What do you have for me April 29th 1981 Uh can you please uh make the correction in my date of birth",
+                        "start": 9.36,
+                        "end": 42.84
+                      },
+                      {
+                        "speaker": "SPEAKER_01",
+                        "text": "I'm not able to",
+                        "start": 46.68,
+                        "end": 47.56
+                      },
+                      {
+                        "speaker": "SPEAKER_00",
+                        "text": "Um no let's let's uh move forward to the uh scheduling But can you please remind me I want to reschedule this one Uh I'd like this appointment to be the soonest possible I have some issues with lungs Can I visit the doctor Yes please Any of these works Let's do ten Yes sir SMS would be great Yeah we are good for today",
+                        "start": 56.48,
+                        "end": 246.23
+                      },
+                      {
+                        "speaker": "SPEAKER_02",
+                        "text": "Thanks Bye",
+                        "start": 256.15,
+                        "end": 257.03
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          "transcriptText": "Yeah Jessica I do available What do you have for me April 29th 1981 Uh can you please uh make the correction in my date of birth I'm not able to Um no let's let's uh move forward to the uh scheduling But can you please remind me I want to reschedule this one Uh I'd like this appointment to be the soonest possible I have some issues with lungs Can I visit the doctor Yes please Any of these works Let's do ten Yes sir SMS would be great Yeah we are good for today Thanks Bye",
+          "roleAnalysis": {
+            "role": "client",
+            "confidence": 0.95,
+            "summary": "The speaker is requesting a date of birth correction and rescheduling the earliest possible medical appointment due to lung issues."
+          }
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "audioUrl": "https://poor-lines-notice.loca.lt/uploads/1764036291200_1_SPEAKER_01.wav",
+          "transcription": {
+            "version": "2.0",
+            "exportedAt": "2025-11-25T02:13:17.568027+00:00",
+            "activeRecordingId": "rec_1764036797568",
+            "recordings": [
+              {
+                "id": "rec_1764036797568",
+                "name": "1764036291200_1_SPEAKER_01.wav",
+                "fileName": "1764036291200_1_SPEAKER_01.wav",
+                "size": 16576062,
+                "language": "en",
+                "speakerCount": "1",
+                "status": "completed",
+                "results": {
+                  "speechmatics": {
+                    "success": true,
+                    "serviceName": "Model3",
+                    "segments": [
+                      {
+                        "speaker": "SPEAKER_00",
+                        "text": "Hi I'm Jessica I'm calling on behalf of Future Health to reconfirm your appointment with our doctor Are you available for a short conversation right now Great To ensure I have the correct information for you could you please confirm your date of birth for me please Thank you I see you have an appointment scheduled with Doctor Eleanor Vance in General practitioner GP I'm not able to update your date of birth directly but I can connect you with our team Who can help with that Would you like me to transfer you to a human agent right now No problem Are you looking to reschedule your existing appointment with Doctor Eleanor Vance Would you like to book a completely new appointment Of course Your appointment is with Doctor Eleanor Vance General practitioner GP on June 25th at 1 p.m. at Future Health Harley Street Clinic 120 Harley Street London one seven JS Please arrive 15 minutes early and bring your insurance card and any necessary documents Would you like me to send you a reminder via SMS or email Sure we can do that Would you like to see available dates with Doctor Eleanor Vance or are you open to another General practitioner GP at a different location Got it The soonest available dates with doctor Eleanor Vance General Practitioner GP Hour June 27th June 29th July 3rd If any of these days work for you absolutely you can Would you like to stick with a general practitioner GP or are you looking for a different specialty If GP is fine I can check the soonest dates with other available GPS for you Yes you can For lung issues you might want to see a pulmonologist Would you like to check the soonest available appointments with a pulmonology specialist The soonest available dates with our pulmonologist doctor Chloe Adams are June 30th July 2nd or July 6th Do any of these days work for you Great For June 30th The available times with Doctor Chloe Adams are 9:15 15 a.m. 10 a.m. or 10:45 a.m. Which of these times would suit you best Perfect I've booked your appointment with Doctor Chloe Adams pulmonologist on June 30th at 10 a.m. at Future Health City Medical Hub 15 Bishopsgate London 2N3R Would you like me to send you a reminder for this appointment via SMS or email All set You'll get an SMS reminder for your appointment with Doctor Chloe Adams on June 30th No problem I'll send you both an SMS and an email reminder for your appointment Do you have all the information you need or is there anything else I can help with today I want to hear everything is good for today We look forward to seeing you at your appointment Have a great day",
+                        "start": 0.6,
+                        "end": 254.99
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          "transcriptText": "Hi I'm Jessica I'm calling on behalf of Future Health to reconfirm your appointment with our doctor Are you available for a short conversation right now Great To ensure I have the correct information for you could you please confirm your date of birth for me please Thank you I see you have an appointment scheduled with Doctor Eleanor Vance in General practitioner GP I'm not able to update your date of birth directly but I can connect you with our team Who can help with that Would you like me to transfer you to a human agent right now No problem Are you looking to reschedule your existing appointment with Doctor Eleanor Vance Would you like to book a completely new appointment Of course Your appointment is with Doctor Eleanor Vance General practitioner GP on June 25th at 1 p.m. at Future Health Harley Street Clinic 120 Harley Street London one seven JS Please arrive 15 minutes early and bring your insurance card and any necessary documents Would you like me to send you a reminder via SMS or email Sure we can do that Would you like to see available dates with Doctor Eleanor Vance or are you open to another General practitioner GP at a different location Got it The soonest available dates with doctor Eleanor Vance General Practitioner GP Hour June 27th June 29th July 3rd If any of these days work for you absolutely you can Would you like to stick with a general practitioner GP or are you looking for a different specialty If GP is fine I can check the soonest dates with other available GPS for you Yes you can For lung issues you might want to see a pulmonologist Would you like to check the soonest available appointments with a pulmonology specialist The soonest available dates with our pulmonologist doctor Chloe Adams are June 30th July 2nd or July 6th Do any of these days work for you Great For June 30th The available times with Doctor Chloe Adams are 9:15 15 a.m. 10 a.m. or 10:45 a.m. Which of these times would suit you best Perfect I've booked your appointment with Doctor Chloe Adams pulmonologist on June 30th at 10 a.m. at Future Health City Medical Hub 15 Bishopsgate London 2N3R Would you like me to send you a reminder for this appointment via SMS or email All set You'll get an SMS reminder for your appointment with Doctor Chloe Adams on June 30th No problem I'll send you both an SMS and an email reminder for your appointment Do you have all the information you need or is there anything else I can help with today I want to hear everything is good for today We look forward to seeing you at your appointment Have a great day",
+          "roleAnalysis": {
+            "role": "operator",
+            "confidence": 0.99,
+            "summary": "The speaker is confirming details, rescheduling, and booking medical appointments, providing assistance as a call center agent."
+          }
+        }
+      ],
+      "correctedDiarization": {
+        "version": "2.0",
+        "exportedAt": "2025-11-25T01:59:06.485438+00:00",
+        "activeRecordingId": "rec_1764035946485",
+        "recordings": [
+          {
+            "id": "rec_1764035946485",
+            "name": "Overlap Corrected Diarization",
+            "fileName": "transcript.txt",
+            "size": 0,
+            "duration": 257,
+            "language": "en",
+            "speakerCount": "2",
+            "status": "completed",
+            "addedAt": null,
+            "translationState": {
+              "currentLanguage": "original",
+              "lastError": null
+            },
+            "results": {
+              "overlap-corrected": {
+                "success": true,
+                "serviceName": "Overlap Corrected (Primary + Voice Tracks)",
+                "processingTime": 0,
+                "speedFactor": 0,
+                "speakerCount": 2,
+                "cost": "0.0000",
+                "segments": [
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Hi I'm Jessica I'm calling on behalf of Future Health to reconfirm your appointment with our doctor Are you available for a short conversation right now",
+                    "start": 0.6,
+                    "end": 8.24,
+                    "words": [],
+                    "role": "operator",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Yeah Jessica I do available What do you have for me",
+                    "start": 9.36,
+                    "end": 12.8,
+                    "words": [],
+                    "role": "client",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Great To ensure I have the correct information for you could you please confirm your date of birth for me please",
+                    "start": 15.76,
+                    "end": 22.88,
+                    "words": [],
+                    "role": "operator",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Uh April 29th 1981",
+                    "start": 23.8,
+                    "end": 26,
+                    "words": [],
+                    "role": "client",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Thank you I see you have an appointment scheduled with Doctor Eleanor Vance in general practitioner GP",
+                    "start": 31.96,
+                    "end": 37.88,
+                    "words": [],
+                    "role": "operator",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Can you please make the correction in my date of birth",
+                    "start": 38.88,
+                    "end": 42.84,
+                    "words": [],
+                    "role": "client",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "I'm not able to update your date of birth directly but I can connect you with our team Who can help with that Would you like me to transfer you to a human agent right now",
+                    "start": 46.64,
+                    "end": 55.44,
+                    "words": [],
+                    "role": "operator",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Um no Let's let's uh move forward to the uh scheduling",
+                    "start": 56.28,
+                    "end": 62.68,
+                    "words": [],
+                    "role": "client",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "No problem Are you looking to reschedule your existing appointment with Doctor Eleanor Vance or would you like to book a completely new appointment Of course Your appointment is with Doctor Eleanor Vance General practitioner GP on June 25th at 1:00 pm at Future Health Harley Street Clinic 120 Harley Street London one seven JS Please arrive 15 minutes early and bring your insurance card and any necessary documents Would you like me to send you a reminder via SMS or email",
+                    "start": 65.73,
+                    "end": 100.01,
+                    "words": [],
+                    "role": "operator",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "I want to reschedule this one",
+                    "start": 101.17,
+                    "end": 103.61,
+                    "words": [],
+                    "role": "client",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Sure we can do that Would you like to see available dates with Doctor Eleanor Vance or are you open to another General Practitioner GP at a different location",
+                    "start": 106.81,
+                    "end": 115.81,
+                    "words": [],
+                    "role": "operator",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "I'd like this appointment to be the soonest possible",
+                    "start": 118.21,
+                    "end": 121.93,
+                    "words": [],
+                    "role": "client",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Got it The soonest available dates with doctor Eleanor Vance General Practitioner GP hour June 27th June 20th",
+                    "start": 124.97,
+                    "end": 133.07,
+                    "words": [],
+                    "role": "operator",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "9th or",
+                    "start": 133.11,
+                    "end": 133.95,
+                    "words": [],
+                    "role": "client",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "July",
+                    "start": 133.95,
+                    "end": 134.37,
+                    "words": [],
+                    "role": "operator",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "3rd",
+                    "start": 134.37,
+                    "end": 134.79,
+                    "words": [],
+                    "role": "client",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Would any of these days work for you Absolutely You can Would you like to stick with a general practitioner GP or are you looking for a different specialty If GP is fine I can check the soonest dates with other available GPS for you",
+                    "start": 135.07,
+                    "end": 149.55,
+                    "words": [],
+                    "role": "operator",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "I have some issues with lungs Can I visit the doctor",
+                    "start": 150.15,
+                    "end": 154.51,
+                    "words": [],
+                    "role": "client",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Yes you can For lung issues you might want to see a pulmonologist Would you like to check the soonest available appointments with a pulmonology specialist",
+                    "start": 159.19,
+                    "end": 168.51,
+                    "words": [],
+                    "role": "operator",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Yes please",
+                    "start": 168.95,
+                    "end": 169.71,
+                    "words": [],
+                    "role": "client",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "The soonest available dates with our pulmonologist doctor Chloe Adams are June 30th July 2nd or July 6th Do any of these days work for you",
+                    "start": 173.47,
+                    "end": 182.63,
+                    "words": [],
+                    "role": "operator",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Any of this works",
+                    "start": 183.99,
+                    "end": 185.15,
+                    "words": [],
+                    "role": "client",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Great for June 30th The available times with Doctor Chloe Adams are 9:15 a.m. 10 a.m. or 10:45 a.m. Which of these times would suit you best",
+                    "start": 187.75,
+                    "end": 198.88,
+                    "words": [],
+                    "role": "operator",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Let's do ten",
+                    "start": 199.6,
+                    "end": 200.44,
+                    "words": [],
+                    "role": "client",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Perfect I've booked your appointment with Doctor Chloe Adams pulmonologist on June 30th at 10 a.m. at Future Health City Medical Hub 15 Bishopsgate London EC 2N3 AR Would you like me to send you a reminder for this appointment via SMS or email",
+                    "start": 204.44,
+                    "end": 222.48,
+                    "words": [],
+                    "role": "operator",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Yes SMS would be great",
+                    "start": 223.16,
+                    "end": 225.2,
+                    "words": [],
+                    "role": "client",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "All set You'll get an SMS reminder for your appointment with Doctor Chloe Adams on June 30th No problem I'll send you both an SMS and an email reminder for your appointment Do you have all the information you need or is there anything else I can help with today",
+                    "start": 227.36,
+                    "end": 244.56,
+                    "words": [],
+                    "role": "operator",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Yeah we are good for today",
+                    "start": 245,
+                    "end": 246.2,
+                    "words": [],
+                    "role": "client",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_00",
+                    "text": "Glad to hear everything's good for today We look forward to seeing you at your appointment Have a great day",
+                    "start": 249.4,
+                    "end": 255,
+                    "words": [],
+                    "role": "operator",
+                    "overlap": false
+                  },
+                  {
+                    "speaker": "SPEAKER_01",
+                    "text": "Thanks Bye",
+                    "start": 255.96,
+                    "end": 256.92,
+                    "words": [],
+                    "role": "client",
+                    "overlap": false
+                  }
+                ],
+                "rawData": {
+                  "duration": 257,
+                  "language": "en",
+                  "source": "overlap-corrected"
+                }
+              }
+            },
+            "aggregated": {},
+            "servicesTested": [
+              "overlap-corrected"
+            ]
+          }
+        ]
+      },
+      "steps": {
+        "step1": {
+          "name": "Initial Audio Analysis",
+          "status": "completed",
+          "duration": "12.86s",
+          "segmentsCount": 30
+        },
+        "step2": {
+          "name": "Speaker Separation",
+          "status": "completed",
+          "duration": "344.71s",
+          "speakersCount": 2,
+          "taskId": "pyannote_1764036291219"
+        },
+        "step3": {
+          "name": "Voice Track Transcription & Role Analysis",
+          "status": "completed",
+          "duration": "520.12s",
+          "processedTracks": 2,
+          "totalTracks": 2,
+          "failedTracks": 0
+        },
+        "step5": {
+          "name": "Overlap Correction",
+          "status": "completed",
+          "duration": "41.72s",
+          "segmentsCount": 30
+        }
+      },
+      "totalDuration": "919.41s",
+      "requestId": "overlap_1764035933643_v8nhe2z4qlc",
+      "pipelineMode": "mode2"
+    }
+  }
+]

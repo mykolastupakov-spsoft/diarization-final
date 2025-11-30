@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prompt Manager - Diarization Application</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            /* Primitive Color Tokens */
+            --color-white: rgba(255, 255, 255, 1);
+            --color-black: rgba(0, 0, 0, 1);
+            --color-cream-50: rgba(252, 252, 249, 1);
+            --color-cream-100: rgba(255, 255, 253, 1);
+            --color-gray-200: rgba(245, 245, 245, 1);
+            --color-gray-300: rgba(167, 169, 169, 1);
+            --color-gray-400: rgba(119, 124, 124, 1);
+            --color-slate-500: rgba(98, 108, 113, 1);
+            --color-brown-600: rgba(94, 82, 64, 1);
+            --color-charcoal-700: rgba(31, 33, 33, 1);
+            --color-charcoal-800: rgba(38, 40, 40, 1);
+            --color-slate-900: rgba(19, 52, 59, 1);
+            --color-teal-300: rgba(50, 184, 198, 1);
+            --color-teal-400: rgba(45, 166, 178, 1);
+            --color-teal-500: rgba(33, 128, 141, 1);
+            --color-teal-600: rgba(29, 116, 128, 1);
+            --color-teal-700: rgba(26, 104, 115, 1);
+            --color-teal-800: rgba(41, 150, 161, 1);
+            --color-red-400: rgba(255, 84, 89, 1);
+            --color-red-500: rgba(192, 21, 47, 1);
+            --color-orange-400: rgba(230, 129, 97, 1);
+            --color-orange-500: rgba(168, 75, 47, 1);
+
+            /* RGB versions for opacity control */
+            --color-brown-600-rgb: 94, 82, 64;
+            --color-teal-500-rgb: 33, 128, 141;
+            --color-slate-900-rgb: 19, 52, 59;
+            --color-slate-500-rgb: 98, 108, 113;
+            --color-red-500-rgb: 192, 21, 47;
+            --color-red-400-rgb: 255, 84, 89;
+            --color-orange-500-rgb: 168, 75, 47;
+            --color-orange-400-rgb: 230, 129, 97;
+
+            /* Semantic Color Tokens (Light Mode) */
+            --color-background: var(--color-cream-50);
+            --color-surface: var(--color-cream-100);
+            --color-text: var(--color-slate-900);
+            --color-text-secondary: var(--color-slate-500);
+            --color-primary: var(--color-teal-500);
+            --color-primary-hover: var(--color-teal-600);
+            --color-primary-active: var(--color-teal-700);
+            --color-secondary: rgba(var(--color-brown-600-rgb), 0.12);
+            --color-secondary-hover: rgba(var(--color-brown-600-rgb), 0.2);
+            --color-secondary-active: rgba(var(--color-brown-600-rgb), 0.25);
+            --color-border: rgba(var(--color-brown-600-rgb), 0.2);
+            --color-btn-primary-text: var(--color-cream-50);
+            --color-card-border: rgba(var(--color-brown-600-rgb), 0.12);
+            --color-error: var(--color-red-500);
+            --color-success: var(--color-teal-500);
+            --color-warning: var(--color-orange-500);
+            --color-info: var(--color-slate-500);
+            --color-focus-ring: rgba(var(--color-teal-500-rgb), 0.4);
+
+            --font-family-base: "FKGroteskNeue", "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            --font-size-xs: 11px;
+            --font-size-sm: 12px;
+            --font-size-base: 14px;
+            --font-size-lg: 16px;
+            --font-size-xl: 18px;
+            --font-size-2xl: 20px;
+            --font-size-3xl: 24px;
+            --font-weight-normal: 400;
+            --font-weight-medium: 500;
+            --font-weight-semibold: 550;
+            --font-weight-bold: 600;
+            --line-height-normal: 1.5;
+
+            --space-4: 4px;
+            --space-8: 8px;
+            --space-12: 12px;
+            --space-16: 16px;
+            --space-24: 24px;
+            --space-32: 32px;
+
+            --radius-sm: 6px;
+            --radius-base: 8px;
+            --radius-lg: 12px;
+
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+
+            --duration-fast: 150ms;
+            --duration-normal: 250ms;
+            --ease-standard: cubic-bezier(0.16, 1, 0.3, 1);
+
+            --color-success-rgb: 33, 128, 141;
+            --color-error-rgb: 192, 21, 47;
+            --color-warning-rgb: 168, 75, 47;
+            --color-info-rgb: 98, 108, 113;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --color-gray-400-rgb: 119, 124, 124;
+                --color-teal-300-rgb: 50, 184, 198;
+                --color-gray-300-rgb: 167, 169, 169;
+                --color-gray-200-rgb: 245, 245, 245;
+
+                --color-background: var(--color-charcoal-700);
+                --color-surface: var(--color-charcoal-800);
+                --color-text: var(--color-gray-200);
+                --color-text-secondary: rgba(var(--color-gray-300-rgb), 0.7);
+                --color-primary: var(--color-teal-300);
+                --color-primary-hover: var(--color-teal-400);
+                --color-primary-active: var(--color-teal-800);
+                --color-secondary: rgba(var(--color-gray-400-rgb), 0.15);
+                --color-secondary-hover: rgba(var(--color-gray-400-rgb), 0.25);
+                --color-secondary-active: rgba(var(--color-gray-400-rgb), 0.3);
+                --color-border: rgba(var(--color-gray-400-rgb), 0.3);
+                --color-error: var(--color-red-400);
+                --color-success: var(--color-teal-300);
+                --color-warning: var(--color-orange-400);
+                --color-info: var(--color-gray-300);
+                --color-focus-ring: rgba(var(--color-teal-300-rgb), 0.4);
+                --color-btn-primary-text: var(--color-slate-900);
+                --color-card-border: rgba(var(--color-gray-400-rgb), 0.2);
+
+                --color-success-rgb: var(--color-teal-300-rgb);
+                --color-error-rgb: var(--color-red-400-rgb);
+                --color-warning-rgb: var(--color-orange-400-rgb);
+                --color-info-rgb: var(--color-gray-300-rgb);
+            }
+        }
+
+        body {
+            font-family: var(--font-family-base);
+            background-color: var(--color-background);
+            color: var(--color-text);
+            line-height: var(--line-height-normal);
+            font-size: var(--font-size-base);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: var(--space-24);
+        }
+
+        .header {
+            background: var(--color-surface);
+            padding: var(--space-24);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--color-card-border);
+            box-shadow: var(--shadow-sm);
+            margin-bottom: var(--space-24);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: var(--space-16);
+        }
+
+        .header h1 {
+            color: var(--color-primary);
+            font-size: var(--font-size-3xl);
+            font-weight: var(--font-weight-semibold);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: var(--space-12);
+        }
+
+        .btn {
+            padding: var(--space-12) var(--space-24);
+            border: none;
+            border-radius: var(--radius-base);
+            cursor: pointer;
+            font-size: var(--font-size-base);
+            font-weight: var(--font-weight-medium);
+            transition: all var(--duration-fast) var(--ease-standard);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-8);
+        }
+
+        .btn-primary {
+            background: var(--color-primary);
+            color: var(--color-btn-primary-text);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: var(--color-primary-hover);
+        }
+
+        .btn-primary:active:not(:disabled) {
+            background: var(--color-primary-active);
+        }
+
+        .btn-secondary {
+            background: var(--color-secondary);
+            color: var(--color-text);
+            border: 1px solid var(--color-border);
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: var(--color-secondary-hover);
+        }
+
+        .btn-secondary:active:not(:disabled) {
+            background: var(--color-secondary-active);
+        }
+
+        .btn-success {
+            background: var(--color-success);
+            color: var(--color-btn-primary-text);
+        }
+
+        .btn-success:hover:not(:disabled) {
+            opacity: 0.9;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .prompts-grid {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: var(--space-24);
+        }
+
+        .prompts-list {
+            background: var(--color-surface);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--color-card-border);
+            box-shadow: var(--shadow-sm);
+            padding: var(--space-16);
+            max-height: calc(100vh - 200px);
+            overflow-y: auto;
+        }
+
+        .prompts-list h2 {
+            font-size: var(--font-size-xl);
+            font-weight: var(--font-weight-semibold);
+            margin-bottom: var(--space-16);
+            color: var(--color-primary);
+        }
+
+        .prompt-item {
+            padding: var(--space-16);
+            border: 2px solid transparent;
+            border-radius: var(--radius-base);
+            cursor: pointer;
+            margin-bottom: var(--space-8);
+            transition: all var(--duration-fast) var(--ease-standard);
+            background: var(--color-surface);
+        }
+
+        .prompt-item:hover {
+            background: rgba(var(--color-teal-500-rgb), 0.05);
+            border-color: var(--color-primary);
+        }
+
+        .prompt-item.active {
+            background: rgba(var(--color-teal-500-rgb), 0.1);
+            border-color: var(--color-primary);
+        }
+
+        .prompt-item-name {
+            font-weight: var(--font-weight-semibold);
+            margin-bottom: var(--space-4);
+            color: var(--color-text);
+            font-size: var(--font-size-base);
+        }
+
+        .prompt-item-meta {
+            font-size: var(--font-size-sm);
+            color: var(--color-text-secondary);
+        }
+
+        .editor-panel {
+            background: var(--color-surface);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--color-card-border);
+            box-shadow: var(--shadow-sm);
+            padding: var(--space-24);
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - 200px);
+        }
+
+        .editor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-16);
+            padding-bottom: var(--space-16);
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .editor-header h2 {
+            color: var(--color-primary);
+            font-size: var(--font-size-2xl);
+            font-weight: var(--font-weight-semibold);
+        }
+
+        .editor-actions {
+            display: flex;
+            gap: var(--space-8);
+        }
+
+        .editor-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        .editor-textarea {
+            flex: 1;
+            width: 100%;
+            padding: var(--space-16);
+            border: 2px solid var(--color-border);
+            border-radius: var(--radius-base);
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+            font-size: var(--font-size-sm);
+            line-height: var(--line-height-normal);
+            resize: vertical;
+            min-height: 400px;
+            overflow-y: auto;
+            background: var(--color-surface);
+            color: var(--color-text);
+            transition: border-color var(--duration-fast) var(--ease-standard);
+        }
+
+        .editor-textarea:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px var(--color-focus-ring);
+        }
+
+        .editor-stats {
+            margin-top: var(--space-16);
+            padding-top: var(--space-16);
+            border-top: 1px solid var(--color-border);
+            font-size: var(--font-size-sm);
+            color: var(--color-text-secondary);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .alert {
+            padding: var(--space-16);
+            border-radius: var(--radius-base);
+            margin-bottom: var(--space-16);
+            display: none;
+            border: 1px solid;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert-success {
+            background: rgba(var(--color-success-rgb), 0.15);
+            border-color: var(--color-success);
+            color: var(--color-success);
+        }
+
+        .alert-error {
+            background: rgba(var(--color-error-rgb), 0.15);
+            border-color: var(--color-error);
+            color: var(--color-error);
+        }
+
+        .alert-info {
+            background: rgba(var(--color-info-rgb), 0.15);
+            border-color: var(--color-primary);
+            color: var(--color-primary);
+        }
+
+        .loading {
+            text-align: center;
+            padding: var(--space-32);
+            color: var(--color-text-secondary);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: var(--space-32);
+            color: var(--color-text-secondary);
+        }
+
+        .empty-state h3 {
+            margin-bottom: var(--space-12);
+            color: var(--color-text);
+            font-weight: var(--font-weight-semibold);
+        }
+
+        @media (max-width: 1024px) {
+            .prompts-grid {
+                grid-template-columns: 1fr;
+                gap: var(--space-16);
+            }
+
+            .prompts-list {
+                max-height: 200px;
+            }
+
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .header-actions {
+                width: 100%;
+                justify-content: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>📝 Prompt Manager</h1>
+                <p style="color: var(--color-text-secondary); margin-top: var(--space-4); font-size: var(--font-size-base);">
+                    Manage all prompts used in the diarization application
+                </p>
+            </div>
+            <div class="header-actions">
+                <a href="/" class="btn btn-secondary">← Back to App</a>
+                <button class="btn btn-primary" onclick="loadPrompts()">🔄 Refresh</button>
+            </div>
+        </div>
+
+        <div id="alertContainer"></div>
+
+        <div class="prompts-grid">
+            <div class="prompts-list">
+                <h2>Available Prompts</h2>
+                <div id="promptsList">
+                    <div class="loading">Loading prompts...</div>
+                </div>
+            </div>
+
+            <div class="editor-panel">
+                <div id="editorPlaceholder" class="empty-state">
+                    <h3>Select a prompt to edit</h3>
+                    <p>Choose a prompt from the list on the left to view and edit its content</p>
+                </div>
+
+                <div id="editorContent" style="display: none;">
+                    <div class="editor-header">
+                        <h2 id="editorTitle">Prompt Editor</h2>
+                        <div class="editor-actions">
+                            <button class="btn btn-secondary" onclick="resetEditor()">↺ Reset</button>
+                            <button class="btn btn-success" onclick="savePrompt()" id="saveBtn">💾 Save</button>
+                        </div>
+                    </div>
+                    <div class="editor-content">
+                        <textarea 
+                            id="promptEditor" 
+                            class="editor-textarea" 
+                            placeholder="Prompt content will appear here..."
+                            oninput="onEditorChange()"
+                        ></textarea>
+                        <div class="editor-stats">
+                            <span id="charCount">0 characters</span>
+                            <span id="lineCount">0 lines</span>
+                            <span id="lastModified"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let prompts = [];
+        let currentPrompt = null;
+        let originalContent = '';
+
+        // Load all prompts on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadPrompts();
+        });
+
+        async function loadPrompts() {
+            try {
+                const response = await fetch('/api/prompts');
+                if (!response.ok) {
+                    throw new Error('Failed to load prompts');
+                }
+                const data = await response.json();
+                prompts = data.prompts || [];
+                renderPromptsList();
+            } catch (error) {
+                showAlert('error', `Failed to load prompts: ${error.message}`);
+                document.getElementById('promptsList').innerHTML = 
+                    '<div class="empty-state"><h3>Error loading prompts</h3><p>' + error.message + '</p></div>';
+            }
+        }
+
+        function renderPromptsList() {
+            const container = document.getElementById('promptsList');
+            
+            if (prompts.length === 0) {
+                container.innerHTML = '<div class="empty-state"><h3>No prompts found</h3></div>';
+                return;
+            }
+
+            container.innerHTML = prompts.map(prompt => {
+                const escapedFilename = prompt.filename.replace(/'/g, "\\'");
+                return `
+                <div class="prompt-item ${currentPrompt?.filename === prompt.filename ? 'active' : ''}" 
+                     onclick="selectPrompt('${escapedFilename}')">
+                    <div class="prompt-item-name">${prompt.filename}</div>
+                    <div class="prompt-item-meta">
+                        ${formatBytes(prompt.size)} • ${formatDate(prompt.lastModified)}
+                    </div>
+                </div>
+            `;
+            }).join('');
+        }
+
+        async function selectPrompt(filename) {
+            try {
+                const response = await fetch(`/api/prompts/${filename}`);
+                if (!response.ok) {
+                    throw new Error('Failed to load prompt');
+                }
+                const data = await response.json();
+                
+                currentPrompt = data;
+                originalContent = data.content;
+                
+                document.getElementById('editorPlaceholder').style.display = 'none';
+                const editorContent = document.getElementById('editorContent');
+                editorContent.style.display = 'flex';
+                editorContent.style.flexDirection = 'column';
+                document.getElementById('editorTitle').textContent = data.filename;
+                document.getElementById('promptEditor').value = data.content;
+                document.getElementById('lastModified').textContent = 
+                    `Last modified: ${formatDate(data.lastModified)}`;
+                
+                updateStats();
+                renderPromptsList();
+                
+                // Scroll textarea to top
+                document.getElementById('promptEditor').scrollTop = 0;
+            } catch (error) {
+                showAlert('error', `Failed to load prompt: ${error.message}`);
+            }
+        }
+
+        function onEditorChange() {
+            updateStats();
+        }
+
+        function updateStats() {
+            const content = document.getElementById('promptEditor').value;
+            const charCount = content.length;
+            const lineCount = content.split('\n').length;
+            
+            document.getElementById('charCount').textContent = `${charCount.toLocaleString()} characters`;
+            document.getElementById('lineCount').textContent = `${lineCount} lines`;
+        }
+
+        async function savePrompt() {
+            if (!currentPrompt) {
+                showAlert('error', 'No prompt selected');
+                return;
+            }
+
+            const content = document.getElementById('promptEditor').value;
+            const saveBtn = document.getElementById('saveBtn');
+            
+            saveBtn.disabled = true;
+            saveBtn.textContent = '⏳ Saving...';
+
+            try {
+                const response = await fetch(`/api/prompts/${currentPrompt.filename}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ content })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to save prompt');
+                }
+
+                const data = await response.json();
+                originalContent = content;
+                currentPrompt.lastModified = data.lastModified;
+                currentPrompt.size = data.size;
+                
+                document.getElementById('lastModified').textContent = 
+                    `Last modified: ${formatDate(data.lastModified)}`;
+                
+                showAlert('success', 'Prompt saved successfully! Changes will take effect on next request.');
+                renderPromptsList();
+                
+                // Notify main application (if in same origin)
+                if (window.parent !== window) {
+                    window.parent.postMessage({
+                        type: 'PROMPT_UPDATED',
+                        filename: currentPrompt.filename
+                    }, '*');
+                }
+            } catch (error) {
+                showAlert('error', `Failed to save prompt: ${error.message}`);
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = '💾 Save';
+            }
+        }
+
+        function resetEditor() {
+            if (!currentPrompt) return;
+            
+            if (confirm('Reset all changes? This will restore the original content.')) {
+                document.getElementById('promptEditor').value = originalContent;
+                updateStats();
+                showAlert('info', 'Editor reset to original content');
+            }
+        }
+
+        function showAlert(type, message) {
+            const container = document.getElementById('alertContainer');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type} show`;
+            alert.textContent = message;
+            container.innerHTML = '';
+            container.appendChild(alert);
+            
+            setTimeout(() => {
+                alert.classList.remove('show');
+                setTimeout(() => alert.remove(), 300);
+            }, 3000);
+        }
+
+        function formatBytes(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString();
+        }
+
+        // Handle keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                if (currentPrompt) {
+                    savePrompt();
+                }
+            }
+        });
+    </script>
+</body>
+</html>
+

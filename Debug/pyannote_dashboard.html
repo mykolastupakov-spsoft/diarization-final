@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PyAnnote Test Results Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .test-section {
+            margin-bottom: 50px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .test-title {
+            font-size: 2em;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .audio-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .audio-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .audio-label {
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .speaker-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9em;
+            color: white;
+        }
+
+        .speaker-00 {
+            background: #667eea;
+        }
+
+        .speaker-01 {
+            background: #f093fb;
+        }
+
+        .audio-player {
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .audio-player audio {
+            width: 100%;
+            outline: none;
+        }
+
+        .transcript-section {
+            margin-top: 30px;
+        }
+
+        .transcript-title {
+            font-size: 1.5em;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .transcript-segment {
+            background: white;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .time-stamp {
+            color: #666;
+            font-size: 0.9em;
+            margin-left: 10px;
+        }
+
+        .transcript-text {
+            margin-top: 10px;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .info-badge {
+            display: inline-block;
+            background: #e9ecef;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.9em;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #666;
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 30px;
+            color: #999;
+            font-style: italic;
+        }
+
+        .test-info {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎤 PyAnnote Test Results Dashboard</h1>
+            <p>Результати тестування розділення спікерів</p>
+        </div>
+
+        <div class="content">
+            <div id="loading" class="loading">
+                Завантаження результатів тестів...
+            </div>
+
+            <div id="error" class="error" style="display: none;"></div>
+
+            <div id="dashboard"></div>
+        </div>
+    </div>
+
+    <script>
+        async function loadTestResults() {
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const dashboard = document.getElementById('dashboard');
+
+            try {
+                // Завантажуємо результати тестів
+                const response = await fetch('pyannote_test_results.json');
+                if (!response.ok) {
+                    throw new Error(`Помилка завантаження: ${response.status}`);
+                }
+                
+                const testResults = await response.json();
+                renderDashboard(testResults);
+            } catch (err) {
+                // Якщо файл не знайдено, спробуємо завантажити напряму з /tmp
+                console.log('Trying to load from individual test files...');
+                await loadIndividualTests();
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        async function loadIndividualTests() {
+            const dashboard = document.getElementById('dashboard');
+            const error = document.getElementById('error');
+            
+            const testFiles = [
+                { path: '../tmp/test_response.json', name: 'Call center 1.wav' },
+                { path: '../tmp/test_response2.json', name: 'OverlappingCallCenterWithoutBackground.MP3' }
+            ];
+
+            const testResults = [];
+
+            for (const testFile of testFiles) {
+                try {
+                    const response = await fetch(testFile.path);
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.success) {
+                            testResults.push({
+                                name: testFile.name,
+                                data: data
+                            });
+                        }
+                    }
+                } catch (e) {
+                    console.log(`Could not load ${testFile.path}:`, e);
+                }
+            }
+
+            if (testResults.length > 0) {
+                renderDashboard(testResults);
+            } else {
+                error.style.display = 'block';
+                error.textContent = 'Не вдалося завантажити результати тестів. Переконайтеся, що файли тестів доступні.';
+            }
+        }
+
+        function renderDashboard(testResults) {
+            const dashboard = document.getElementById('dashboard');
+            
+            if (!testResults || testResults.length === 0) {
+                dashboard.innerHTML = '<div class="no-data">Немає результатів тестів</div>';
+                return;
+            }
+
+            let html = '';
+
+            testResults.forEach((test, testIndex) => {
+                const testData = test.data;
+                const testName = test.name || `Test ${testIndex + 1}`;
+                
+                html += `<div class="test-section">`;
+                html += `<h2 class="test-title">${escapeHtml(testName)}</h2>`;
+                
+                // Інформація про тест
+                html += `<div class="test-info">`;
+                html += `<span class="info-badge">Режим: ${escapeHtml(testData.pipelineMode || 'mode2')}</span>`;
+                html += `<span class="info-badge">Успішно: ${testData.success ? '✅' : '❌'}</span>`;
+                if (testData.separation) {
+                    html += `<span class="info-badge">Спікерів: ${testData.separation.speakers?.length || 0}</span>`;
+                }
+                html += `</div>`;
+
+                // Оригінальний аудіо (шукаємо в різних місцях)
+                let originalAudio = null;
+                let originalFileName = null;
+                
+                // Варіант 1: з назви тесту
+                const testName = test.name || '';
+                if (testName.includes('.wav') || testName.includes('.mp3') || testName.includes('.WAV') || testName.includes('.MP3')) {
+                    originalFileName = testName;
+                }
+                // Варіант 2: з primaryDiarization
+                else if (testData.primaryDiarization?.recordings?.[0]?.name) {
+                    const recName = testData.primaryDiarization.recordings[0].name;
+                    if (recName.includes('.wav') || recName.includes('.mp3') || recName.includes('.WAV') || recName.includes('.MP3')) {
+                        originalFileName = recName;
+                    }
+                }
+                // Варіант 3: з fileName
+                else if (testData.primaryDiarization?.recordings?.[0]?.fileName) {
+                    const fileName = testData.primaryDiarization.recordings[0].fileName;
+                    // Якщо це не хеш (довжина > 20), використовуємо як є
+                    if (fileName.length > 20 && (fileName.includes('.wav') || fileName.includes('.mp3'))) {
+                        originalFileName = fileName;
+                    }
+                }
+                
+                // Формуємо URL для оригінального файлу
+                if (originalFileName) {
+                    // Спочатку пробуємо в audio examples (з пробілами)
+                    // Кодуємо весь шлях правильно
+                    const fullPath = `audio examples/${originalFileName}`;
+                    // Використовуємо encodeURI для всього шляху (кодує пробіли як %20)
+                    const encodedPath = encodeURI(fullPath);
+                    originalAudio = `http://localhost:3000/${encodedPath}`;
+                } else if (testData.sourceAudio) {
+                    originalAudio = testData.sourceAudio;
+                }
+                
+                if (originalAudio) {
+                    // Конвертуємо шлях в localhost URL якщо потрібно
+                    let audioUrl = originalAudio;
+                    if (!audioUrl.startsWith('http://') && !audioUrl.startsWith('https://')) {
+                        if (audioUrl.startsWith('/uploads/') || audioUrl.startsWith('/')) {
+                            audioUrl = `http://localhost:3000${audioUrl}`;
+                        } else {
+                            audioUrl = `http://localhost:3000/uploads/${audioUrl}`;
+                        }
+                    }
+                    
+                    html += `<div class="audio-card" style="grid-column: 1 / -1;">`;
+                    html += `<div class="audio-label">🎵 Оригінальна запис: ${escapeHtml(originalFileName || 'Original')}</div>`;
+                    html += `<div class="audio-player">`;
+                    html += `<audio controls><source src="${audioUrl}" type="audio/${originalFileName?.split('.').pop() || 'wav'}"></audio>`;
+                    html += `</div></div>`;
+                }
+
+                // Розділені доріжки
+                if (testData.separation && testData.separation.speakers) {
+                    html += `<div class="audio-grid">`;
+                    
+                    testData.separation.speakers.forEach((speaker, index) => {
+                        const speakerName = speaker.name || `SPEAKER_${index.toString().padStart(2, '0')}`;
+                        const speakerNum = speakerName.replace('SPEAKER_', '');
+                        const speakerUrl = speaker.downloadUrl || speaker.url;
+                        
+                        html += `<div class="audio-card">`;
+                        html += `<div class="audio-label">`;
+                        html += `<span class="speaker-badge speaker-${speakerNum % 2}">${escapeHtml(speakerName)}</span>`;
+                        html += `</div>`;
+                        html += `<div class="audio-player">`;
+                        
+                        if (speakerUrl) {
+                            // Конвертуємо URL якщо потрібно
+                            let audioUrl = speakerUrl;
+                            
+                            // Якщо це localtunnel URL, конвертуємо в localhost
+                            if (speakerUrl.includes('loca.lt') || speakerUrl.includes('ngrok') || speakerUrl.includes('tunnel')) {
+                                // Витягуємо шлях з URL
+                                try {
+                                    const url = new URL(speakerUrl);
+                                    audioUrl = `http://localhost:3000${url.pathname}`;
+                                } catch (e) {
+                                    // Якщо не вдалося розпарсити, спробуємо витягти шлях вручну
+                                    const pathMatch = speakerUrl.match(/\/uploads\/[^\/]+$/);
+                                    if (pathMatch) {
+                                        audioUrl = `http://localhost:3000${pathMatch[0]}`;
+                                    }
+                                }
+                            }
+                            // Якщо це інший HTTP URL, використовуємо як є
+                            else if (speakerUrl.startsWith('http://') || speakerUrl.startsWith('https://')) {
+                                audioUrl = speakerUrl;
+                            }
+                            // Якщо це локальний шлях /uploads/, конвертуємо в localhost
+                            else if (speakerUrl.startsWith('/uploads/')) {
+                                audioUrl = `http://localhost:3000${speakerUrl}`;
+                            }
+                            // Якщо це відносний шлях
+                            else if (speakerUrl.startsWith('/')) {
+                                audioUrl = `http://localhost:3000${speakerUrl}`;
+                            }
+                            // Якщо це відносний шлях без слешу
+                            else {
+                                audioUrl = `http://localhost:3000/uploads/${speakerUrl}`;
+                            }
+                            
+                            html += `<audio controls><source src="${audioUrl}" type="audio/${speaker.format || 'wav'}"></audio>`;
+                        } else {
+                            html += `<div class="no-data">URL не знайдено</div>`;
+                        }
+                        
+                        html += `</div></div>`;
+                    });
+                    
+                    html += `</div>`;
+                }
+
+                // Транскрипти (якщо є)
+                const transcripts = extractTranscripts(testData);
+                if (transcripts && transcripts.length > 0) {
+                    html += `<div class="transcript-section">`;
+                    html += `<h3 class="transcript-title">📝 Транскрипти</h3>`;
+                    
+                    transcripts.forEach(segment => {
+                        const speaker = segment.speaker || 'UNKNOWN';
+                        const speakerNum = speaker.replace('SPEAKER_', '');
+                        html += `<div class="transcript-segment">`;
+                        html += `<span class="speaker-badge speaker-${speakerNum % 2}">${escapeHtml(speaker)}</span>`;
+                        if (segment.start !== undefined && segment.end !== undefined) {
+                            html += `<span class="time-stamp">${formatTime(segment.start)} - ${formatTime(segment.end)}</span>`;
+                        }
+                        html += `<div class="transcript-text">${escapeHtml(segment.text || segment.originalText || '')}</div>`;
+                        html += `</div>`;
+                    });
+                    
+                    html += `</div>`;
+                } else {
+                    html += `<div class="transcript-section">`;
+                    html += `<h3 class="transcript-title">📝 Транскрипти</h3>`;
+                    html += `<div class="no-data">Транскрипти не знайдено в результатах тесту</div>`;
+                    html += `</div>`;
+                }
+
+                html += `</div>`;
+            });
+
+            dashboard.innerHTML = html;
+        }
+
+        function extractTranscripts(testData) {
+            // Шукаємо транскрипти в різних місцях структури
+            const segments = [];
+            
+            // Варіант 1: correctedDiarization (пріоритет, бо це виправлені результати)
+            if (testData.correctedDiarization?.recordings?.[0]?.results) {
+                const results = testData.correctedDiarization.recordings[0].results;
+                for (const [serviceName, serviceData] of Object.entries(results)) {
+                    if (serviceData?.segments && Array.isArray(serviceData.segments)) {
+                        segments.push(...serviceData.segments);
+                    }
+                }
+            }
+            
+            // Варіант 2: primaryDiarization (якщо немає corrected)
+            if (segments.length === 0 && testData.primaryDiarization?.recordings?.[0]?.results) {
+                const results = testData.primaryDiarization.recordings[0].results;
+                for (const [serviceName, serviceData] of Object.entries(results)) {
+                    if (serviceData?.segments && Array.isArray(serviceData.segments)) {
+                        segments.push(...serviceData.segments);
+                    }
+                }
+            }
+            
+            // Варіант 3: напряму в recording
+            if (segments.length === 0 && testData.recordings?.[0]?.results) {
+                const results = testData.recordings[0].results;
+                for (const [serviceName, serviceData] of Object.entries(results)) {
+                    if (serviceData?.segments && Array.isArray(serviceData.segments)) {
+                        segments.push(...serviceData.segments);
+                    }
+                }
+            }
+            
+            return segments.length > 0 ? segments : null;
+        }
+
+        function getAudioUrl(fileName) {
+            if (!fileName) return null;
+            
+            // Спробуємо знайти файл в різних місцях
+            const possiblePaths = [
+                `../uploads/${fileName}`,
+                `../audio examples/${fileName}`,
+                `uploads/${fileName}`,
+                `audio examples/${fileName}`,
+                fileName
+            ];
+            
+            return possiblePaths[0];
+        }
+
+        function formatTime(seconds) {
+            if (seconds === undefined || seconds === null) return 'N/A';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Завантажуємо дані при завантаженні сторінки
+        window.addEventListener('DOMContentLoaded', loadTestResults);
+    </script>
+</body>
+</html>
+

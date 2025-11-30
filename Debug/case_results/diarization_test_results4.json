@@ -1,0 +1,280 @@
+{
+  "version": "2.0",
+  "exportedAt": "2025-11-20T11:02:53.141Z",
+  "activeRecordingId": "rec_001_transcript_analysis",
+  "recordings": [
+    {
+      "id": "rec_001_transcript_analysis",
+      "name": "Transcript Analysis",
+      "fileName": "Transcript Analysis",
+      "size": null,
+      "duration": 28,
+      "language": "ar",
+      "speakerCount": "2",
+      "status": "completed",
+      "addedAt": null,
+      "translationState": {
+        "currentLanguage": "original",
+        "lastError": null
+      },
+      "results": {
+        "text-service": {
+          "success": true,
+          "serviceName": "Text Mode 📝",
+          "processingTime": 0,
+          "speedFactor": 0,
+          "speakerCount": 2,
+          "cost": "0.0000",
+          "segments": [
+            {
+              "speaker": "SPEAKER_00",
+              "text": "أهلاً وسهلاً، هنا مركز الامان المصرفي، سارة معك. أسمع سيارات بالخلفية.",
+              "start": 0,
+              "end": 4,
+              "words": [],
+              "role": "operator",
+              "overlap": false,
+              "originalText": "أهلاً وسهلاً، هنا مركز الامان المصرفي، سارة معك. أسمع سيارات بالخلفية.",
+              "translations": {}
+            },
+            {
+              "speaker": "SPEAKER_01",
+              "text": "أنا فعلاً في سوق نايف، عندي صراخ وباعة حواليني.",
+              "start": 4,
+              "end": 7,
+              "words": [],
+              "role": "client",
+              "overlap": false,
+              "originalText": "أنا فعلاً في سوق نايف، عندي صراخ وباعة حواليني.",
+              "translations": {}
+            },
+            {
+              "speaker": "SPEAKER_00",
+              "text": "تمام، حا أرفع سماعة ثانية لتصفية الضوضاء.",
+              "start": 7,
+              "end": 9,
+              "words": [],
+              "role": "operator",
+              "overlap": false,
+              "originalText": "تمام، حا أرفع سماعة ثانية لتصفية الضوضاء.",
+              "translations": {}
+            },
+            {
+              "speaker": "SPEAKER_01",
+              "text": "أيوه بس في شاب يحاول يأخذ محفظتي.",
+              "start": 9,
+              "end": 11.5,
+              "words": [],
+              "role": "client",
+              "overlap": true,
+              "originalText": "أيوه بس في شاب يحاول يأخذ محفظتي.",
+              "translations": {}
+            },
+            {
+              "speaker": "SPEAKER_00",
+              "text": "خليك معي لا تغلقي، رح أرسل تنبيه للفرع الأقرب.",
+              "start": 10,
+              "end": 13,
+              "words": [],
+              "role": "operator",
+              "overlap": true,
+              "originalText": "خليك معي لا تغلقي، رح أرسل تنبيه للفرع الأقرب.",
+              "translations": {}
+            },
+            {
+              "speaker": "SPEAKER_01",
+              "text": "سمعت صافرة شرطة، يمكن لأنك بعت التنبيه؟",
+              "start": 14,
+              "end": 16,
+              "words": [],
+              "role": "client",
+              "overlap": false,
+              "originalText": "سمعت صافرة شرطة، يمكن لأنك بعت التنبيه؟",
+              "translations": {}
+            },
+            {
+              "speaker": "SPEAKER_00",
+              "text": "أرسلت إشعار خطر ونبهت فريق الأمن، هل تقدرين توصفي الشخص؟",
+              "start": 16,
+              "end": 19,
+              "words": [],
+              "role": "operator",
+              "overlap": false,
+              "originalText": "أرسلت إشعار خطر ونبهت فريق الأمن، هل تقدرين توصفي الشخص؟",
+              "translations": {}
+            },
+            {
+              "speaker": "SPEAKER_01",
+              "text": "لابس جاكيت رمادي وصوت السماعات عاليااا!",
+              "start": 19,
+              "end": 22,
+              "words": [],
+              "role": "client",
+              "overlap": false,
+              "originalText": "لابس جاكيت رمادي وصوت السماعات عاليااا!",
+              "translations": {}
+            },
+            {
+              "speaker": "SPEAKER_00",
+              "text": "سجلت الوصف، وإذا حاول يسحب أي مبلغ بنوقفه.",
+              "start": 22,
+              "end": 25,
+              "words": [],
+              "role": "operator",
+              "overlap": false,
+              "originalText": "سجلت الوصف، وإذا حاول يسحب أي مبلغ بنوقفه.",
+              "translations": {}
+            },
+            {
+              "speaker": "SPEAKER_01",
+              "text": "في طفل يصرخ والناس تدفشني، بس سامعتك الحين.",
+              "start": 25,
+              "end": 28,
+              "words": [],
+              "role": "client",
+              "overlap": false,
+              "originalText": "في طفل يصرخ والناس تدفشني، بس سامعتك الحين.",
+              "translations": {}
+            }
+          ],
+          "rawData": {
+            "duration": 28,
+            "language": "ar",
+            "source": "text"
+          }
+        }
+      },
+      "aggregated": {},
+      "servicesTested": [
+        "text-service"
+      ]
+    }
+  ],
+  "legacyTestResults": {
+    "text-service": {
+      "success": true,
+      "serviceName": "Text Mode 📝",
+      "processingTime": 0,
+      "speedFactor": 0,
+      "speakerCount": 2,
+      "cost": "0.0000",
+      "segments": [
+        {
+          "speaker": "SPEAKER_00",
+          "text": "أهلاً وسهلاً، هنا مركز الامان المصرفي، سارة معك. أسمع سيارات بالخلفية.",
+          "start": 0,
+          "end": 4,
+          "words": [],
+          "role": "operator",
+          "overlap": false,
+          "originalText": "أهلاً وسهلاً، هنا مركز الامان المصرفي، سارة معك. أسمع سيارات بالخلفية.",
+          "translations": {}
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "أنا فعلاً في سوق نايف، عندي صراخ وباعة حواليني.",
+          "start": 4,
+          "end": 7,
+          "words": [],
+          "role": "client",
+          "overlap": false,
+          "originalText": "أنا فعلاً في سوق نايف، عندي صراخ وباعة حواليني.",
+          "translations": {}
+        },
+        {
+          "speaker": "SPEAKER_00",
+          "text": "تمام، حا أرفع سماعة ثانية لتصفية الضوضاء.",
+          "start": 7,
+          "end": 9,
+          "words": [],
+          "role": "operator",
+          "overlap": false,
+          "originalText": "تمام، حا أرفع سماعة ثانية لتصفية الضوضاء.",
+          "translations": {}
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "أيوه بس في شاب يحاول يأخذ محفظتي.",
+          "start": 9,
+          "end": 11.5,
+          "words": [],
+          "role": "client",
+          "overlap": true,
+          "originalText": "أيوه بس في شاب يحاول يأخذ محفظتي.",
+          "translations": {}
+        },
+        {
+          "speaker": "SPEAKER_00",
+          "text": "خليك معي لا تغلقي، رح أرسل تنبيه للفرع الأقرب.",
+          "start": 10,
+          "end": 13,
+          "words": [],
+          "role": "operator",
+          "overlap": true,
+          "originalText": "خليك معي لا تغلقي، رح أرسل تنبيه للفرع الأقرب.",
+          "translations": {}
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "سمعت صافرة شرطة، يمكن لأنك بعت التنبيه؟",
+          "start": 14,
+          "end": 16,
+          "words": [],
+          "role": "client",
+          "overlap": false,
+          "originalText": "سمعت صافرة شرطة، يمكن لأنك بعت التنبيه؟",
+          "translations": {}
+        },
+        {
+          "speaker": "SPEAKER_00",
+          "text": "أرسلت إشعار خطر ونبهت فريق الأمن، هل تقدرين توصفي الشخص؟",
+          "start": 16,
+          "end": 19,
+          "words": [],
+          "role": "operator",
+          "overlap": false,
+          "originalText": "أرسلت إشعار خطر ونبهت فريق الأمن، هل تقدرين توصفي الشخص؟",
+          "translations": {}
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "لابس جاكيت رمادي وصوت السماعات عاليااا!",
+          "start": 19,
+          "end": 22,
+          "words": [],
+          "role": "client",
+          "overlap": false,
+          "originalText": "لابس جاكيت رمادي وصوت السماعات عاليااا!",
+          "translations": {}
+        },
+        {
+          "speaker": "SPEAKER_00",
+          "text": "سجلت الوصف، وإذا حاول يسحب أي مبلغ بنوقفه.",
+          "start": 22,
+          "end": 25,
+          "words": [],
+          "role": "operator",
+          "overlap": false,
+          "originalText": "سجلت الوصف، وإذا حاول يسحب أي مبلغ بنوقفه.",
+          "translations": {}
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "في طفل يصرخ والناس تدفشني، بس سامعتك الحين.",
+          "start": 25,
+          "end": 28,
+          "words": [],
+          "role": "client",
+          "overlap": false,
+          "originalText": "في طفل يصرخ والناس تدفشني، بس سامعتك الحين.",
+          "translations": {}
+        }
+      ],
+      "rawData": {
+        "duration": 28,
+        "language": "ar",
+        "source": "text"
+      }
+    }
+  }
+}

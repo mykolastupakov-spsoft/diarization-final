@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Azure STT Monitoring</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #333;
+            margin-top: 0;
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+        .section h2 {
+            color: #555;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+        }
+        tr:hover {
+            background: #f8f9fa;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .badge-success { background: #d4edda; color: #155724; }
+        .badge-warning { background: #fff3cd; color: #856404; }
+        .badge-error { background: #f8d7da; color: #721c24; }
+        .badge-info { background: #d1ecf1; color: #0c5460; }
+        .json-viewer {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #007bff;
+        }
+        .stat-card h3 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            color: #666;
+        }
+        .stat-card .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Azure STT Monitoring Dashboard</h1>
+        <div class="section">
+            <button id="loadBtn" onclick="loadLatestResults()">🔄 Load Latest Results</button>
+            <button id="refreshBtn" onclick="location.reload()">🔄 Refresh Page</button>
+        </div>
+    </div>
+
+    <div id="loading" class="container loading">
+        <p>Loading monitoring data...</p>
+    </div>
+
+    <div id="content" style="display: none;">
+        <div class="container section">
+            <h2>📊 Statistics</h2>
+            <div class="stats" id="stats"></div>
+        </div>
+
+        <div class="container section">
+            <h2>🎤 Voice Tracks Analysis</h2>
+            <div id="voiceTracksTable"></div>
+        </div>
+
+        <div class="container section">
+            <h2>📝 Segments Analysis</h2>
+            <div id="segmentsTable"></div>
+        </div>
+
+        <div class="container section">
+            <h2>🔍 Raw Data</h2>
+            <div id="rawData"></div>
+        </div>
+    </div>
+
+    <script>
+        async function loadLatestResults() {
+            const loadingEl = document.getElementById('loading');
+            const contentEl = document.getElementById('content');
+            const loadBtn = document.getElementById('loadBtn');
+            
+            loadingEl.style.display = 'block';
+            contentEl.style.display = 'none';
+            loadBtn.disabled = true;
+
+            try {
+                // Get the latest recording from localStorage or API
+                const response = await fetch('/api/get-latest-recording');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch latest recording');
+                }
+                
+                const data = await response.json();
+                if (!data.success || !data.recording) {
+                    throw new Error('No recording data available');
+                }
+
+                displayResults(data.recording);
+                
+                loadingEl.style.display = 'none';
+                contentEl.style.display = 'block';
+            } catch (error) {
+                loadingEl.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            } finally {
+                loadBtn.disabled = false;
+            }
+        }
+
+        function displayResults(recording) {
+            displayStats(recording);
+            displayVoiceTracks(recording);
+            displaySegments(recording);
+            displayRawData(recording);
+        }
+
+        function displayStats(recording) {
+            const statsEl = document.getElementById('stats');
+            const speechmatics = recording?.results?.speechmatics;
+            const overlapCorrected = recording?.results?.['overlap-corrected'];
+            const segments = speechmatics?.segments || [];
+            const overlapSegments = overlapCorrected?.segments || [];
+            
+            const uniqueSpeakers = new Set(segments.map(s => s.speaker)).size;
+            const uniqueOverlapSpeakers = new Set(overlapSegments.map(s => s.speaker)).size;
+            
+            statsEl.innerHTML = `
+                <div class="stat-card">
+                    <h3>Total Segments (Primary)</h3>
+                    <div class="value">${segments.length}</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Overlap-Corrected Segments</h3>
+                    <div class="value">${overlapSegments.length}</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Speakers (Primary)</h3>
+                    <div class="value">${uniqueSpeakers}</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Speakers (Overlap)</h3>
+                    <div class="value">${uniqueOverlapSpeakers}</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Engine</h3>
+                    <div class="value">${speechmatics?.engine || 'unknown'}</div>
+                </div>
+            `;
+        }
+
+        function displayVoiceTracks(recording) {
+            // This would need to be passed from the API
+            const tableEl = document.getElementById('voiceTracksTable');
+            tableEl.innerHTML = '<p>Voice tracks data not available in recording structure. Check raw data section.</p>';
+        }
+
+        function displaySegments(recording) {
+            const tableEl = document.getElementById('segmentsTable');
+            const segments = recording?.results?.['overlap-corrected']?.segments || 
+                           recording?.results?.speechmatics?.segments || [];
+            
+            if (segments.length === 0) {
+                tableEl.innerHTML = '<p>No segments found.</p>';
+                return;
+            }
+
+            let html = '<table><thead><tr>';
+            html += '<th>Speaker</th><th>Text</th><th>Start</th><th>End</th><th>Role</th><th>Source</th>';
+            html += '</tr></thead><tbody>';
+
+            segments.slice(0, 50).forEach(seg => {
+                const text = (seg.text || '').substring(0, 100);
+                html += `<tr>
+                    <td>${seg.speaker || 'N/A'}</td>
+                    <td>${text}${seg.text && seg.text.length > 100 ? '...' : ''}</td>
+                    <td>${seg.start?.toFixed(2) || 'N/A'}</td>
+                    <td>${seg.end?.toFixed(2) || 'N/A'}</td>
+                    <td>${seg.role || 'N/A'}</td>
+                    <td><span class="badge badge-info">${seg.source || 'primary'}</span></td>
+                </tr>`;
+            });
+
+            html += '</tbody></table>';
+            if (segments.length > 50) {
+                html += `<p><em>Showing first 50 of ${segments.length} segments</em></p>`;
+            }
+            tableEl.innerHTML = html;
+        }
+
+        function displayRawData(recording) {
+            const rawEl = document.getElementById('rawData');
+            rawEl.innerHTML = `<div class="json-viewer">${JSON.stringify(recording, null, 2)}</div>`;
+        }
+
+        // Load on page load
+        window.addEventListener('load', () => {
+            loadLatestResults();
+        });
+    </script>
+</body>
+</html>
+

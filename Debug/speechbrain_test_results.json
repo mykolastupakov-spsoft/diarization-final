@@ -1,0 +1,75 @@
+[
+  {
+    "name": "Call center 1.wav",
+    "sourceAudio": "audio examples/Call center 1.wav",
+    "pipelineMode": "mode3",
+    "success": true,
+    "separation": {
+      "speakers": [
+        {
+          "name": "SPEAKER_00",
+          "format": "wav",
+          "url": "/speechbrain_samples/call_center_1/SPEAKER_00.wav",
+          "downloadUrl": "/speechbrain_samples/call_center_1/SPEAKER_00.wav"
+        },
+        {
+          "name": "SPEAKER_01",
+          "format": "wav",
+          "url": "/speechbrain_samples/call_center_1/SPEAKER_01.wav",
+          "downloadUrl": "/speechbrain_samples/call_center_1/SPEAKER_01.wav"
+        }
+      ],
+      "timeline": [
+        {
+          "speaker": "SPEAKER_00",
+          "start": 0.0,
+          "end": 258.85,
+          "duration": 258.85
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "start": 0.0,
+          "end": 258.85,
+          "duration": 258.85
+        }
+      ]
+    }
+  },
+  {
+    "name": "OverlappingCallCenterWithoutBackground.MP3",
+    "sourceAudio": "audio examples/OverlappingCallCenterWithoutBackground.MP3",
+    "pipelineMode": "mode3",
+    "success": true,
+    "separation": {
+      "speakers": [
+        {
+          "name": "SPEAKER_00",
+          "format": "wav",
+          "url": "/speechbrain_samples/overlap_call_center/SPEAKER_00.wav",
+          "downloadUrl": "/speechbrain_samples/overlap_call_center/SPEAKER_00.wav"
+        },
+        {
+          "name": "SPEAKER_01",
+          "format": "wav",
+          "url": "/speechbrain_samples/overlap_call_center/SPEAKER_01.wav",
+          "downloadUrl": "/speechbrain_samples/overlap_call_center/SPEAKER_01.wav"
+        }
+      ],
+      "timeline": [
+        {
+          "speaker": "SPEAKER_00",
+          "start": 0.0,
+          "end": 258.85,
+          "duration": 258.85
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "start": 0.0,
+          "end": 258.85,
+          "duration": 258.85
+        }
+      ]
+    }
+  }
+]
+

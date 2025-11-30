@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Diarization Efficiency Analyzer</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f8fafc;
+        --card: #ffffff;
+        --border: #e2e8f0;
+        --text: #0f172a;
+        --muted: #475569;
+        --green: #16a34a;
+        --green-bg: #dcfce7;
+        --red: #dc2626;
+        --red-bg: #fee2e2;
+        --blue: #2563eb;
+        --blue-dark: #1d4ed8;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.6;
+        min-height: 100vh;
+        padding: 2rem clamp(1rem, 3vw, 3rem);
+      }
+
+      h1,
+      h2 {
+        margin: 0 0 0.5rem;
+      }
+
+      p {
+        margin: 0 0 1rem;
+        color: var(--muted);
+      }
+
+      .page {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 1rem;
+        padding: clamp(1rem, 2vw, 1.5rem);
+        box-shadow: 0 20px 35px rgb(15 23 42 / 5%);
+      }
+
+      .inputs {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1.5rem;
+      }
+
+      label {
+        display: flex;
+        flex-direction: column;
+        font-weight: 600;
+        gap: 0.5rem;
+      }
+
+      textarea {
+        min-height: 150px;
+        padding: 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: 0.75rem;
+        font-family: inherit;
+        font-size: 0.95rem;
+        resize: vertical;
+        direction: auto;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+      }
+
+      button {
+        border: none;
+        border-radius: 999px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+        font-size: 0.95rem;
+        cursor: pointer;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+
+      button.primary {
+        background: var(--blue);
+        color: #fff;
+      }
+
+      button.primary:hover {
+        background: var(--blue-dark);
+      }
+
+      button.secondary {
+        background: #e2e8f0;
+        color: #0f172a;
+      }
+
+      button.utility {
+        background: #cbd5f5;
+        color: var(--blue-dark);
+      }
+
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      button:not(:disabled):active {
+        transform: translateY(1px);
+      }
+
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 1rem;
+      }
+
+      .metric {
+        border: 1px solid var(--border);
+        border-radius: 0.75rem;
+        padding: 0.75rem;
+      }
+
+      .metric dt {
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+        margin-bottom: 0.3rem;
+      }
+
+      .metric dd {
+        margin: 0;
+        font-size: 1.5rem;
+        font-weight: 700;
+      }
+
+      .table-wrapper {
+        overflow-x: auto;
+      }
+
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        min-width: 960px;
+      }
+
+      th,
+      td {
+        border: 1px solid var(--border);
+        padding: 0.75rem;
+        vertical-align: top;
+      }
+
+      th {
+        text-align: left;
+        background: #f1f5f9;
+        font-size: 0.95rem;
+      }
+
+      .text-cell {
+        font-size: 0.95rem;
+        line-height: 1.8;
+        word-break: break-word;
+      }
+
+      .highlight span {
+        padding: 0.2rem 0.35rem;
+        border-radius: 0.35rem;
+        margin: 0.15rem;
+        display: inline-flex;
+        align-items: baseline;
+        direction: inherit;
+      }
+
+      .match {
+        background: var(--green-bg);
+        color: var(--green);
+      }
+
+      .error {
+        background: var(--red-bg);
+        color: var(--red);
+      }
+
+      .status {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 0.15rem 0.4rem;
+        border-radius: 999px;
+        border: 1px solid currentColor;
+        margin-left: 0.35rem;
+      }
+
+      .status.match {
+        color: var(--green);
+      }
+
+      .status.error {
+        color: var(--red);
+      }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        border: 0;
+      }
+
+      @media (max-width: 640px) {
+        .actions {
+          flex-direction: column;
+        }
+        button {
+          width: 100%;
+          justify-content: center;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page" id="diarization-app">
+      <header>
+        <h1>Diarization Efficiency Analyzer</h1>
+        <p>
+          Compare original and recognized transcripts, visualize differences word
+          by word, and export structured quality metrics.
+        </p>
+      </header>
+
+      <section class="card inputs" aria-label="Dialogue inputs">
+        <label for="originalText">
+          Original Dialogue
+          <textarea
+            id="originalText"
+            placeholder="Paste the ground-truth dialogue here..."
+          ></textarea>
+        </label>
+        <label for="recognizedText">
+          Recognized Dialogue
+          <textarea
+            id="recognizedText"
+            placeholder="Paste the recognized dialogue here..."
+          ></textarea>
+        </label>
+      </section>
+
+      <section class="card" aria-label="Actions">
+        <div class="actions">
+          <button class="primary" id="compareBtn">Compare &amp; Analyze</button>
+          <button class="secondary" id="clearBtn">Clear</button>
+          <a class="secondary" id="openGeneratorBtn" href="/Features/Realistic-audio-generator.html" target="_blank" style="text-decoration:none; display:inline-flex; align-items:center; gap:0.4rem; padding:0.75rem 1.5rem; border-radius:999px; font-weight:600;">🎧 Generate Dialogue</a>
+          <button class="utility" id="copyBtn" disabled>
+            Copy Highlighted Results
+          </button>
+          <button class="utility" id="jsonBtn" disabled>
+            Export JSON
+          </button>
+        </div>
+      </section>
+
+      <section class="card" aria-live="polite" aria-label="Metrics">
+        <h2>Metrics</h2>
+        <div class="metrics" id="metrics">
+          <article class="metric">
+            <dl>
+              <dt>Total words in original</dt>
+              <dd id="metricOriginal">0</dd>
+            </dl>
+          </article>
+          <article class="metric">
+            <dl>
+              <dt>Total words in recognized</dt>
+              <dd id="metricRecognized">0</dd>
+            </dl>
+          </article>
+          <article class="metric">
+            <dl>
+              <dt>Matches</dt>
+              <dd id="metricMatches">0</dd>
+            </dl>
+          </article>
+          <article class="metric">
+            <dl>
+              <dt>Errors</dt>
+              <dd id="metricErrors">0</dd>
+            </dl>
+          </article>
+          <article class="metric">
+            <dl>
+              <dt>Accuracy</dt>
+              <dd id="metricAccuracy">0%</dd>
+            </dl>
+          </article>
+        </div>
+      </section>
+
+      <section class="card" aria-label="Comparison table">
+        <h2>Word-Level Comparison</h2>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Agent · Original</th>
+                <th scope="col">Agent · Transcribed</th>
+                <th scope="col">Client · Original</th>
+                <th scope="col">Client · Transcribed</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="text-cell highlight" id="agentOriginal" dir="auto"></td>
+                <td class="text-cell highlight" id="agentTranscribed" dir="auto"></td>
+                <td class="text-cell highlight" id="clientOriginal" dir="auto"></td>
+                <td class="text-cell highlight" id="clientTranscribed" dir="auto"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const originalInput = document.getElementById("originalText");
+      const recognizedInput = document.getElementById("recognizedText");
+      const ORIGINAL_DIALOGUE_STORAGE_KEY = "diarizationOriginalScript";
+      const ANALYZER_PAYLOAD_STORAGE_KEY = "diarizationAnalyzerPayload";
+      const compareBtn = document.getElementById("compareBtn");
+      const clearBtn = document.getElementById("clearBtn");
+      const copyBtn = document.getElementById("copyBtn");
+      const jsonBtn = document.getElementById("jsonBtn");
+
+      const metricOriginal = document.getElementById("metricOriginal");
+      const metricRecognized = document.getElementById("metricRecognized");
+      const metricMatches = document.getElementById("metricMatches");
+      const metricErrors = document.getElementById("metricErrors");
+      const metricAccuracy = document.getElementById("metricAccuracy");
+
+      const agentOriginalCell = document.getElementById("agentOriginal");
+      const agentTranscribedCell = document.getElementById("agentTranscribed");
+      const clientOriginalCell = document.getElementById("clientOriginal");
+      const clientTranscribedCell = document.getElementById("clientTranscribed");
+
+      let lastAnalysis = null;
+
+      const normalizeWord = (word) =>
+        word
+          .toLocaleLowerCase("en-US")
+          .replace(/[“”"']/g, '"')
+          .replace(/[‘’]/g, "'")
+          .trim();
+
+      const tokenize = (text) =>
+        text
+          .replace(/[\n\r]+/g, " ")
+          .split(/\s+/)
+          .filter(Boolean)
+          .map((word, index) => ({
+            index,
+            original: word,
+            normalized: normalizeWord(word),
+          }));
+
+      const compareTexts = (originalText, recognizedText) => {
+        const originalTokens = tokenize(originalText);
+        const recognizedTokens = tokenize(recognizedText);
+
+        let matches = 0;
+        const results = recognizedTokens.map((token, idx) => {
+          const originalMatch = originalTokens[idx];
+          const isMatch =
+            originalMatch &&
+            token.normalized.localeCompare(originalMatch.normalized, undefined, {
+              sensitivity: "base",
+            }) === 0;
+
+          if (isMatch) matches += 1;
+
+          return {
+            ...token,
+            isMatch,
+            originalToken: originalMatch || null,
+          };
+        });
+
+        const errors = recognizedTokens.length - matches;
+        const accuracy =
+          originalTokens.length > 0
+            ? ((matches / originalTokens.length) * 100).toFixed(2)
+            : "0.00";
+
+        return {
+          originalTokens,
+          recognizedTokens,
+          results,
+          metrics: {
+            totalOriginal: originalTokens.length,
+            totalRecognized: recognizedTokens.length,
+            matches,
+            errors,
+            accuracy,
+          },
+        };
+      };
+
+      const renderHighlight = (container, tokens, referenceResults, isRecognized) => {
+        container.innerHTML = "";
+
+        tokens.forEach((token, idx) => {
+          const span = document.createElement("span");
+          span.textContent = token.original;
+          span.dir = token.original.trim() ? getDirection(token.original) : "auto";
+
+          const matchInfo = isRecognized ? referenceResults[idx] : referenceResults[idx];
+          const isMatch = matchInfo ? matchInfo.isMatch : false;
+
+          if (matchInfo && matchInfo.originalToken && !isRecognized) {
+            span.title = `Matched with recognized word: ${matchInfo.originalToken.original}`;
+          }
+
+          if (isRecognized) {
+            span.classList.add(isMatch ? "match" : "error");
+          } else {
+            if (!matchInfo) {
+              span.classList.add("error");
+            } else {
+              span.classList.add(matchInfo.isMatch ? "match" : "error");
+            }
+          }
+
+          container.appendChild(span);
+        });
+      };
+
+      const renderMetrics = (metrics) => {
+        metricOriginal.textContent = metrics.totalOriginal;
+        metricRecognized.textContent = metrics.totalRecognized;
+        metricMatches.textContent = metrics.matches;
+        metricErrors.textContent = metrics.errors;
+        metricAccuracy.textContent = `${metrics.accuracy}%`;
+      };
+
+      const roleLabels = {
+        agent: ["agent", "speaker 1", "rep", "support", "advisor", "operator"],
+        client: ["client", "speaker 2", "customer", "caller", "user", "guest"],
+      };
+
+      const splitDialogueByRole = (text) => {
+        const segments = { agent: [], client: [] };
+        const lines = text.split(/[\r\n]+/).filter((line) => line.trim().length);
+        let activeRole = "agent";
+
+        lines.forEach((line) => {
+          const trimmed = line.trim();
+          const match = trimmed.match(/^([^:：-]+)[:：-]\s*(.+)$/);
+          if (match) {
+            const label = match[1].trim().toLowerCase();
+            const content = match[2].trim();
+            if (roleLabels.agent.some((tag) => label.includes(tag))) {
+              segments.agent.push(content);
+              activeRole = "agent";
+              return;
+            }
+            if (roleLabels.client.some((tag) => label.includes(tag))) {
+              segments.client.push(content);
+              activeRole = "client";
+              return;
+            }
+          }
+          segments[activeRole].push(trimmed);
+        });
+
+        if (!segments.agent.length && !segments.client.length && text.trim()) {
+          segments.agent.push(text.trim());
+        }
+
+        return {
+          agent: segments.agent.join(" "),
+          client: segments.client.join(" "),
+        };
+      };
+
+      const runAnalysis = () => {
+        const originalText = originalInput.value.trim();
+        const recognizedText = recognizedInput.value.trim();
+
+        if (!originalText || !recognizedText) {
+          alert("Please provide both original and recognized dialogues.");
+          return;
+        }
+
+        const overallAnalysis = compareTexts(originalText, recognizedText);
+        const originalRoles = splitDialogueByRole(originalText);
+        const recognizedRoles = splitDialogueByRole(recognizedText);
+
+        const agentAnalysis = compareTexts(originalRoles.agent, recognizedRoles.agent);
+        const clientAnalysis = compareTexts(originalRoles.client, recognizedRoles.client);
+
+        renderHighlight(
+          agentOriginalCell,
+          agentAnalysis.originalTokens,
+          agentAnalysis.results,
+          false
+        );
+        renderHighlight(
+          agentTranscribedCell,
+          agentAnalysis.recognizedTokens,
+          agentAnalysis.results,
+          true
+        );
+        renderHighlight(
+          clientOriginalCell,
+          clientAnalysis.originalTokens,
+          clientAnalysis.results,
+          false
+        );
+        renderHighlight(
+          clientTranscribedCell,
+          clientAnalysis.recognizedTokens,
+          clientAnalysis.results,
+          true
+        );
+
+        renderMetrics(overallAnalysis.metrics);
+
+        lastAnalysis = {
+          ...overallAnalysis,
+          roles: {
+            agent: {
+              original: originalRoles.agent,
+              recognized: recognizedRoles.agent,
+              metrics: agentAnalysis.metrics,
+            },
+            client: {
+              original: originalRoles.client,
+              recognized: recognizedRoles.client,
+              metrics: clientAnalysis.metrics,
+            },
+          },
+          source: {
+            originalText,
+            recognizedText,
+          },
+          generatedAt: new Date().toISOString(),
+        };
+
+        copyBtn.disabled = false;
+        jsonBtn.disabled = false;
+      };
+
+      const resetAll = () => {
+        originalInput.value = "";
+        recognizedInput.value = "";
+        agentOriginalCell.textContent = "";
+        agentTranscribedCell.textContent = "";
+        clientOriginalCell.textContent = "";
+        clientTranscribedCell.textContent = "";
+        renderMetrics({
+          totalOriginal: 0,
+          totalRecognized: 0,
+          matches: 0,
+          errors: 0,
+          accuracy: "0.00",
+        });
+        lastAnalysis = null;
+        copyBtn.disabled = true;
+        jsonBtn.disabled = true;
+      };
+
+      const copyHighlighted = async () => {
+        if (!lastAnalysis) return;
+        const selectionText = [
+          "Agent · Original:",
+          agentOriginalCell.innerText,
+          "",
+          "Agent · Transcribed:",
+          agentTranscribedCell.innerText,
+          "",
+          "Client · Original:",
+          clientOriginalCell.innerText,
+          "",
+          "Client · Transcribed:",
+          clientTranscribedCell.innerText,
+        ].join("\n");
+
+        try {
+          await navigator.clipboard.writeText(selectionText);
+          copyBtn.textContent = "Copied!";
+          setTimeout(() => (copyBtn.textContent = "Copy Highlighted Results"), 1500);
+        } catch (err) {
+          alert("Unable to copy to clipboard. Please copy manually.");
+        }
+      };
+
+      const exportJSON = () => {
+        if (!lastAnalysis) return;
+        const blob = new Blob([JSON.stringify(lastAnalysis, null, 2)], {
+          type: "application/json;charset=utf-8",
+        });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `diarization-analysis-${Date.now()}.json`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      };
+
+      const getDirection = (text) => {
+        const rtlChars = /[\u0591-\u07FF\uFB1D-\uFDFD\uFE70-\uFEFC]/;
+        return rtlChars.test(text) ? "rtl" : "ltr";
+      };
+
+      const applyUrlParams = () => {
+        const params = new URLSearchParams(window.location.search);
+        const originalParam = params.get("original_text");
+        const recognizedParam = params.get("recognized_text");
+
+        if (originalParam) originalInput.value = decodeURIComponent(originalParam);
+        if (recognizedParam) recognizedInput.value = decodeURIComponent(recognizedParam);
+
+        if (originalParam && recognizedParam) {
+          runAnalysis();
+        }
+      };
+
+      const loadStoredOriginalFromLocalStorage = () => {
+        if (originalInput.value.trim()) return null;
+        try {
+          const raw = localStorage.getItem(ORIGINAL_DIALOGUE_STORAGE_KEY);
+          if (!raw) return null;
+          const payload = JSON.parse(raw);
+          if (!payload || !payload.text) return null;
+          originalInput.value = payload.text;
+          return payload;
+        } catch (error) {
+          console.warn("Failed to load stored original dialogue", error);
+          return null;
+        }
+      };
+
+      const loadAnalyzerPayloadFromStorage = () => {
+        let payload = null;
+        try {
+          payload = JSON.parse(
+            localStorage.getItem(ANALYZER_PAYLOAD_STORAGE_KEY) || "null"
+          );
+        } catch (error) {
+          console.warn("Failed to parse analyzer payload", error);
+        }
+        if (!payload) return;
+        if (payload.original?.text && !originalInput.value.trim()) {
+          originalInput.value = payload.original.text;
+        }
+        if (payload.recognized?.text) {
+          recognizedInput.value = payload.recognized.text;
+        }
+        localStorage.removeItem(ANALYZER_PAYLOAD_STORAGE_KEY);
+        if (originalInput.value.trim() && recognizedInput.value.trim()) {
+          runAnalysis();
+        }
+      };
+
+      const loadOriginalDialogueFromServer = async () => {
+        if (originalInput.value.trim()) return;
+        try {
+          const response = await fetch("/api/dialogue-scripts/latest");
+          if (!response.ok) return;
+          const data = await response.json();
+          if (data?.text && !originalInput.value.trim()) {
+            originalInput.value = data.text;
+          }
+        } catch (error) {
+          console.warn("Failed to fetch original dialogue from server", error);
+        }
+      };
+
+      const loadAnalyzerPayloadFromServer = async () => {
+        if (originalInput.value.trim() && recognizedInput.value.trim()) return;
+        try {
+          const response = await fetch("/api/analyzer-payload/latest");
+          if (!response.ok) return;
+          const payload = await response.json();
+          if (payload.original?.text && !originalInput.value.trim()) {
+            originalInput.value = payload.original.text;
+          }
+          if (payload.recognized?.text && !recognizedInput.value.trim()) {
+            recognizedInput.value = payload.recognized.text;
+          }
+          if (originalInput.value.trim() && recognizedInput.value.trim()) {
+            runAnalysis();
+          }
+        } catch (error) {
+          console.warn("Failed to fetch analyzer payload from server", error);
+        }
+      };
+
+      compareBtn.addEventListener("click", runAnalysis);
+      clearBtn.addEventListener("click", resetAll);
+      copyBtn.addEventListener("click", copyHighlighted);
+      jsonBtn.addEventListener("click", exportJSON);
+      window.addEventListener("DOMContentLoaded", async () => {
+        applyUrlParams();
+        loadStoredOriginalFromLocalStorage();
+        loadAnalyzerPayloadFromStorage();
+        await loadOriginalDialogueFromServer();
+        await loadAnalyzerPayloadFromServer();
+      });
+    </script>
+  </body>
+</html>
+

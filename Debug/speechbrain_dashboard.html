@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Speechmatics Diarization Demo</title>
+</head>
+
+<body>
+<h1>Upload Audio → Transcribe (Speaker Diarization)</h1>
+
+<!-- 1. File selector & upload button -->
+<input type="file" id="audioFileInput" accept=".wav,.mp3,.ogg">
+<button id="uploadBtn">Upload & Transcribe</button>
+
+<!-- 2. Status / log -->
+<h3>Status:</h3>
+<pre id="log"></pre>
+
+<!-- 3. Result display -->
+<h3>Transcript (speaker turns)</h3>
+<table id="resultTable" border="1">
+  <thead><tr><th>Start</th><th>End</th><th>Speaker</th><th>Text</th></tr></thead>
+  <tbody></tbody>
+</table>
+
+<script>
+// ---------------------------------------------------------------
+// Helper: log messages
+const logEl = document.getElementById('log');
+function log(msg) { logEl.textContent += msg + '\n'; }
+
+// ---------------------------------------------------------------
+// 1. UI wiring
+const uploadBtn = document.getElementById('uploadBtn');
+uploadBtn.addEventListener('click', async () => {
+  const fileInput = document.getElementById('audioFileInput');
+  if (!fileInput.files.length) {
+    alert('Please choose an audio file first.');
+    return;
+  }
+  const file = fileInput.files[0];
+  try {
+    log(`Uploading ${file.name} (${(file.size/1024).toFixed(1)} KB)...`);
+    const mediaId = await uploadMedia(file);
+    log(`Uploaded! Media ID: ${mediaId}`);
+    const jobId = await createJob(mediaId);
+    log(`Job created. Job ID: ${jobId}`);
+    await pollJob(jobId);
+  } catch (e) {
+    log('❌ Error: ' + e.message);
+  }
+});
+
+// ---------------------------------------------------------------
+// 2. Upload media to Speechmatics
+async function uploadMedia(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await fetch('/api/speechmatics/media', {
+    method: 'POST',
+    body: formData
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || `Upload failed (${response.status})`);
+  }
+  const data = await response.json();
+  return data.id; // media ID
+}
+
+// ---------------------------------------------------------------
+// 3. Create a job with diarization enabled
+async function createJob(mediaId) {
+  const payload = {
+    type: 'transcription',
+    transcription_config: {
+      language: 'uk',                     // change as needed
+      operating_point: 'standard',
+      diarization: 'speaker',
+      enable_entities: false
+    },
+    data: {
+      media: { id: mediaId }
+    }
+  };
+  const response = await fetch('/api/speechmatics/jobs', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || `Job creation failed (${response.status})`);
+  }
+  const data = await response.json();
+  return data.id; // job ID
+}
+
+// ---------------------------------------------------------------
+// 4. Poll the job until it finishes
+async function pollJob(jobId) {
+  const statusUrl = `/api/speechmatics/jobs/${jobId}`;
+  let status = 'queued';
+  while (status !== 'done') {
+    await new Promise(r => setTimeout(r, 2000)); // wait 2s between polls
+    const resp = await fetch(statusUrl);
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || `Job status fetch failed (${resp.status})`);
+    }
+    const job = await resp.json();
+    status = job.status;
+    log(`Job status: ${status}`);
+    if (status === 'failed') throw new Error('Transcription job failed');
+  }
+  log('Job finished! Downloading transcript...');
+  await downloadTranscript(jobId);
+}
+
+// ---------------------------------------------------------------
+// 5. Get the JSON transcript (speaker labels)
+async function downloadTranscript(jobId) {
+  const url = `/api/speechmatics/jobs/${jobId}/transcript?format=json-v2`;
+  const resp = await fetch(url);
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.error || `Transcript fetch failed (${resp.status})`);
+  }
+  const transcript = await resp.json();
+  renderTranscript(transcript.results);
+}
+
+// ---------------------------------------------------------------
+// 6. Render the transcript in a table
+function renderTranscript(results) {
+  const tbody = document.getElementById('resultTable').querySelector('tbody');
+  tbody.innerHTML = ''; // clear previous
+  results.forEach(seg => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${seg.start_time.toFixed(2)}</td>
+      <td>${seg.end_time.toFixed(2)}</td>
+      <td>${seg.speaker || 'unknown'}</td>
+      <td>${seg.alternatives[0].content}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+</script>
+</body>
+</html>

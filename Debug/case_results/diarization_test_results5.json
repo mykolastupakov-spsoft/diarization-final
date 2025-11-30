@@ -1,0 +1,78 @@
+{
+  "version": "2.0",
+  "exportedAt": "2025-11-20T11:04:49.883Z",
+  "activeRecordingId": "rec_001_transcript_analysis",
+  "recordings": [
+    {
+      "id": "rec_001_transcript_analysis",
+      "name": "Transcript Analysis",
+      "fileName": "Transcript Analysis",
+      "size": 690,
+      "duration": 1.1,
+      "language": "ar",
+      "speakerCount": "1",
+      "status": "completed",
+      "addedAt": null,
+      "translationState": {
+        "currentLanguage": "original",
+        "lastError": null
+      },
+      "results": {
+        "text-service": {
+          "success": true,
+          "serviceName": "Text Mode 📝",
+          "processingTime": 0,
+          "speedFactor": 0,
+          "speakerCount": 1,
+          "cost": "0.0000",
+          "segments": [
+            {
+              "speaker": "SPEAKER_00",
+              "text": "{\"version\":\"2.0\",\"exportedAt\":\"2025-11-20T11:02:56.117Z\",\"activeRecordingId\":\"rec_001_transcript_analysis\",\"recordings\":[{\"id\":\"rec_001_transcript_analysis\",\"name\":\"Transcript Analysis\",\"fileName\":\"transcript.txt\",\"size\":690,\"duration\":0,\"language\":\"ar\",\"speakerCount\":\"0\",\"status\":\"completed\",\"addedAt\":null,\"translationState\":{\"currentLanguage\":\"original\",\"lastError\":null},\"results\":{\"text-service\":{\"success\":true,\"serviceName\":\"Text Mode 📝\",\"processingTime\":0,\"speedFactor\":0,\"speakerCount\":0,\"cost\":\"0.0000\",\"segments\":[],\"rawData\":{\"duration\":0,\"language\":\"ar\",\"source\":\"text\"}}},\"aggregated\":{},\"servicesTested\":[\"text-service\"]}]}",
+              "start": 0,
+              "end": 1.1,
+              "words": [],
+              "originalText": "{\"version\":\"2.0\",\"exportedAt\":\"2025-11-20T11:02:56.117Z\",\"activeRecordingId\":\"rec_001_transcript_analysis\",\"recordings\":[{\"id\":\"rec_001_transcript_analysis\",\"name\":\"Transcript Analysis\",\"fileName\":\"transcript.txt\",\"size\":690,\"duration\":0,\"language\":\"ar\",\"speakerCount\":\"0\",\"status\":\"completed\",\"addedAt\":null,\"translationState\":{\"currentLanguage\":\"original\",\"lastError\":null},\"results\":{\"text-service\":{\"success\":true,\"serviceName\":\"Text Mode 📝\",\"processingTime\":0,\"speedFactor\":0,\"speakerCount\":0,\"cost\":\"0.0000\",\"segments\":[],\"rawData\":{\"duration\":0,\"language\":\"ar\",\"source\":\"text\"}}},\"aggregated\":{},\"servicesTested\":[\"text-service\"]}]}",
+              "translations": {}
+            }
+          ],
+          "rawData": {
+            "duration": 1.1,
+            "language": "ar",
+            "source": "text"
+          }
+        }
+      },
+      "aggregated": {},
+      "servicesTested": [
+        "text-service"
+      ]
+    }
+  ],
+  "legacyTestResults": {
+    "text-service": {
+      "success": true,
+      "serviceName": "Text Mode 📝",
+      "processingTime": 0,
+      "speedFactor": 0,
+      "speakerCount": 1,
+      "cost": "0.0000",
+      "segments": [
+        {
+          "speaker": "SPEAKER_00",
+          "text": "{\"version\":\"2.0\",\"exportedAt\":\"2025-11-20T11:02:56.117Z\",\"activeRecordingId\":\"rec_001_transcript_analysis\",\"recordings\":[{\"id\":\"rec_001_transcript_analysis\",\"name\":\"Transcript Analysis\",\"fileName\":\"transcript.txt\",\"size\":690,\"duration\":0,\"language\":\"ar\",\"speakerCount\":\"0\",\"status\":\"completed\",\"addedAt\":null,\"translationState\":{\"currentLanguage\":\"original\",\"lastError\":null},\"results\":{\"text-service\":{\"success\":true,\"serviceName\":\"Text Mode 📝\",\"processingTime\":0,\"speedFactor\":0,\"speakerCount\":0,\"cost\":\"0.0000\",\"segments\":[],\"rawData\":{\"duration\":0,\"language\":\"ar\",\"source\":\"text\"}}},\"aggregated\":{},\"servicesTested\":[\"text-service\"]}]}",
+          "start": 0,
+          "end": 1.1,
+          "words": [],
+          "originalText": "{\"version\":\"2.0\",\"exportedAt\":\"2025-11-20T11:02:56.117Z\",\"activeRecordingId\":\"rec_001_transcript_analysis\",\"recordings\":[{\"id\":\"rec_001_transcript_analysis\",\"name\":\"Transcript Analysis\",\"fileName\":\"transcript.txt\",\"size\":690,\"duration\":0,\"language\":\"ar\",\"speakerCount\":\"0\",\"status\":\"completed\",\"addedAt\":null,\"translationState\":{\"currentLanguage\":\"original\",\"lastError\":null},\"results\":{\"text-service\":{\"success\":true,\"serviceName\":\"Text Mode 📝\",\"processingTime\":0,\"speedFactor\":0,\"speakerCount\":0,\"cost\":\"0.0000\",\"segments\":[],\"rawData\":{\"duration\":0,\"language\":\"ar\",\"source\":\"text\"}}},\"aggregated\":{},\"servicesTested\":[\"text-service\"]}]}",
+          "translations": {}
+        }
+      ],
+      "rawData": {
+        "duration": 1.1,
+        "language": "ar",
+        "source": "text"
+      }
+    }
+  }
+}

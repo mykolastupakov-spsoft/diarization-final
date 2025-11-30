@@ -1,0 +1,2923 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Diarization API Tester</title>
+    <style>
+:root {
+  /* Primitive Color Tokens */
+  --color-white: rgba(255, 255, 255, 1);
+  --color-black: rgba(0, 0, 0, 1);
+  --color-cream-50: rgba(252, 252, 249, 1);
+  --color-cream-100: rgba(255, 255, 253, 1);
+  --color-gray-200: rgba(245, 245, 245, 1);
+  --color-gray-300: rgba(167, 169, 169, 1);
+  --color-gray-400: rgba(119, 124, 124, 1);
+  --color-slate-500: rgba(98, 108, 113, 1);
+  --color-brown-600: rgba(94, 82, 64, 1);
+  --color-charcoal-700: rgba(31, 33, 33, 1);
+  --color-charcoal-800: rgba(38, 40, 40, 1);
+  --color-slate-900: rgba(19, 52, 59, 1);
+  --color-teal-300: rgba(50, 184, 198, 1);
+  --color-teal-400: rgba(45, 166, 178, 1);
+  --color-teal-500: rgba(33, 128, 141, 1);
+  --color-teal-600: rgba(29, 116, 128, 1);
+  --color-teal-700: rgba(26, 104, 115, 1);
+  --color-teal-800: rgba(41, 150, 161, 1);
+  --color-red-400: rgba(255, 84, 89, 1);
+  --color-red-500: rgba(192, 21, 47, 1);
+  --color-orange-400: rgba(230, 129, 97, 1);
+  --color-orange-500: rgba(168, 75, 47, 1);
+
+  /* RGB versions for opacity control */
+  --color-brown-600-rgb: 94, 82, 64;
+  --color-teal-500-rgb: 33, 128, 141;
+  --color-slate-900-rgb: 19, 52, 59;
+  --color-slate-500-rgb: 98, 108, 113;
+  --color-red-500-rgb: 192, 21, 47;
+  --color-red-400-rgb: 255, 84, 89;
+  --color-orange-500-rgb: 168, 75, 47;
+  --color-orange-400-rgb: 230, 129, 97;
+
+  /* Background color tokens (Light Mode) */
+  --color-bg-1: rgba(59, 130, 246, 0.08);
+  --color-bg-2: rgba(245, 158, 11, 0.08);
+  --color-bg-3: rgba(34, 197, 94, 0.08);
+  --color-bg-4: rgba(239, 68, 68, 0.08);
+  --color-bg-5: rgba(147, 51, 234, 0.08);
+  --color-bg-6: rgba(249, 115, 22, 0.08);
+  --color-bg-7: rgba(236, 72, 153, 0.08);
+  --color-bg-8: rgba(6, 182, 212, 0.08);
+
+  /* Semantic Color Tokens (Light Mode) */
+  --color-background: var(--color-cream-50);
+  --color-surface: var(--color-cream-100);
+  --color-text: var(--color-slate-900);
+  --color-text-secondary: var(--color-slate-500);
+  --color-primary: var(--color-teal-500);
+  --color-primary-hover: var(--color-teal-600);
+  --color-primary-active: var(--color-teal-700);
+  --color-secondary: rgba(var(--color-brown-600-rgb), 0.12);
+  --color-secondary-hover: rgba(var(--color-brown-600-rgb), 0.2);
+  --color-secondary-active: rgba(var(--color-brown-600-rgb), 0.25);
+  --color-border: rgba(var(--color-brown-600-rgb), 0.2);
+  --color-btn-primary-text: var(--color-cream-50);
+  --color-card-border: rgba(var(--color-brown-600-rgb), 0.12);
+  --color-card-border-inner: rgba(var(--color-brown-600-rgb), 0.12);
+  --color-error: var(--color-red-500);
+  --color-success: var(--color-teal-500);
+  --color-warning: var(--color-orange-500);
+  --color-info: var(--color-slate-500);
+  --color-focus-ring: rgba(var(--color-teal-500-rgb), 0.4);
+  --color-select-caret: rgba(var(--color-slate-900-rgb), 0.8);
+
+  --focus-ring: 0 0 0 3px var(--color-focus-ring);
+  --focus-outline: 2px solid var(--color-primary);
+  --status-bg-opacity: 0.15;
+  --status-border-opacity: 0.25;
+
+  --color-success-rgb: 33, 128, 141;
+  --color-error-rgb: 192, 21, 47;
+  --color-warning-rgb: 168, 75, 47;
+  --color-info-rgb: 98, 108, 113;
+
+  --font-family-base: "FKGroteskNeue", "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-base: 14px;
+  --font-size-md: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 18px;
+  --font-size-2xl: 20px;
+  --font-size-3xl: 24px;
+  --font-size-4xl: 30px;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 550;
+  --font-weight-bold: 600;
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+  --letter-spacing-tight: -0.01em;
+
+  --space-0: 0;
+  --space-1: 1px;
+  --space-2: 2px;
+  --space-4: 4px;
+  --space-6: 6px;
+  --space-8: 8px;
+  --space-10: 10px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-32: 32px;
+
+  --radius-sm: 6px;
+  --radius-base: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.04), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
+  --shadow-inset-sm: inset 0 1px 0 rgba(255, 255, 255, 0.15), inset 0 -1px 0 rgba(0, 0, 0, 0.03);
+
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --ease-standard: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-gray-400-rgb: 119, 124, 124;
+    --color-teal-300-rgb: 50, 184, 198;
+    --color-gray-300-rgb: 167, 169, 169;
+    --color-gray-200-rgb: 245, 245, 245;
+
+    --color-bg-1: rgba(29, 78, 216, 0.15);
+    --color-bg-2: rgba(180, 83, 9, 0.15);
+    --color-bg-3: rgba(21, 128, 61, 0.15);
+    --color-bg-4: rgba(185, 28, 28, 0.15);
+    --color-bg-5: rgba(107, 33, 168, 0.15);
+    --color-bg-6: rgba(194, 65, 12, 0.15);
+    --color-bg-7: rgba(190, 24, 93, 0.15);
+    --color-bg-8: rgba(8, 145, 178, 0.15);
+
+    --color-background: var(--color-charcoal-700);
+    --color-surface: var(--color-charcoal-800);
+    --color-text: var(--color-gray-200);
+    --color-text-secondary: rgba(var(--color-gray-300-rgb), 0.7);
+    --color-primary: var(--color-teal-300);
+    --color-primary-hover: var(--color-teal-400);
+    --color-primary-active: var(--color-teal-800);
+    --color-secondary: rgba(var(--color-gray-400-rgb), 0.15);
+    --color-secondary-hover: rgba(var(--color-gray-400-rgb), 0.25);
+    --color-secondary-active: rgba(var(--color-gray-400-rgb), 0.3);
+    --color-border: rgba(var(--color-gray-400-rgb), 0.3);
+    --color-error: var(--color-red-400);
+    --color-success: var(--color-teal-300);
+    --color-warning: var(--color-orange-400);
+    --color-info: var(--color-gray-300);
+    --color-focus-ring: rgba(var(--color-teal-300-rgb), 0.4);
+    --color-btn-primary-text: var(--color-slate-900);
+    --color-card-border: rgba(var(--color-gray-400-rgb), 0.2);
+    --color-card-border-inner: rgba(var(--color-gray-400-rgb), 0.15);
+    --shadow-inset-sm: inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 -1px 0 rgba(0, 0, 0, 0.15);
+    --color-select-caret: rgba(var(--color-gray-200-rgb), 0.8);
+
+    --color-success-rgb: var(--color-teal-300-rgb);
+    --color-error-rgb: var(--color-red-400-rgb);
+    --color-warning-rgb: var(--color-orange-400-rgb);
+    --color-info-rgb: var(--color-gray-300-rgb);
+  }
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-family-base);
+  background-color: var(--color-background);
+  color: var(--color-text);
+  line-height: var(--line-height-normal);
+  font-size: var(--font-size-base);
+  -webkit-font-smoothing: antialiased;
+}
+
+.app-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-24);
+}
+
+header {
+  text-align: center;
+  margin-bottom: var(--space-32);
+}
+
+h1 {
+  font-size: var(--font-size-4xl);
+  font-weight: var(--font-weight-bold);
+  margin-bottom: var(--space-8);
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+.subtitle {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-lg);
+}
+
+.view {
+  display: none;
+}
+
+.view.active {
+  display: block;
+}
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-24);
+  margin-bottom: var(--space-24);
+  box-shadow: var(--shadow-sm);
+}
+
+.card h2 {
+  font-size: var(--font-size-2xl);
+  margin-bottom: var(--space-16);
+  font-weight: var(--font-weight-semibold);
+}
+
+.card h3 {
+  font-size: var(--font-size-xl);
+  margin-bottom: var(--space-12);
+  font-weight: var(--font-weight-semibold);
+}
+
+.services-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-24);
+  margin: var(--space-24) 0;
+}
+
+@media (max-width: 768px) {
+  .services-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.service-card {
+  background: var(--color-surface);
+  border: 2px solid var(--color-card-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-24);
+  transition: all var(--duration-normal) var(--ease-standard);
+}
+
+.service-card.disabled {
+  opacity: 0.6;
+  border-style: dashed;
+}
+
+.service-card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-primary);
+}
+
+.service-card.configured {
+  border-color: var(--color-success);
+  background: var(--color-bg-3);
+}
+
+.service-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--space-16);
+}
+
+.service-card-title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  margin-bottom: var(--space-4);
+}
+
+.service-card-free-tier {
+  font-size: var(--font-size-sm);
+  color: var(--color-success);
+  font-weight: var(--font-weight-medium);
+}
+
+.service-card-status {
+  font-size: var(--font-size-2xl);
+  line-height: 1;
+}
+
+.service-card-body {
+  margin-bottom: var(--space-16);
+}
+
+.service-card-input-group {
+  margin-bottom: var(--space-16);
+}
+
+.service-card-input-wrapper {
+  display: flex;
+  gap: var(--space-8);
+  align-items: stretch;
+}
+
+.service-card-input-wrapper input {
+  flex: 1;
+}
+
+.service-card-input-toggle {
+  padding: var(--space-8) var(--space-12);
+  background: var(--color-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-base);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.service-card-input-toggle:hover {
+  background: var(--color-secondary-hover);
+}
+
+.service-card-footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin-bottom: var(--space-12);
+}
+
+.service-card-links {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--font-size-sm);
+  padding-top: var(--space-12);
+  border-top: 1px solid var(--color-border);
+}
+
+.service-card-links a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.service-card-links a:hover {
+  text-decoration: underline;
+}
+
+.api-key-input {
+  width: 100%;
+  padding: var(--space-8) var(--space-12);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-base);
+  font-size: var(--font-size-base);
+  background: var(--color-surface);
+  color: var(--color-text);
+  transition: border-color var(--duration-fast) var(--ease-standard);
+}
+
+.api-key-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
+}
+
+.api-key-input::placeholder {
+  color: var(--color-text-secondary);
+}
+
+.status-icon {
+  font-size: var(--font-size-xl);
+}
+
+.btn {
+  padding: var(--space-12) var(--space-24);
+  border: none;
+  border-radius: var(--radius-base);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.btn-primary {
+  background: var(--color-primary);
+  color: var(--color-btn-primary-text);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.btn-primary:active:not(:disabled) {
+  background: var(--color-primary-active);
+}
+
+.btn-secondary {
+  background: var(--color-secondary);
+  color: var(--color-text);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--color-secondary-hover);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-group {
+  display: flex;
+  gap: var(--space-12);
+  margin-top: var(--space-24);
+}
+
+.upload-area {
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-32);
+  text-align: center;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+  background: var(--color-bg-2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.upload-area:hover {
+  border-color: var(--color-primary);
+  background: var(--color-bg-3);
+}
+
+.upload-area.drag-over {
+  border-color: var(--color-primary);
+  background: var(--color-bg-3);
+}
+
+.upload-icon {
+  font-size: 48px;
+  margin-bottom: var(--space-16);
+}
+
+.file-input {
+  display: none;
+}
+
+.file-info {
+  margin-top: var(--space-16);
+  padding: var(--space-16);
+  background: var(--color-bg-1);
+  border-radius: var(--radius-base);
+  border: 1px solid var(--color-border);
+}
+
+.file-info-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: var(--space-8);
+}
+
+.file-info-row:last-child {
+  margin-bottom: 0;
+}
+
+.label {
+  font-weight: var(--font-weight-medium);
+  margin-bottom: var(--space-8);
+  display: block;
+}
+
+.form-control {
+  width: 100%;
+  padding: var(--space-8) var(--space-12);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-base);
+  font-size: var(--font-size-base);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
+}
+
+.form-group {
+  margin-bottom: var(--space-16);
+}
+
+.progress-container {
+  margin-bottom: var(--space-24);
+}
+
+.progress-item {
+  margin-bottom: var(--space-16);
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: var(--space-8);
+}
+
+.progress-bar-bg {
+  height: 8px;
+  background: var(--color-secondary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: var(--color-primary);
+  transition: width var(--duration-fast) var(--ease-standard);
+  border-radius: var(--radius-full);
+}
+
+.status {
+  padding: var(--space-6) var(--space-12);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  display: inline-block;
+}
+
+.status-success {
+  background: rgba(var(--color-success-rgb), 0.15);
+  color: var(--color-success);
+  border: 1px solid rgba(var(--color-success-rgb), 0.25);
+}
+
+.status-error {
+  background: rgba(var(--color-error-rgb), 0.15);
+  color: var(--color-error);
+  border: 1px solid rgba(var(--color-error-rgb), 0.25);
+}
+
+.status-processing {
+  background: rgba(var(--color-warning-rgb), 0.15);
+  color: var(--color-warning);
+  border: 1px solid rgba(var(--color-warning-rgb), 0.25);
+}
+
+.status-pending {
+  background: rgba(var(--color-info-rgb), 0.15);
+  color: var(--color-info);
+  border: 1px solid rgba(var(--color-info-rgb), 0.25);
+}
+
+.results-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: var(--space-16);
+}
+
+.results-table th,
+.results-table td {
+  padding: var(--space-12);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.results-table th {
+  font-weight: var(--font-weight-semibold);
+  background: var(--color-bg-1);
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.results-table tr:hover {
+  background: var(--color-bg-2);
+}
+
+.recordings-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.recordings-table th,
+.recordings-table td {
+  padding: var(--space-12);
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+}
+
+.recordings-table th {
+  background: var(--color-bg-1);
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.detail-view {
+  margin-top: var(--space-16);
+  padding: var(--space-16);
+  background: var(--color-bg-3);
+  border-radius: var(--radius-base);
+  border: 1px solid var(--color-border);
+}
+
+.timeline {
+  margin-top: var(--space-16);
+}
+
+.timeline-segment {
+  padding: var(--space-12);
+  margin-bottom: var(--space-8);
+  background: var(--color-surface);
+  border-left: 3px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+}
+
+.timeline-segment:nth-child(even) {
+  border-left-color: var(--color-warning);
+}
+
+.timeline-time {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-4);
+}
+
+.timeline-speaker {
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--space-4);
+}
+
+.timeline-text {
+  color: var(--color-text);
+}
+
+.chart-container {
+  margin-top: var(--space-24);
+  background: var(--color-surface);
+  padding: var(--space-16);
+  border-radius: var(--radius-base);
+  border: 1px solid var(--color-border);
+}
+
+.export-buttons {
+  display: flex;
+  gap: var(--space-12);
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  padding: var(--space-6) var(--space-12);
+  font-size: var(--font-size-sm);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.action-btn:hover {
+  background: var(--color-secondary);
+}
+
+.expandable {
+  cursor: pointer;
+}
+
+.expandable-content {
+  display: none;
+  margin-top: var(--space-16);
+}
+
+.expandable-content.expanded {
+  display: block;
+}
+
+.nav-buttons {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--space-24);
+}
+
+.alert {
+  padding: var(--space-16);
+  border-radius: var(--radius-base);
+  margin-bottom: var(--space-16);
+}
+
+.alert-info {
+  background: var(--color-bg-1);
+  border: 1px solid rgba(var(--color-info-rgb), 0.3);
+  color: var(--color-text);
+}
+
+.alert-warning {
+  background: rgba(var(--color-warning-rgb), 0.1);
+  border: 1px solid rgba(var(--color-warning-rgb), 0.3);
+  color: var(--color-text);
+}
+
+.coming-soon-card {
+  border: 1px dashed rgba(var(--color-teal-500-rgb), 0.4);
+  background: rgba(var(--color-teal-500-rgb), 0.04);
+  padding: var(--space-20);
+  border-radius: var(--radius-base);
+  display: none;
+}
+
+.coming-soon-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-primary);
+  background: rgba(var(--color-teal-500-rgb), 0.12);
+  border-radius: var(--radius-full);
+  padding: var(--space-4) var(--space-10);
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.coming-soon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-16);
+  margin-top: var(--space-16);
+}
+
+.coming-soon-section {
+  background: var(--color-surface);
+  border-radius: var(--radius-base);
+  border: 1px solid rgba(var(--color-brown-600-rgb), 0.15);
+  padding: var(--space-16);
+}
+
+.coming-soon-section h4 {
+  margin-bottom: var(--space-8);
+  font-size: var(--font-size-md);
+}
+
+.coming-soon-list {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+.coming-soon-list li {
+  display: flex;
+  gap: var(--space-8);
+  align-items: flex-start;
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--space-8);
+}
+
+.coming-soon-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-4) var(--space-8);
+  border-radius: var(--radius-full);
+  background: rgba(var(--color-warning-rgb), 0.15);
+  color: var(--color-warning);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.coming-soon-code {
+  background: rgba(var(--color-brown-600-rgb), 0.1);
+  padding: var(--space-8);
+  border-radius: var(--radius-base);
+  font-family: monospace;
+  font-size: var(--font-size-sm);
+  word-break: break-all;
+}
+
+.coming-soon-highlight {
+  box-shadow: 0 0 0 3px rgba(var(--color-warning-rgb), 0.35);
+  transition: box-shadow var(--duration-normal) var(--ease-standard);
+}
+
+@media (max-width: 768px) {
+  .app-container {
+    padding: var(--space-16);
+  }
+
+  .service-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .results-table {
+    font-size: var(--font-size-sm);
+  }
+
+  .results-table th,
+  .results-table td {
+    padding: var(--space-8);
+  }
+
+  .btn-group {
+    flex-direction: column;
+  }
+
+  .btn {
+    width: 100%;
+  }
+}
+
+@font-face {
+  font-family: 'FKGroteskNeue';
+  src: url('https://r2cdn.perplexity.ai/fonts/FKGroteskNeue.woff2') format('woff2');
+}
+
+/* Manual Review Layout */
+.manual-review-layout {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: var(--space-24);
+  margin-top: var(--space-24);
+}
+
+.audio-player-section,
+.transcript-comparison-section {
+  background: var(--color-surface);
+  padding: var(--space-16);
+  border-radius: var(--radius-base);
+  border: 1px solid var(--color-border);
+}
+
+.playback-controls {
+  margin-top: var(--space-16);
+}
+
+.speed-buttons {
+  display: flex;
+  gap: var(--space-8);
+  margin-top: var(--space-8);
+  flex-wrap: wrap;
+}
+
+.speed-btn {
+  padding: var(--space-8) var(--space-16);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.speed-btn:hover {
+  background: var(--color-secondary);
+  border-color: var(--color-primary);
+}
+
+.speed-btn.active {
+  background: var(--color-primary);
+  color: var(--color-btn-primary-text);
+  border-color: var(--color-primary);
+}
+
+/* Transcript Comparison */
+.transcript-comparison {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--space-16);
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.transcript-panel {
+  background: var(--color-bg-1);
+  padding: var(--space-16);
+  border-radius: var(--radius-base);
+  border: 1px solid var(--color-border);
+}
+
+.transcript-segments {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.transcript-segment {
+  padding: var(--space-12);
+  background: var(--color-surface);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.transcript-segment:hover {
+  background: var(--color-bg-2);
+  border-left-color: var(--color-primary);
+}
+
+.transcript-segment.active {
+  background: var(--color-bg-3);
+  border-left-color: var(--color-success);
+  box-shadow: var(--shadow-md);
+}
+
+.segment-time {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-4);
+  font-family: var(--font-family-mono);
+}
+
+.segment-speaker {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary);
+  margin-bottom: var(--space-4);
+  font-size: var(--font-size-sm);
+}
+
+.segment-text {
+  color: var(--color-text);
+  line-height: 1.6;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+  .manual-review-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .transcript-comparison {
+    grid-template-columns: 1fr;
+    max-height: 400px;
+  }
+}
+
+@media (max-width: 768px) {
+  .speed-buttons {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Tabs styling */
+.tabs-nav {
+  display: flex;
+  gap: var(--space-8);
+  border-bottom: 2px solid var(--color-border);
+  margin-bottom: var(--space-24);
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  padding: var(--space-12) var(--space-20);
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all var(--duration-fast) var(--ease-standard);
+  font-size: var(--font-size-base);
+}
+
+.tab-btn:hover {
+  color: var(--color-text);
+  background: var(--color-bg-1);
+}
+
+.tab-btn.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+/* Metrics display */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: var(--space-16);
+  margin-bottom: var(--space-24);
+}
+
+.metric-card {
+  background: var(--color-bg-2);
+  padding: var(--space-16);
+  border-radius: var(--radius-base);
+  border: 1px solid var(--color-border);
+}
+
+.metric-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-8);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.metric-value {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
+
+.metric-value.good {
+  color: var(--color-success);
+}
+
+.metric-value.acceptable {
+  color: var(--color-warning);
+}
+
+.metric-value.poor {
+  color: var(--color-error);
+}
+
+.metric-subtitle {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-top: var(--space-4);
+}
+
+/* Winner banner */
+.winner-banner {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-teal-400));
+  color: var(--color-white);
+  padding: var(--space-24);
+  border-radius: var(--radius-lg);
+  text-align: center;
+  margin-bottom: var(--space-24);
+  box-shadow: var(--shadow-lg);
+}
+
+.winner-banner h2 {
+  font-size: var(--font-size-3xl);
+  margin-bottom: var(--space-8);
+  color: var(--color-white);
+}
+
+.winner-stats {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-32);
+  margin-top: var(--space-16);
+  flex-wrap: wrap;
+}
+
+.winner-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.winner-stat-value {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+}
+
+.winner-stat-label {
+  font-size: var(--font-size-sm);
+  opacity: 0.9;
+}
+
+/* Error visualization */
+.error-timeline {
+  background: var(--color-surface);
+  padding: var(--space-16);
+  border-radius: var(--radius-base);
+  margin: var(--space-16) 0;
+  overflow-x: auto;
+}
+
+.timeline-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--space-12);
+  gap: var(--space-12);
+}
+
+.timeline-label {
+  min-width: 120px;
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-sm);
+}
+
+.timeline-bar {
+  flex: 1;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  position: relative;
+  background: var(--color-secondary);
+  display: flex;
+}
+
+.timeline-segment {
+  height: 100%;
+  cursor: pointer;
+  transition: opacity var(--duration-fast) var(--ease-standard);
+  border-right: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.timeline-segment:hover {
+  opacity: 0.8;
+}
+
+.error-category {
+  padding: var(--space-16);
+  background: var(--color-bg-1);
+  border-radius: var(--radius-base);
+  margin-bottom: var(--space-16);
+}
+
+.error-category h4 {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-12);
+}
+
+.error-badge {
+  background: var(--color-error);
+  color: var(--color-white);
+  padding: var(--space-4) var(--space-12);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* Agreement matrix */
+.agreement-matrix {
+  overflow-x: auto;
+}
+
+.agreement-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.agreement-table th,
+.agreement-table td {
+  padding: var(--space-12);
+  text-align: center;
+  border: 1px solid var(--color-border);
+}
+
+.agreement-table th {
+  background: var(--color-bg-1);
+  font-weight: var(--font-weight-semibold);
+}
+
+.agreement-cell {
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-lg);
+}
+
+.agreement-high {
+  background: rgba(var(--color-success-rgb), 0.2);
+  color: var(--color-success);
+}
+
+.agreement-medium {
+  background: rgba(var(--color-warning-rgb), 0.2);
+  color: var(--color-warning);
+}
+
+.agreement-low {
+  background: rgba(var(--color-error-rgb), 0.2);
+  color: var(--color-error);
+}
+
+/* Modal styling */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  max-width: 90%;
+  max-height: 90%;
+  overflow: auto;
+  box-shadow: var(--shadow-lg);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-24);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.modal-header h2 {
+  margin: 0;
+}
+
+.modal-body {
+  padding: var(--space-24);
+}
+
+.modal-footer {
+  padding: var(--space-24);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-12);
+}
+
+.btn-close {
+  background: transparent;
+  border: none;
+  font-size: var(--font-size-2xl);
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  padding: var(--space-4);
+  line-height: 1;
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+
+.btn-close:hover {
+  color: var(--color-text);
+}
+
+/* Ground truth segment editor */
+.gt-segment {
+  display: grid;
+  grid-template-columns: 100px 100px 150px 1fr auto;
+  gap: var(--space-12);
+  margin-bottom: var(--space-12);
+  align-items: center;
+}
+
+.gt-segment input,
+.gt-segment select {
+  padding: var(--space-8);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.btn-sm {
+  padding: var(--space-6) var(--space-12);
+  font-size: var(--font-size-sm);
+}
+
+/* Tooltips */
+.tooltip-trigger {
+  cursor: help;
+  color: var(--color-primary);
+  text-decoration: underline dotted;
+}
+
+/* Comparison chart */
+.comparison-bars {
+  margin-top: var(--space-16);
+}
+
+.comparison-bar {
+  margin-bottom: var(--space-16);
+}
+
+.comparison-bar-label {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: var(--space-8);
+  font-size: var(--font-size-sm);
+}
+
+.comparison-bar-track {
+  height: 24px;
+  background: var(--color-secondary);
+  border-radius: var(--radius-full);
+  position: relative;
+  overflow: hidden;
+}
+
+  .comparison-bar-fill {
+    height: 100%;
+    background: var(--color-primary);
+    border-radius: var(--radius-full);
+    transition: width var(--duration-normal) var(--ease-standard);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: var(--space-8);
+    color: var(--color-white);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+  }
+
+/* Replicas Comparison Styles */
+  .replicas-comparison {
+    margin-top: var(--space-24);
+  }
+
+  .speaker-comparison-section {
+    margin-bottom: var(--space-32);
+  }
+
+  .unified-timeline-container {
+    position: relative;
+    overflow-x: auto;
+    overflow-y: visible;
+  }
+
+  .service-timeline-row {
+    margin-bottom: var(--space-20);
+  }
+
+  .service-timeline {
+    position: relative;
+    cursor: crosshair;
+  }
+
+  .timeline-scale {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--color-surface);
+  }
+
+  .service-replicas-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-16);
+    padding-bottom: var(--space-12);
+    border-bottom: 2px solid var(--color-border);
+  }
+
+  .service-replicas-title {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-primary);
+  }
+
+  .speaker-replicas-section {
+    margin-bottom: var(--space-24);
+  }
+
+  .speaker-replicas-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-12);
+    margin-bottom: var(--space-16);
+    padding: var(--space-12);
+    background: var(--color-bg-1);
+    border-radius: var(--radius-base);
+    border-left: 4px solid var(--color-primary);
+  }
+
+  .speaker-replicas-header.speaker-1 {
+    border-left-color: var(--color-teal-500);
+  }
+
+  .speaker-replicas-header.speaker-2 {
+    border-left-color: var(--color-orange-500);
+  }
+
+  .speaker-label {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
+    padding: var(--space-8) var(--space-16);
+    border-radius: var(--radius-base);
+    color: var(--color-white);
+  }
+
+  .speaker-label.speaker-1 {
+    background: var(--color-teal-500);
+  }
+
+  .speaker-label.speaker-2 {
+    background: var(--color-orange-500);
+  }
+
+  .replicas-timeline {
+    position: relative;
+    background: var(--color-bg-2);
+    border-radius: var(--radius-base);
+    padding: var(--space-16);
+    margin-bottom: var(--space-16);
+    min-height: 120px;
+    border: 1px solid var(--color-border);
+  }
+
+  .replica-segment {
+    position: absolute;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease-standard);
+    border: 2px solid transparent;
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+  }
+
+  .replica-segment:hover {
+    transform: translateY(-1px) scale(1.02);
+    box-shadow: var(--shadow-lg);
+    z-index: 10;
+    border-width: 2px;
+  }
+
+  .replica-segment.speaker-1 {
+    background: rgba(var(--color-teal-500-rgb), 0.3);
+    border-color: var(--color-teal-500);
+  }
+
+  .replica-segment.speaker-2 {
+    background: rgba(var(--color-orange-500-rgb), 0.3);
+    border-color: var(--color-orange-500);
+  }
+
+  .replica-segment[style*="border: 2px dashed"] {
+    animation: pulse-overlap 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-overlap {
+    0%, 100% { box-shadow: 0 0 8px rgba(255, 193, 7, 0.5); }
+    50% { box-shadow: 0 0 16px rgba(255, 193, 7, 0.8); }
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.7; transform: scale(1.05); }
+  }
+
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .timeline-segment-overlap {
+    position: relative;
+  }
+
+  .timeline-segment-overlap::before {
+    content: "⚠️";
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    font-size: 14px;
+    color: var(--color-warning);
+  }
+
+  /* Overlap Detector Styles */
+  .file-upload-area {
+    border: 2px dashed var(--color-border);
+    border-radius: var(--radius-base);
+    padding: var(--space-32);
+    text-align: center;
+    background: var(--color-surface);
+    transition: all var(--duration-fast) var(--ease-standard);
+    cursor: pointer;
+  }
+
+  .file-upload-area:hover {
+    border-color: var(--color-primary);
+    background: var(--color-bg-1);
+  }
+
+  .file-upload-area.drag-over {
+    border-color: var(--color-primary);
+    background: var(--color-bg-2);
+    box-shadow: 0 0 0 3px var(--color-focus-ring);
+  }
+
+  .file-upload-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-12);
+  }
+
+  .file-upload-icon {
+    font-size: 48px;
+    opacity: 0.6;
+  }
+
+  .file-upload-text {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-base);
+  }
+
+  .file-upload-area.has-file {
+    border-color: var(--color-success);
+    background: var(--color-bg-3);
+  }
+
+  .file-upload-area.has-file .file-upload-icon {
+    opacity: 1;
+  }
+
+  .overlap-item {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-left: 4px solid var(--color-warning);
+    border-radius: var(--radius-base);
+    padding: var(--space-12);
+    margin-bottom: var(--space-8);
+    transition: all var(--duration-fast) var(--ease-standard);
+  }
+
+  .overlap-item:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateX(4px);
+  }
+
+  .overlap-item.high-confidence {
+    border-left-color: var(--color-error);
+  }
+
+  .overlap-item.medium-confidence {
+    border-left-color: var(--color-warning);
+  }
+
+  .overlap-item.low-confidence {
+    border-left-color: var(--color-info);
+  }
+
+  .overlap-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-8);
+  }
+
+  .overlap-source {
+    display: inline-block;
+    padding: var(--space-4) var(--space-8);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+  }
+
+  .overlap-source.audio {
+    background: rgba(var(--color-primary-rgb), 0.1);
+    color: var(--color-primary);
+  }
+
+  .overlap-source.llm {
+    background: rgba(var(--color-success-rgb), 0.1);
+    color: var(--color-success);
+  }
+
+  .overlap-time {
+    font-family: monospace;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+  }
+
+  .overlap-confidence {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .transcript-view {
+    position: relative;
+  }
+
+  .overlap-highlight {
+    background: rgba(255, 193, 7, 0.3);
+    border-bottom: 2px solid var(--color-warning);
+    padding: 2px 4px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease-standard);
+  }
+
+  .overlap-highlight:hover {
+    background: rgba(255, 193, 7, 0.5);
+    box-shadow: 0 0 4px rgba(255, 193, 7, 0.5);
+  }
+
+  .overlap-highlight.active {
+    background: rgba(255, 193, 7, 0.6);
+    box-shadow: 0 0 8px rgba(255, 193, 7, 0.7);
+  }
+  .transcript-line {
+    padding: var(--space-8) 0;
+    border-bottom: 1px solid rgba(var(--color-brown-600-rgb), 0.1);
+  }
+  .transcript-line:last-child {
+    border-bottom: none;
+  }
+  .transcript-line.overlap-line .line-text {
+    font-weight: var(--font-weight-medium);
+    color: var(--color-warning);
+  }
+  .overlap-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-6);
+    margin-top: var(--space-6);
+  }
+  .overlap-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-4) var(--space-8);
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-xs);
+    background: rgba(var(--color-warning-rgb), 0.15);
+    border: 1px solid rgba(var(--color-warning-rgb), 0.3);
+  }
+
+  .replica-segment-text {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  .replica-segment-time {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    margin-left: var(--space-8);
+  }
+
+  .replicas-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--space-12);
+    margin-top: var(--space-16);
+  }
+
+  .replica-stat {
+    background: var(--color-bg-1);
+    padding: var(--space-12);
+    border-radius: var(--radius-base);
+    text-align: center;
+  }
+
+  .replica-stat-label {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-4);
+  }
+
+  .replica-stat-value {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text);
+  }
+
+  /* Overlap Detector Styles */
+  .file-upload-area {
+    border: 2px dashed var(--color-border);
+    border-radius: var(--radius-base);
+    padding: var(--space-32);
+    text-align: center;
+    background: var(--color-surface);
+    transition: all var(--duration-fast) var(--ease-standard);
+    cursor: pointer;
+  }
+
+  .file-upload-area:hover {
+    border-color: var(--color-primary);
+    background: var(--color-bg-1);
+  }
+
+  .file-upload-area.drag-over {
+    border-color: var(--color-primary);
+    background: var(--color-bg-2);
+    box-shadow: 0 0 0 3px var(--color-focus-ring);
+  }
+
+  .file-upload-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-12);
+  }
+
+  .file-upload-icon {
+    font-size: 48px;
+    opacity: 0.6;
+  }
+
+  .file-upload-text {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-base);
+  }
+
+  .file-upload-area.has-file {
+    border-color: var(--color-success);
+    background: var(--color-bg-3);
+  }
+
+  .file-upload-area.has-file .file-upload-icon {
+    opacity: 1;
+  }
+
+  .overlap-item {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-left: 4px solid var(--color-warning);
+    border-radius: var(--radius-base);
+    padding: var(--space-12);
+    margin-bottom: var(--space-8);
+    transition: all var(--duration-fast) var(--ease-standard);
+  }
+
+  .overlap-item:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateX(4px);
+  }
+
+  .overlap-item.high-confidence {
+    border-left-color: var(--color-error);
+  }
+
+  .overlap-item.medium-confidence {
+    border-left-color: var(--color-warning);
+  }
+
+  .overlap-item.low-confidence {
+    border-left-color: var(--color-info);
+  }
+
+  .overlap-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-8);
+  }
+
+  .overlap-source {
+    display: inline-block;
+    padding: var(--space-4) var(--space-8);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+  }
+
+  .overlap-source.audio {
+    background: rgba(var(--color-primary-rgb), 0.1);
+    color: var(--color-primary);
+  }
+
+  .overlap-source.llm {
+    background: rgba(var(--color-success-rgb), 0.1);
+    color: var(--color-success);
+  }
+
+  .overlap-time {
+    font-family: monospace;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+  }
+
+  .overlap-confidence {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .transcript-view {
+    position: relative;
+  }
+
+  .overlap-highlight {
+    background: rgba(255, 193, 7, 0.3);
+    border-bottom: 2px solid var(--color-warning);
+    padding: 2px 4px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease-standard);
+  }
+
+  .overlap-highlight:hover {
+    background: rgba(255, 193, 7, 0.5);
+    box-shadow: 0 0 4px rgba(255, 193, 7, 0.5);
+  }
+
+  .overlap-highlight.active {
+    background: rgba(255, 193, 7, 0.6);
+    box-shadow: 0 0 8px rgba(255, 193, 7, 0.7);
+  }
+
+  .comparison-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: var(--space-16);
+    margin-top: var(--space-24);
+  }
+
+  .comparison-card {
+    background: var(--color-surface);
+    padding: var(--space-16);
+    border-radius: var(--radius-base);
+    border: 1px solid var(--color-border);
+  }
+
+  .comparison-card h4 {
+    margin-bottom: var(--space-12);
+    color: var(--color-primary);
+  }
+
+/* Error Log Styles */
+  .error-log-container {
+    background: var(--color-charcoal-800);
+    border-radius: var(--radius-base);
+    padding: var(--space-16);
+    max-height: 600px;
+    overflow: auto;
+    border: 1px solid var(--color-border);
+  }
+
+  .error-log-content {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+    font-size: var(--font-size-sm);
+    line-height: 1.6;
+    color: #e0e0e0;
+    margin: 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+
+  .error-log-content .error-line {
+    color: var(--color-red-400);
+  }
+
+  .error-log-content .stack-line {
+    color: var(--color-orange-400);
+    margin-left: var(--space-16);
+  }
+
+  .error-log-content .header-line {
+    color: var(--color-teal-300);
+    font-weight: var(--font-weight-semibold);
+  }
+
+/* Text Comparison Table Styles */
+  .text-comparison-container {
+    width: 100%;
+  }
+
+  .service-text-comparison {
+    background: var(--color-surface);
+    padding: var(--space-24);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border);
+  }
+
+  .text-comparison-table-wrapper {
+    overflow-x: auto;
+    border-radius: var(--radius-base);
+  }
+
+  .text-comparison-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--color-surface);
+  }
+
+  .text-comparison-table thead {
+    background: var(--color-bg-1);
+    position: sticky;
+    top: 0;
+    z-index: 3;
+  }
+
+  .text-comparison-table th {
+    padding: var(--space-16);
+    text-align: left;
+    font-weight: var(--font-weight-semibold);
+    border-bottom: 2px solid var(--color-border);
+    vertical-align: top;
+  }
+
+  .speaker-1-header {
+    background: rgba(var(--color-teal-500-rgb), 0.1);
+    border-left: 4px solid var(--color-teal-500);
+  }
+
+  .speaker-2-header {
+    background: rgba(var(--color-orange-500-rgb), 0.1);
+    border-left: 4px solid var(--color-orange-500);
+  }
+
+  .text-comparison-table td {
+    padding: var(--space-16);
+    border-bottom: 1px solid var(--color-border);
+    vertical-align: top;
+  }
+
+  .replica-cell {
+    min-width: 300px;
+    max-width: 500px;
+  }
+
+  .speaker-1-cell {
+    background: rgba(var(--color-teal-500-rgb), 0.05);
+    border-left: 3px solid var(--color-teal-500);
+  }
+
+  .speaker-2-cell {
+    background: rgba(var(--color-orange-500-rgb), 0.05);
+    border-left: 3px solid var(--color-orange-500);
+  }
+
+  .empty-cell {
+    background: var(--color-bg-2);
+    text-align: center;
+    color: var(--color-text-secondary);
+    font-style: italic;
+  }
+
+  .replica-time {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-8);
+    font-weight: var(--font-weight-medium);
+    font-family: monospace;
+  }
+
+  .replica-text {
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-normal);
+    color: var(--color-text);
+    word-wrap: break-word;
+    white-space: pre-wrap;
+  }
+
+  .replica-cell.has-overlap {
+    position: relative;
+    border-left-width: 4px !important;
+  }
+
+  .replica-cell.has-overlap.high-confidence {
+    border-left-color: var(--color-error) !important;
+    background: rgba(var(--color-error-rgb), 0.1) !important;
+  }
+
+  .replica-cell.has-overlap.medium-confidence {
+    border-left-color: var(--color-warning) !important;
+    background: rgba(var(--color-warning-rgb), 0.1) !important;
+  }
+
+  .replica-cell.has-overlap.low-confidence {
+    border-left-color: var(--color-info) !important;
+    background: rgba(var(--color-info-rgb), 0.1) !important;
+  }
+
+  .overlap-indicator {
+    position: absolute;
+    top: var(--space-8);
+    right: var(--space-8);
+    font-size: var(--font-size-lg);
+    cursor: help;
+    z-index: 1;
+    line-height: 1;
+  }
+
+  .overlap-tooltip {
+    position: absolute;
+    bottom: calc(100% + var(--space-4));
+    right: 0;
+    background: var(--color-charcoal-800);
+    color: var(--color-white);
+    padding: var(--space-8) var(--space-12);
+    border-radius: var(--radius-base);
+    font-size: var(--font-size-xs);
+    max-width: 300px;
+    white-space: normal;
+    box-shadow: var(--shadow-lg);
+    z-index: 100;
+    display: none;
+    pointer-events: none;
+  }
+
+  .overlap-indicator:hover .overlap-tooltip {
+    display: block;
+  }
+
+  .text-comparison-table tbody tr:hover {
+    background: var(--color-bg-1);
+  }
+
+  .text-comparison-table tbody tr:hover .replica-text {
+    color: var(--color-text);
+  }
+
+@media (max-width: 768px) {
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tabs-nav {
+    overflow-x: auto;
+  }
+
+  .gt-segment {
+    grid-template-columns: 1fr;
+  }
+
+  .winner-stats {
+    flex-direction: column;
+    gap: var(--space-16);
+  }
+}
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <h1>🎙️ Arabic Voice Diarization Studio</h1>
+            <p class="subtitle">Production-ready speaker recognition for Arabic dialects • Enterprise-grade accuracy • Powered by leading AI services</p>
+        </header>
+
+        <!-- View 1: Configuration -->
+        <div id="configView" class="view active">
+            <div style="margin-bottom: var(--space-16); text-align: right; display: flex; gap: var(--space-8); justify-content: flex-end;">
+                <a href="/demo" class="btn btn-secondary" target="_blank" style="text-decoration: none;">
+                    🎬 Demo
+                </a>
+                <a href="/prompt-manager" class="btn btn-secondary" target="_blank" style="text-decoration: none;">
+                    📝 Manage Prompts
+                </a>
+                <a href="/audio-generator" class="btn btn-secondary" target="_blank" style="text-decoration: none;">
+                    🎧 Audio Generator
+                </a>
+            </div>
+            <div class="card">
+                <h2>Audio Diarization Application</h2>
+                
+                <div class="alert alert-info" style="margin-bottom: var(--space-24);">
+                    <strong>📖 How to Use:</strong>
+                    <ol style="margin-top: var(--space-12); padding-left: var(--space-24); line-height: 1.8;">
+                        <li><strong>Upload Audio:</strong> Click "Continue to Upload →" button to proceed to the file upload section</li>
+                        <li><strong>Select File:</strong> Choose an audio file (MP3, WAV, M4A, OGG) from your device</li>
+                        <li><strong>Configure Settings:</strong> Select language and optionally specify expected number of speakers</li>
+                        <li><strong>Start Processing:</strong> Click "🚀 Start Testing" to begin diarization analysis</li>
+                        <li><strong>View Results:</strong> Review comprehensive metrics, timelines, and speaker comparisons</li>
+                        <li><strong>Export Data:</strong> Use export buttons to save results in JSON, CSV, or AI analysis format</li>
+                    </ol>
+                    <p style="margin-top: var(--space-16); margin-bottom: 0;">
+                        <strong>💡 Quick Start:</strong> Click "🎭 Demo Mode" to test the application without API keys, or "📥 Load JSON Results" to import previously saved analysis data.
+                    </p>
+                </div>
+
+                <div class="services-grid" id="servicesContainer" style="display: none;">
+                    <!-- Service cards will be rendered here by JavaScript -->
+                </div>
+
+                <div class="alert alert-info" style="margin-top: var(--space-24);">
+                    <strong>🔒 Privacy & Security:</strong> API keys are stored only in your browser's local memory. All processing is performed securely through official API endpoints.
+                </div>
+
+                <div style="text-align: center; margin-top: var(--space-24); padding: var(--space-16); background: var(--color-bg-2); border-radius: var(--radius-base);">
+                    <strong>Status: <span id="configuredCount">Ready</span></strong>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" id="continueToUploadBtn" onclick="app.continueToUpload()">Continue to Upload →</button>
+                    <button class="btn btn-secondary" onclick="app.useDemoMode()">🎭 Demo Mode (no API)</button>
+                    <button class="btn btn-secondary" onclick="document.getElementById('jsonFileInput').click()">📥 Load JSON Results</button>
+                    <input type="file" id="jsonFileInput" class="file-input" accept=".json" onchange="app.handleJSONUpload(event)" style="display: none;">
+                    <button class="btn btn-secondary" onclick="app.clearAllData()" style="background: var(--color-error); color: var(--color-white);">🗑️ Clear All Data</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- View 2: Upload -->
+        <div id="uploadView" class="view">
+            <div class="card">
+                <h2>Upload Audio File</h2>
+                
+                <!-- Diarization Method Tabs -->
+                <div class="tabs-nav" id="diarizationTabsNav" style="margin-top: var(--space-24);">
+                    <button class="tab-btn active" data-method="llm" onclick="app.switchDiarizationMethod('llm')">LLM Diarization</button>
+                    <button class="tab-btn" data-method="audio" onclick="app.switchDiarizationMethod('audio')">Audio Diarization</button>
+                    <button class="tab-btn" data-method="combined" onclick="app.switchDiarizationMethod('combined')">Combined (Audio + LLM + Verification)</button>
+                    <button class="tab-btn" data-method="overlap" onclick="app.switchDiarizationMethod('overlap')">Overlap Diarization</button>
+                </div>
+                
+                <div id="uploadArea" style="display: none; width: 100%;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-16); margin-top: var(--space-24); width: 100%;">
+                        <!-- Upload Audio Option -->
+                        <div class="upload-area" onclick="document.getElementById('fileInput').click()" style="cursor: pointer; width: 100%;">
+                            <div class="upload-icon">📁</div>
+                            <p><strong>Upload Audio</strong></p>
+                            <p style="color: var(--color-text-secondary); margin-top: var(--space-8); font-size: var(--font-size-sm);">MP3, WAV, M4A, OGG (max. 100 MB)</p>
+                            <input type="file" id="fileInput" class="file-input" accept=".mp3,.wav,.m4a,.ogg" multiple onchange="app.handleFileSelect(event)">
+                        </div>
+                        
+                        <!-- Generate Audio Option -->
+                        <a href="/audio-generator" class="upload-area" target="_blank" style="text-decoration: none; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; width: 100%; color: var(--color-text);">
+                            <div class="upload-icon">🎧</div>
+                            <p style="color: var(--color-text);"><strong>Generate Audio</strong></p>
+                            <p style="color: var(--color-text-secondary); margin-top: var(--space-8); font-size: var(--font-size-sm);">Create test dialogues</p>
+                        </a>
+                    </div>
+                </div>
+
+                <div id="recordingsQueue" class="card" style="display: none; margin-top: var(--space-24);">
+                    <h3 style="margin-bottom: var(--space-16);">Recordings Queue</h3>
+                    <div id="recordingsList"></div>
+                    <div class="btn-group" style="margin-top: var(--space-16);">
+                        <button class="btn btn-secondary" onclick="app.clearRecordings()">🗑️ Clear Queue</button>
+                    </div>
+                </div>
+
+                <div id="fileInfoContainer" style="display: none;">
+                    <div class="file-info" id="fileInfo">
+                        <!-- File info will be shown here -->
+                    </div>
+                </div>
+
+                <!-- Tab Content: LLM Diarization -->
+                <div id="llmTabContent" class="tab-content active" style="margin-top: var(--space-24);">
+                    <div class="card">
+                        <h2>Transcript Context Diarization</h2>
+                        <p style="color: var(--color-text-secondary); margin-bottom: var(--space-16);">
+                            Paste your transcript or upload a text file for diarization analysis. For Multimodal mode, both audio file and transcript are required.
+                        </p>
+                        
+                        <div class="form-group">
+                            <label class="label">Model Selection</label>
+                            <div style="display: flex; flex-direction: column; gap: var(--space-12);">
+                                <div style="display: flex; gap: var(--space-16); flex-wrap: wrap;">
+                                    <label style="display: flex; align-items: center; gap: var(--space-8); cursor: pointer;">
+                                        <input type="radio" name="diarizationModel" value="fast-tier" checked style="cursor: pointer;">
+                                        <span><strong>Fast</strong> tier</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: var(--space-8); cursor: pointer;">
+                                        <input type="radio" name="diarizationModel" value="smart-tier" style="cursor: pointer;">
+                                        <span><strong>Smart</strong> tier</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: var(--space-8); cursor: pointer;">
+                                        <input type="radio" name="diarizationModel" value="smart-2-tier" style="cursor: pointer;">
+                                        <span><strong>Advanced</strong> tier</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: var(--space-8); cursor: pointer;">
+                                        <input type="radio" name="diarizationModel" value="gemini-2.5-pro-text" style="cursor: pointer;">
+                                        <span><strong>Smart 2</strong> tier</span>
+                                    </label>
+                                <label style="display: flex; align-items: center; gap: var(--space-8); cursor: pointer;">
+                                    <input type="radio" name="diarizationModel" value="local-tier" style="cursor: pointer;">
+                                    <span><strong>Local</strong> (LM Studio)</span>
+                                </label>
+                                </div>
+                                <label style="display: flex; flex-direction: column; gap: var(--space-4); cursor: pointer; margin-top: var(--space-8); padding: var(--space-12); background: var(--color-bg-2); border-radius: var(--radius-base); border: 1px solid var(--color-border);">
+                                    <span style="display: flex; align-items: center; gap: var(--space-8);">
+                                        <input type="radio" name="diarizationModel" value="multimodal" style="cursor: pointer;">
+                                        <span><strong>Multimodal</strong></span>
+                                    </span>
+                                    <span style="color: var(--color-text-secondary); font-size: var(--font-size-sm); margin-left: var(--space-24);">
+                                        Processes audio and transcript together. Requires both audio file and transcript text.
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Audio Upload for Multimodal Mode -->
+                    <div id="llmMultimodalAudioBlock" style="display: none; margin-top: var(--space-24);">
+                        <div class="form-group">
+                            <label class="label">Audio File (Required for Multimodal)</label>
+                            <p style="color: var(--color-text-secondary); font-size: var(--font-size-sm); margin-bottom: var(--space-8);">
+                                Multimodal mode requires both an audio file and transcript text.
+                            </p>
+                            <div class="upload-area" onclick="document.getElementById('llmMultimodalAudioInput').click()" style="cursor: pointer;">
+                                <div class="upload-icon">🎵</div>
+                                <p><strong>Upload Audio File</strong></p>
+                                <p style="color: var(--color-text-secondary); margin-top: var(--space-8); font-size: var(--font-size-sm);">MP3, WAV, M4A, OGG</p>
+                                <input type="file" id="llmMultimodalAudioInput" class="file-input" accept=".mp3,.wav,.m4a,.ogg" onchange="app.handleLLMMultimodalAudioUpload(event)" style="display: none;">
+                            </div>
+                            <div id="llmMultimodalAudioInfo" style="display: none; padding: var(--space-12); background: var(--color-bg-3); border-radius: var(--radius-base); margin-top: var(--space-8);"></div>
+                        </div>
+                    </div>
+                        
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: var(--space-8); cursor: pointer;">
+                                <input type="checkbox" id="performAdditionalTesting" checked style="cursor: pointer;">
+                                <span>Perform additional testing</span>
+                            </label>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="label">Transcript Text</label>
+                            <textarea id="transcriptText" class="form-control" rows="10" placeholder="Paste the transcript text here or upload a file below..." style="font-family: monospace; font-size: var(--font-size-sm);"></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="label">Or Upload a Text File</label>
+                            <div class="upload-area" style="padding: var(--space-16);" onclick="document.getElementById('transcriptFileInput').click()">
+                                <p style="margin: 0;">📄 Upload Text File (.txt, .md)</p>
+                                <input type="file" id="transcriptFileInput" class="file-input" accept=".txt,.md" onchange="app.handleTranscriptFileUpload(event)">
+                            </div>
+                            <div id="transcriptFileInfo" style="display: none; padding: var(--space-12); background: var(--color-bg-3); border-radius: var(--radius-base); margin-top: var(--space-8);"></div>
+                        </div>
+
+                        <div id="diarizationResult" style="display: none; margin-top: var(--space-24);">
+                            <h3>Analysis Result</h3>
+                            <div id="diarizationResultContent" style="padding: var(--space-16); background: var(--color-bg-1); border-radius: var(--radius-base); border: 1px solid var(--color-border); max-height: 600px; overflow-y: auto; font-family: monospace; font-size: var(--font-size-sm); white-space: pre-wrap;"></div>
+                        </div>
+
+                        <div class="btn-group" style="margin-top: var(--space-16);">
+                            <button class="btn btn-primary" id="analyzeTranscriptBtn" onclick="app.analyzeTranscript()" disabled>🔍 Analyze Transcript</button>
+                            <button class="btn btn-secondary" onclick="app.clearTranscript()">🗑️ Clear</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Content: Audio Diarization -->
+                <div id="audioTabContent" class="tab-content" style="margin-top: var(--space-24);">
+                    <div class="card">
+                        <h2>Audio Diarization</h2>
+
+                        <!-- Audio Settings -->
+                        <div class="form-group" style="margin-top: var(--space-24);">
+                            <h3 style="margin-bottom: var(--space-12);">Audio Processing Settings</h3>
+                            
+                            <label class="label">Audio Language</label>
+                            <select id="audioLanguageSelect" class="form-control">
+                                <option value="ar">Arabic</option>
+                                <option value="en">English</option>
+                            </select>
+                            <p style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-top: var(--space-8);">
+                                Select the primary language of the audio file for better accuracy.
+                            </p>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="label">Expected Number of Speakers (optional)</label>
+                            <input type="number" id="audioSpeakerCount" class="form-control" placeholder="e.g., 2" min="1" max="10" value="2">
+                            <p style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-top: var(--space-8);">
+                                Specify the expected number of speakers to improve diarization accuracy. Leave empty for automatic detection.
+                            </p>
+                        </div>
+
+                        <!-- Processing Mode Selection -->
+                        <div class="form-group" style="margin-top: var(--space-24);">
+                            <h3 style="margin-bottom: var(--space-12);">Processing Mode</h3>
+                            <div style="display: flex; flex-direction: column; gap: var(--space-12);">
+                                <label style="display: flex; flex-direction: column; gap: var(--space-4); cursor: pointer;">
+                                    <span style="display: flex; align-items: center; gap: var(--space-8);">
+                                        <input type="radio" name="audioPipelineMode" value="speechmatics" checked style="cursor: pointer;">
+                                        <span><strong>Standard Diarization</strong></span>
+                                    </span>
+                                    <span style="color: var(--color-text-secondary); font-size: var(--font-size-sm); margin-left: var(--space-24);">
+                                        Standard audio diarization for speaker identification and segmentation.
+                                    </span>
+                                </label>
+                                <label style="display: flex; flex-direction: column; gap: var(--space-4); cursor: pointer;">
+                                    <span style="display: flex; align-items: center; gap: var(--space-8);">
+                                        <input type="radio" name="audioPipelineMode" value="audioshake" style="cursor: pointer;">
+                                        <span><strong>Overlap Diarization</strong></span>
+                                    </span>
+                                    <span style="color: var(--color-text-secondary); font-size: var(--font-size-sm); margin-left: var(--space-24);">
+                                        Upload once, then AudioShake Tasks separates speakers (localtunnel-hosted audio) and sends each stem through the existing Speechmatics + LLM pipeline for Agent/Client labeling.
+                                    </span>
+                                </label>
+                            </div>
+                            
+                            <!-- Tunnel Status for AudioShake -->
+                            <div id="tunnelStatusBlock" style="display: none; margin-top: var(--space-16); padding: var(--space-12); background: var(--color-bg-1); border-radius: var(--radius-md); border: 1px solid var(--color-card-border);">
+                                <div style="display: flex; align-items: center; gap: var(--space-8); margin-bottom: var(--space-8);">
+                                    <span id="tunnelStatusIcon" style="font-size: var(--font-size-lg);">🔄</span>
+                                    <span style="font-weight: var(--font-weight-semibold);">Tunnel Status</span>
+                                </div>
+                                <div id="tunnelStatusText" style="color: var(--color-text-secondary); font-size: var(--font-size-sm); margin-left: var(--space-24);">
+                                    Checking tunnel status...
+                                </div>
+                                <div id="tunnelUrlText" style="color: var(--color-text-secondary); font-size: var(--font-size-sm); margin-left: var(--space-24); margin-top: var(--space-4); word-break: break-all; display: none;">
+                                    <strong>URL:</strong> <span id="tunnelUrlValue"></span>
+                                </div>
+                                <div id="tunnelStartButtonContainer" style="margin-left: var(--space-24); margin-top: var(--space-8); display: none;">
+                                    <button id="tunnelStartButton" class="action-btn" onclick="app.startTunnel()" style="padding: var(--space-8) var(--space-16); font-size: var(--font-size-sm);">
+                                        🚀 Start Tunnel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Additional Information -->
+                        <div class="form-group" style="margin-top: var(--space-24);">
+                            <h3 style="margin-bottom: var(--space-12);">About Audio Diarization</h3>
+                            <div style="background: var(--color-bg-2); padding: var(--space-16); border-radius: var(--radius-base);">
+                                <p style="color: var(--color-text-secondary); margin-bottom: var(--space-8);">
+                                    <strong>How it works:</strong>
+                                </p>
+                                <ul style="color: var(--color-text-secondary); margin-left: var(--space-24); margin-bottom: var(--space-12);">
+                                    <li>Upload an audio file (MP3, WAV, M4A, OGG)</li>
+                                    <li>Audio service analyzes the audio signal</li>
+                                    <li>Automatic speaker identification and segmentation</li>
+                                    <li>Precise timestamps for each speech segment</li>
+                                </ul>
+                                <p style="color: var(--color-text-secondary); margin-bottom: 0; font-size: var(--font-size-sm);">
+                                    <strong>Best for:</strong> High-quality audio recordings with clear speaker separation.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Content: Combined (Audio + LLM + Verification) -->
+                <div id="combinedTabContent" class="tab-content" style="margin-top: var(--space-24);">
+                    <div class="card">
+                        <h2>Combined Diarization Method</h2>
+                        <p style="color: var(--color-text-secondary); margin-bottom: var(--space-24);">
+                            This method combines audio-based and LLM-based diarization: Speechmatics audio transcription + selected LLM model + automatic comparison & correction.
+                        </p>
+                        
+                        <!-- Audio Settings -->
+                        <div class="form-group" style="margin-top: var(--space-24);">
+                            <h3 style="margin-bottom: var(--space-12);">Audio Settings</h3>
+                            <label class="label">Audio Language</label>
+                            <select id="combinedLanguageSelect" class="form-control">
+                                <option value="ar">Arabic</option>
+                                <option value="en">English</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="label">Expected Number of Speakers (optional)</label>
+                            <input type="number" id="combinedSpeakerCount" class="form-control" placeholder="e.g., 2" min="1" max="10" value="2">
+                        </div>
+
+
+                        <!-- LLM Settings -->
+                        <div class="form-group" id="combinedTextModelBlock" style="margin-top: var(--space-24);">
+                            <h3 style="margin-bottom: var(--space-12);">LLM Settings</h3>
+                            <label class="label">Model Selection</label>
+                            <div style="display: flex; gap: var(--space-16); flex-wrap: wrap;">
+                                <label style="display: flex; align-items: center; gap: var(--space-8); cursor: pointer;">
+                                    <input type="radio" name="combinedDiarizationModel" value="fast-tier" checked style="cursor: pointer;">
+                                    <span><strong>Fast</strong> tier</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: var(--space-8); cursor: pointer;">
+                                    <input type="radio" name="combinedDiarizationModel" value="smart-tier" style="cursor: pointer;">
+                                    <span><strong>Smart</strong> tier</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: var(--space-8); cursor: pointer;">
+                                    <input type="radio" name="combinedDiarizationModel" value="smart-2-tier" style="cursor: pointer;">
+                                    <span><strong>Advanced</strong> tier</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: var(--space-8); cursor: pointer;">
+                                    <input type="radio" name="combinedDiarizationModel" value="local-tier" style="cursor: pointer;">
+                                    <span><strong>Local</strong> (LM Studio)</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="margin-top: var(--space-16);">
+                            <p style="color: var(--color-text-secondary);">
+                                The combined method provides the most accurate diarization by leveraging the strengths of both audio and text-based approaches.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Content: Overlap Diarization -->
+                <div id="overlapTabContent" class="tab-content" style="margin-top: var(--space-24);">
+                    <div class="card">
+                        <h2>Overlap Diarization Method</h2>
+                        
+                        <div class="form-group" style="margin-top: var(--space-16);">
+                            <label class="label">Processing Mode</label>
+                            <select id="overlapPipelineMode" class="form-control">
+                                <option value="mode1" selected>Mode 1 — AudioShake Multi-speaker separation</option>
+                                <option value="mode2">Mode 2 — PyAnnote Speech Separation</option>
+                                <option value="mode3">Mode 3 — SpeechBrain SepFormer</option>
+                            </select>
+                            <div id="overlapMode1Details" class="alert alert-info" style="margin-top: var(--space-12);">
+                                <strong>Mode 1 — AudioShake pipeline:</strong> первинна діаризація → multi-speaker separation (краще відокремлює голоси під час overlap) → транскрипція окремих доріжок → LLM-аналіз ролей → фінальна корекція overlap сегментів.
+                            </div>
+                            <div id="overlapMode2Details" class="alert alert-info" style="margin-top: var(--space-12); display: none;">
+                                <strong>Mode 2 — PyAnnote Speech Separation:</strong> open-source пайплайн з підтримкою up to 3 мовців, overlapping speech та окремих WAV-доріжок. Використовує <code>pyannote/speech-separation-ami-1.0</code> через Hugging Face API. Працює локально, не потребує HTTPS URL або тунелю. Потребує <code>HUGGINGFACE_TOKEN</code> в .env файлі.
+                            </div>
+                            <div id="overlapMode3Details" class="alert alert-info" style="margin-top: var(--space-12); display: none;">
+                                <strong>Mode 3 — SpeechBrain SepFormer:</strong> локальний пайплайн на базі <code>speechbrain/sepformer-wsj02mix</code>. Не потребує API ключів, кешує модель (~500&nbsp;МБ) і генерує окремі WAV-доріжки для кожного спікера. Рекомендовано при слабкому інтернеті або високих вимогах до приватності.
+                            </div>
+                        </div>
+                        
+                        <!-- Audio Settings -->
+                        <div class="form-group" style="margin-top: var(--space-24);">
+                            <h3 style="margin-bottom: var(--space-12);">Audio Settings</h3>
+                            <label class="label">Audio Language</label>
+                            <select id="overlapLanguageSelect" class="form-control">
+                                <option value="ar">Arabic</option>
+                                <option value="en">English</option>
+                            </select>
+                            <div style="margin-top: var(--space-16);">
+                                <label class="label">Transcription Model</label>
+                                <div style="display: flex; gap: var(--space-16); flex-wrap: wrap;">
+                                    <label style="display: flex; align-items: center; gap: var(--space-8); cursor: pointer;">
+                                        <input type="radio" name="overlapAudioModel" value="speechmatics" checked style="cursor: pointer;">
+                                        <span>Model 1 (Speechmatics)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: var(--space-8); cursor: pointer;">
+                                        <input type="radio" name="overlapAudioModel" value="azure" style="cursor: pointer;">
+                                        <span>Model 2 (Azure STT)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: var(--space-8); cursor: pointer;">
+                                        <input type="radio" name="overlapAudioModel" value="azure-realtime" style="cursor: pointer;">
+                                        <span>Model 3 (Azure STT Realtime)</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="label">Expected Number of Speakers (optional)</label>
+                            <input type="number" id="overlapSpeakerCount" class="form-control" placeholder="e.g., 2" min="1" max="10" value="2">
+                        </div>
+
+                        <!-- LLM Settings -->
+                        <div class="form-group" id="overlapTextModelBlock" style="margin-top: var(--space-24);">
+                            <h3 style="margin-bottom: var(--space-12);">LLM Settings</h3>
+                            <label class="label">Model Selection for Role Analysis</label>
+                            <div style="display: flex; gap: var(--space-16); flex-wrap: wrap;">
+                                <label style="display: flex; align-items: center; gap: var(--space-8); cursor: pointer;">
+                                    <input type="radio" name="overlapDiarizationModel" value="fast" checked style="cursor: pointer;">
+                                    <span><strong>Fast</strong> tier</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: var(--space-8); cursor: pointer;">
+                                    <input type="radio" name="overlapDiarizationModel" value="smart" style="cursor: pointer;">
+                                    <span><strong>Smart</strong> tier</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: var(--space-8); cursor: pointer;">
+                                    <input type="radio" name="overlapDiarizationModel" value="smart-2" style="cursor: pointer;">
+                                    <span><strong>Advanced</strong> tier</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: var(--space-8); cursor: pointer;">
+                                    <input type="radio" name="overlapDiarizationModel" value="local" style="cursor: pointer;">
+                                    <span><strong>Local</strong> (LM Studio)</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="margin-top: var(--space-16);">
+                            <p style="color: var(--color-text-secondary);">
+                                This method uses multi-speaker separation to extract clean voices even when they overlap, then corrects overlap segments in the initial diarization using the extracted voice tracks.
+                            </p>
+                        </div>
+                        
+                        <div class="form-group" style="margin-top: var(--space-16);">
+                            <button class="btn btn-secondary" style="width: 100%;" onclick="app.openSpeechbrainSamples()">🎧 View Mode 3 (SpeechBrain) Samples</button>
+                            <p style="color: var(--color-text-secondary); font-size: var(--font-size-sm); margin-top: var(--space-8);">
+                                Open the built-in dashboard with demo separations generated by the SpeechBrain SepFormer pipeline. Listen to stems and inspect transcripts before running your own overlap job.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Results Section -->
+                    <div id="overlapResultsContainer" style="display: none; margin-top: var(--space-24);">
+                        <div class="card">
+                            <h2>Processing Steps</h2>
+                            <div id="overlapStepsContainer"></div>
+                        </div>
+                    </div>
+                </div>
+
+
+                <div class="nav-buttons">
+                    <button class="btn btn-secondary" onclick="app.showView('configView')">← Back</button>
+                    <button class="btn btn-primary" id="startTestBtn" disabled onclick="app.startTesting()">🚀 Start Testing</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ground Truth Editor Modal -->
+        <div id="groundTruthEditor" class="modal" style="display: none;">
+            <div class="modal-content" style="max-width: 800px;">
+                <div class="modal-header">
+                    <h2>Ground Truth Editor</h2>
+                    <button class="btn-close" onclick="app.closeGroundTruthEditor()">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div id="groundTruthSegments"></div>
+                    <button class="btn btn-secondary" onclick="app.addGroundTruthSegment()">➕ Add Segment</button>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="app.closeGroundTruthEditor()">Cancel</button>
+                    <button class="btn btn-primary" onclick="app.saveGroundTruth()">💾 Save</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- View 3: Testing -->
+        <div id="testingView" class="view">
+            <div class="card">
+                <h2>Processing...</h2>
+                
+                <div class="alert alert-info">
+                    <strong>⏱️ Estimated Time:</strong> <span id="estimatedTime">Calculating...</span>
+                </div>
+
+                <div class="progress-container" id="progressContainer">
+                    <!-- Progress bars will be added here -->
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="app.cancelTesting()">⏹️ Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- View 4: Results - Enhanced Metrics Dashboard -->
+        <div id="resultsView" class="view">
+            <!-- Tabs Navigation -->
+            <div class="card" style="display: none;">
+                <div class="tabs-nav">
+                    <button class="tab-btn active" onclick="app.switchTab('summary')">📊 Summary Table</button>
+                    <button class="tab-btn" onclick="app.switchTab('detailed')">📈 Detailed Metrics</button>
+                    <button class="tab-btn" onclick="app.switchTab('errors')">🔍 Error Analysis</button>
+                    <button class="tab-btn" onclick="app.switchTab('comparison')">⚖️ Comparison</button>
+                    <button class="tab-btn" onclick="app.switchTab('timeline')">⏱️ Timeline</button>
+                </div>
+            </div>
+
+            <!-- Tab: Summary -->
+            <div id="tab-summary" class="tab-content active" style="display: none;">
+                <div class="card">
+                    <h2>Comparison Summary Table</h2>
+                <div style="overflow-x: auto;">
+                    <table class="results-table" id="resultsTable">
+                        <thead>
+                            <tr>
+                                <th>Service</th>
+                                <th>Processing Time</th>
+                                <th>Speakers</th>
+                                <th>Cost</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultsTableBody">
+                            <!-- Results will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+
+                </div>
+                <div class="card" id="audioshakeResultsCard" style="display: none;">
+                    <h2>Overlap Diarization</h2>
+                    <div id="audioshakeResultsContent"></div>
+                </div>
+            </div>
+
+            <!-- Tab: Detailed Metrics -->
+            <div id="tab-detailed" class="tab-content">
+                <div class="card">
+                    <h2>Detailed Diarization Metrics</h2>
+                    <div id="detailedMetricsContainer"></div>
+                </div>
+            </div>
+
+            <!-- Tab: Error Analysis -->
+            <div id="tab-errors" class="tab-content">
+                <div class="card">
+                    <h2>Diarization Error Analysis</h2>
+                    <div id="errorAnalysisContainer"></div>
+                </div>
+            </div>
+
+            <!-- Tab: Cross-Service Comparison -->
+            <div id="tab-comparison" class="tab-content">
+                <div class="card">
+                    <h2>Cross-Service Comparison</h2>
+                    <div id="comparisonContainer"></div>
+                </div>
+            </div>
+
+            <!-- Tab: Timeline Visualization -->
+            <div id="tab-timeline" class="tab-content">
+                <div class="card">
+                    <h2>Timeline Visualization</h2>
+                    <div id="timelineVizContainer"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Recordings Management</h2>
+                <div style="display: flex; flex-wrap: wrap; gap: var(--space-16); align-items: flex-end;">
+                    <div style="flex: 1; min-width: 240px;">
+                        <label class="label" for="recordingSelect">Active Recording</label>
+                        <select id="recordingSelect" class="form-control" onchange="app.selectRecording(this.value)">
+                            <option value="">— No Recordings —</option>
+                        </select>
+                    </div>
+                    <!-- Aggregated statistics button hidden per request -->
+                </div>
+                <div id="recordingsSummary" style="margin-top: var(--space-24);"></div>
+            </div>
+
+            <div class="card">
+                <h2>Transcript Translation</h2>
+                <div class="btn-group" style="flex-wrap: wrap;">
+                    <button class="btn btn-primary" id="translateToUkBtn" onclick="app.translateTranscripts('uk')">🇺🇦 Translate to Ukrainian</button>
+                    <button class="btn btn-primary" id="translateToEnBtn" onclick="app.translateTranscripts('en')">🇬🇧 Translate to English</button>
+                    <button class="btn btn-secondary" id="restoreOriginalBtn" onclick="app.restoreOriginalTranscripts()">↩️ Restore Original</button>
+                    <button class="btn btn-secondary" id="translateAllUkBtn" onclick="app.translateAllRecordings('uk')">🌐 All → 🇺🇦</button>
+                    <button class="btn btn-secondary" id="translateAllEnBtn" onclick="app.translateAllRecordings('en')">🌐 All → 🇬🇧</button>
+                </div>
+                <div id="translationStatus" class="status status-info" style="margin-top: var(--space-12);">
+                    Original Arabic transcripts
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Additional Features</h2>
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="app.showReplicasComparison()">🗣️ Speaker Replicas Comparison</button>
+                    <button class="btn btn-primary" onclick="app.openEfficiencyAnalyzer()">✅ Efficiency Analyzer</button>
+                    <a href="/demo" class="btn btn-secondary" target="_blank">🎬 Demo</a>
+                    <a href="/audio-generator" class="btn btn-secondary" target="_blank">🎧 Audio Generator</a>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Export Results</h2>
+                <div class="export-buttons">
+                    <button class="btn btn-secondary" onclick="app.exportJSON()">📄 Export JSON</button>
+                    <button class="btn btn-primary" onclick="app.exportForAIAnalysis()">🤖 Export for AI Analysis</button>
+                </div>
+            </div>
+
+            <div class="nav-buttons">
+                <button class="btn btn-secondary" onclick="app.showView('uploadView')">🔄 Test Another File</button>
+                <button class="btn btn-secondary" onclick="app.showView('overlapView')">🔊 Possible Overlap Detector</button>
+                <a href="/demo" class="btn btn-secondary" target="_blank">🎬 Demo</a>
+                <a href="/prompt-manager" class="btn btn-secondary" target="_blank">📝 Prompt Manager</a>
+                <a href="/audio-generator" class="btn btn-secondary" target="_blank">🎧 Audio Generator</a>
+                <button class="btn btn-primary" onclick="app.showView('configView')">⚙️ Settings</button>
+            </div>
+        </div>
+
+        <!-- View 5: Speaker Replicas Comparison -->
+        <div id="replicasView" class="view">
+            <div class="card">
+                <h2>Speaker Replicas Comparison</h2>
+                <p style="color: var(--color-text-secondary); margin-bottom: var(--space-24);">
+                    Compare how different diarization services separate speaker replicas
+                </p>
+
+                <div class="form-group" id="replicaRecordingPicker" style="display: none;">
+                    <label class="label" for="replicaRecordingSelect">Transcript Analysis</label>
+                    <select id="replicaRecordingSelect" class="form-control" onchange="app.handleReplicaRecordingChange(this.value)">
+                        <option value="">— No Recordings —</option>
+                    </select>
+                    <p style="color: var(--color-text-secondary); font-size: var(--font-size-sm); margin-top: var(--space-8);">
+                        Select a recording from the file for analysis. A single file may contain multiple recordings.
+                    </p>
+                    <div id="replicaAudioPlayerWrapper" style="display: none; width: 100%; margin-top: var(--space-12);">
+                        <label class="label" style="margin-bottom: var(--space-8);">Recording Audio Preview</label>
+                        <audio id="replicaAudioPlayer" controls preload="metadata" style="width: 100%;">
+                            Your browser does not support the audio element.
+                        </audio>
+                        <p style="color: var(--color-text-secondary); font-size: var(--font-size-sm); margin-top: var(--space-8);">
+                            Use this player to listen to the currently selected recording.
+                        </p>
+                        
+                        <!-- Separated Speaker Audio Players -->
+                        <div id="separatedSpeakersPlayers" style="display: none; margin-top: var(--space-16);">
+                            <label class="label" style="margin-bottom: var(--space-8);">Розділені аудіо фрагменти</label>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-12);">
+                                <div id="speaker0PlayerContainer" style="display: none;">
+                                    <div style="font-weight: var(--font-weight-medium); margin-bottom: var(--space-8); color: var(--color-primary);">Agent</div>
+                                    <audio id="speaker0Player" controls preload="metadata" style="width: 100%;">
+                                        Your browser does not support the audio element.
+                                    </audio>
+                                    <div style="margin-top: var(--space-8);">
+                                        <label class="label" for="speaker0Transcript" style="margin-bottom: var(--space-4);">📝 Транскрипт Agent</label>
+                                        <textarea id="speaker0Transcript" class="form-control" rows="6" readonly placeholder="Транскрипт ще не доступний"></textarea>
+                                        <div id="speaker0TranscriptMeta" style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-top: var(--space-4);"></div>
+                                    </div>
+                                </div>
+                                <div id="speaker1PlayerContainer" style="display: none;">
+                                    <div style="font-weight: var(--font-weight-medium); margin-bottom: var(--space-8); color: var(--color-warning);">Client</div>
+                                    <audio id="speaker1Player" controls preload="metadata" style="width: 100%;">
+                                        Your browser does not support the audio element.
+                                    </audio>
+                                    <div style="margin-top: var(--space-8);">
+                                        <label class="label" for="speaker1Transcript" style="margin-bottom: var(--space-4);">📝 Транскрипт Client</label>
+                                        <textarea id="speaker1Transcript" class="form-control" rows="6" readonly placeholder="Транскрипт ще не доступний"></textarea>
+                                        <div id="speaker1TranscriptMeta" style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-top: var(--space-4);"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="label">Select Speakers for Comparison</label>
+                    <div style="display: flex; gap: var(--space-16); flex-wrap: wrap; margin-bottom: var(--space-16);">
+                        <select id="speaker1Select" class="form-control" style="flex: 1; min-width: 200px;" onchange="app.updateReplicasComparison()">
+                            <option value="">-- Select Speaker 1 --</option>
+                        </select>
+                        <select id="speaker2Select" class="form-control" style="flex: 1; min-width: 200px;" onchange="app.updateReplicasComparison()">
+                            <option value="">-- Select Speaker 2 --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: var(--space-24);">
+                    <label class="label">Replica Translation</label>
+                    <div class="btn-group" style="flex-wrap: wrap;">
+                        <button class="btn btn-primary" id="replicaTranslateUkBtn" onclick="app.translateTranscripts('uk')">🇺🇦 Translate to Ukrainian</button>
+                        <button class="btn btn-primary" id="replicaTranslateEnBtn" onclick="app.translateTranscripts('en')">🇬🇧 Translate to English</button>
+                        <button class="btn btn-secondary" id="replicaRestoreBtn" onclick="app.restoreOriginalTranscripts()">↩️ Restore Original</button>
+                        <button class="btn btn-primary" id="fixMistakesBtn" onclick="app.fixMistakes()">🔧 Fix Mistakes</button>
+                        <button class="btn btn-primary" id="detectOverlapsReplicaBtn" onclick="app.detectOverlapsFromReplicas()">🔍 Detect Possible Overlaps</button>
+                        
+                        <!-- LLM Model Selection for Overlap Fixes -->
+                        <div class="form-group" style="margin-top: var(--space-24);">
+                            <h3 style="margin-bottom: var(--space-12);">LLM Settings</h3>
+                            <label class="label">Model Selection for Overlap Fixes</label>
+                            <div style="display: flex; gap: var(--space-16); flex-wrap: wrap;">
+                                <label style="display: flex; align-items: center; gap: var(--space-8); cursor: pointer;">
+                                    <input type="radio" name="replicaLLMModel" value="fast" checked style="cursor: pointer;">
+                                    <span><strong>Fast</strong> tier</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: var(--space-8); cursor: pointer;">
+                                    <input type="radio" name="replicaLLMModel" value="smart" style="cursor: pointer;">
+                                    <span><strong>Smart</strong> tier</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: var(--space-8); cursor: pointer;">
+                                    <input type="radio" name="replicaLLMModel" value="smart-2" style="cursor: pointer;">
+                                    <span><strong>Advanced</strong> tier</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: var(--space-8); cursor: pointer;">
+                                    <input type="radio" name="replicaLLMModel" value="local" style="cursor: pointer;">
+                                    <span><strong>Local</strong> (LM Studio)</span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <button class="btn btn-primary" id="applyOverlapFixesBtn" onclick="app.applyOverlapFixes()">✅ Apply Overlap Fixes</button>
+                        <button class="btn btn-primary" id="applyMarkdownFixesBtn" onclick="app.applyMarkdownFixes()">📝 Markdown Fix</button>
+                    </div>
+                    <div id="replicaTranslationStatus" class="status status-info" style="margin-top: var(--space-12);">
+                        Original Arabic transcripts
+                    </div>
+                </div>
+
+                <div id="replicasComparisonContainer">
+                    <div class="alert alert-info">
+                        Select speakers for comparison
+                    </div>
+                </div>
+
+                <div class="nav-buttons" style="margin-top: var(--space-24); gap: var(--space-12);">
+                    <button class="btn btn-secondary" onclick="app.showView('resultsView')">← Back to Results</button>
+                    <button class="btn btn-primary" onclick="app.exportDialogueToText()">Export Dialogue to Text</button>
+                    <button class="btn btn-secondary" onclick="app.copyDialogueToClipboard()">Copy as Text</button>
+                    <button class="btn btn-primary" onclick="app.copyCombinedSeparatedTranscript()">Copy Combined File</button>
+                    <button class="btn btn-secondary" onclick="app.copyInitialDiarizationJSON()">Copy Initial Diarization JSON</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- View 6: Overlap Detector -->
+        <div id="overlapView" class="view">
+            <div class="card">
+                <h2>🔊 Possible Overlap Detector</h2>
+                <p style="color: var(--color-text-secondary); margin-bottom: var(--space-24);">
+                    Detect possible overlapping speech in audio files and transcripts using Pyannote (audio-based) and LLM (transcript-based) detection
+                </p>
+
+                <!-- File Upload Section -->
+                <div class="form-group" style="margin-bottom: var(--space-24);">
+                    <h3>Upload Files</h3>
+                    
+                    <!-- Audio File Upload -->
+                    <div style="margin-bottom: var(--space-16);">
+                        <label class="label" for="audioFileInput">Audio File (for Pyannote detection)</label>
+                        <div class="file-upload-area" id="audioUploadArea" 
+                             ondrop="app.handleFileDrop(event, 'audio')" 
+                             ondragover="app.handleDragOver(event)" 
+                             ondragleave="app.handleDragLeave(event)">
+                            <input type="file" id="audioFileInput" accept="audio/*" style="display: none;" onchange="app.handleAudioFileSelect(event)">
+                            <div class="file-upload-content">
+                                <div class="file-upload-icon">🎵</div>
+                                <div class="file-upload-text">
+                                    <span id="audioFileText">Drag & drop audio file here or click to browse</span>
+                                </div>
+                                <button type="button" class="btn btn-secondary" onclick="document.getElementById('audioFileInput').click()">
+                                    Browse Files
+                                </button>
+                            </div>
+                        </div>
+                        <div id="audioFileInfo" style="margin-top: var(--space-8); font-size: var(--font-size-sm); color: var(--color-text-secondary);"></div>
+                    </div>
+
+                    <!-- Transcript File Upload -->
+                    <div style="margin-bottom: var(--space-16);">
+                        <label class="label" for="transcriptFileInput">Transcript File (for LLM detection)</label>
+                        <div class="file-upload-area" id="transcriptUploadArea"
+                             ondrop="app.handleFileDrop(event, 'transcript')" 
+                             ondragover="app.handleDragOver(event)" 
+                             ondragleave="app.handleDragLeave(event)">
+                            <input type="file" id="transcriptFileInput" accept=".txt,.json" style="display: none;" onchange="app.handleTranscriptFileSelect(event)">
+                            <div class="file-upload-content">
+                                <div class="file-upload-icon">📄</div>
+                                <div class="file-upload-text">
+                                    <span id="transcriptFileText">Drag & drop transcript file here or click to browse</span>
+                                </div>
+                                <button type="button" class="btn btn-secondary" onclick="document.getElementById('transcriptFileInput').click()">
+                                    Browse Files
+                                </button>
+                            </div>
+                        </div>
+                        <div id="transcriptFileInfo" style="margin-top: var(--space-8); font-size: var(--font-size-sm); color: var(--color-text-secondary);"></div>
+                    </div>
+
+                    <!-- Manual Transcript Input -->
+                    <div style="margin-bottom: var(--space-16);">
+                        <label class="label" for="transcriptTextArea">Or Paste Transcript Text</label>
+                        <textarea id="transcriptTextArea" class="form-control" rows="8" 
+                                  placeholder="Paste transcript text here for LLM-based possible overlap detection..."
+                                  style="font-family: monospace; font-size: var(--font-size-sm);"></textarea>
+                    </div>
+                </div>
+
+                <!-- Detect Button -->
+                <div style="margin-bottom: var(--space-24);">
+                    <button id="detectOverlapsBtn" class="btn btn-primary" onclick="app.detectOverlaps()" style="width: 100%; padding: var(--space-16); font-size: var(--font-size-lg);">
+                        🔍 Detect Possible Overlaps
+                    </button>
+                    <div id="overlapDetectionStatus" class="status" style="margin-top: var(--space-12);"></div>
+                </div>
+
+                <!-- Detected Overlaps List -->
+                <div id="overlapsListContainer" style="display: none;">
+                    <h3>Detected Possible Overlaps</h3>
+                    <div id="overlapsList" style="margin-bottom: var(--space-16);"></div>
+                    <div style="display: flex; gap: var(--space-8);">
+                        <button class="btn btn-secondary" onclick="app.exportOverlaps()">📥 Export JSON</button>
+                        <button class="btn btn-secondary" onclick="app.clearOverlaps()">🗑️ Clear Results</button>
+                    </div>
+                </div>
+
+                <!-- Transcript with Highlighted Overlaps -->
+                <div id="transcriptViewContainer" style="display: none; margin-top: var(--space-24);">
+                    <h3>Transcript with Overlaps Highlighted</h3>
+                    <div id="transcriptView" class="transcript-view" style="background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-base); padding: var(--space-16); max-height: 500px; overflow-y: auto; font-family: monospace; font-size: var(--font-size-sm); line-height: 1.8;"></div>
+                </div>
+
+                <div class="nav-buttons" style="margin-top: var(--space-24);">
+                    <button class="btn btn-secondary" onclick="app.showView('uploadView')">← Back to Upload</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- View 7: SpeechBrain Sample Library -->
+        <div id="speechbrainView" class="view" style="display: none;">
+            <div class="card">
+                <h2>Mode 3 — SpeechBrain Demo Library</h2>
+                <p style="color: var(--color-text-secondary); margin-bottom: var(--space-16);">
+                    Review ready-made separation results produced by the SpeechBrain SepFormer pipeline. Listen to clean speaker stems, inspect the overlap timelines, and verify transcript formatting before running your own Mode 3 job.
+                </p>
+
+                <div id="speechbrainSamplesLoading" class="alert alert-info">Loading SpeechBrain samples...</div>
+                <div id="speechbrainSamplesError" class="alert alert-error" style="display: none;"></div>
+                <div id="speechbrainSamplesContainer" style="display: none;"></div>
+
+                <div class="btn-group" style="margin-top: var(--space-24);">
+                    <button class="btn btn-secondary" onclick="app.showView('uploadView')">← Back</button>
+                    <button class="btn btn-primary" onclick="app.reloadSpeechbrainSamples()">↻ Refresh Samples</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="lib/clientLogger.js"></script>
+    <script src="metrics.js"></script>
+    <script src="visualization.js"></script>
+    <script src="text_similarity_utils.js"></script>
+    <script src="overlap_merge_utils.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

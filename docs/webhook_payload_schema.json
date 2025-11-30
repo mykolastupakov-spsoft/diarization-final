@@ -1,0 +1,232 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Webhook Payload Schema for Text Analysis",
+  "description": "Schema for JSON payload sent to webhook endpoint after role analysis",
+  "type": "object",
+  "required": ["general", "speaker1", "speaker2", "markdown"],
+  "properties": {
+    "general": {
+      "type": "object",
+      "description": "Data from Step 1: Primary Diarization",
+      "required": ["originalText", "speechmatics", "recording", "segments", "segmentsCount"],
+      "properties": {
+        "originalText": {
+          "type": "string",
+          "description": "Combined text from all primary diarization segments"
+        },
+        "speechmatics": {
+          "type": "object",
+          "description": "Full Speechmatics results object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "serviceName": { "type": "string" },
+            "engine": { "type": "string" },
+            "segments": {
+              "type": "array",
+              "items": { "$ref": "#/definitions/segment" }
+            }
+          }
+        },
+        "recording": {
+          "type": "object",
+          "description": "Recording metadata",
+          "properties": {
+            "name": { "type": ["string", "null"] },
+            "duration": { "type": ["number", "null"] },
+            "speakerCount": { "type": ["string", "null"] },
+            "language": { "type": ["string", "null"] }
+          }
+        },
+        "segments": {
+          "type": "array",
+          "description": "Array of segments from primary diarization",
+          "items": { "$ref": "#/definitions/segment" }
+        },
+        "segmentsCount": {
+          "type": "integer",
+          "description": "Number of segments",
+          "minimum": 0
+        }
+      }
+    },
+    "speaker1": {
+      "type": "object",
+      "description": "Data from Step 3: Voice Track 1 Transcription",
+      "required": ["speaker", "role", "roleConfidence", "roleSummary", "speechmatics", "recording", "segments", "segmentsCount", "transcriptText"],
+      "properties": {
+        "speaker": {
+          "type": "string",
+          "description": "Speaker identifier from voice track",
+          "pattern": "^SPEAKER_\\d{2}$"
+        },
+        "role": {
+          "type": ["string", "null"],
+          "description": "Speaker role: operator, client, or null",
+          "enum": ["operator", "agent", "client", "customer", null]
+        },
+        "roleConfidence": {
+          "type": ["number", "null"],
+          "description": "Confidence in role assignment (0-1)",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "roleSummary": {
+          "type": ["string", "null"],
+          "description": "Brief description of the role"
+        },
+        "speechmatics": {
+          "type": "object",
+          "description": "Full Speechmatics results object for this track",
+          "properties": {
+            "success": { "type": "boolean" },
+            "serviceName": { "type": "string" },
+            "engine": { "type": "string" },
+            "segments": {
+              "type": "array",
+              "items": { "$ref": "#/definitions/segment" }
+            }
+          }
+        },
+        "recording": {
+          "type": "object",
+          "description": "Recording metadata",
+          "properties": {
+            "name": { "type": ["string", "null"] },
+            "duration": { "type": ["number", "null"] },
+            "language": { "type": ["string", "null"] }
+          }
+        },
+        "segments": {
+          "type": "array",
+          "description": "Array of segments from voice track 1 transcription",
+          "items": { "$ref": "#/definitions/segment" }
+        },
+        "segmentsCount": {
+          "type": "integer",
+          "description": "Number of segments",
+          "minimum": 0
+        },
+        "transcriptText": {
+          "type": ["string", "null"],
+          "description": "Combined transcript text"
+        }
+      }
+    },
+    "speaker2": {
+      "type": "object",
+      "description": "Data from Step 3: Voice Track 2 Transcription",
+      "required": ["speaker", "role", "roleConfidence", "roleSummary", "speechmatics", "recording", "segments", "segmentsCount", "transcriptText"],
+      "properties": {
+        "speaker": {
+          "type": "string",
+          "description": "Speaker identifier from voice track",
+          "pattern": "^SPEAKER_\\d{2}$"
+        },
+        "role": {
+          "type": ["string", "null"],
+          "description": "Speaker role: operator, client, or null",
+          "enum": ["operator", "agent", "client", "customer", null]
+        },
+        "roleConfidence": {
+          "type": ["number", "null"],
+          "description": "Confidence in role assignment (0-1)",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "roleSummary": {
+          "type": ["string", "null"],
+          "description": "Brief description of the role"
+        },
+        "speechmatics": {
+          "type": "object",
+          "description": "Full Speechmatics results object for this track",
+          "properties": {
+            "success": { "type": "boolean" },
+            "serviceName": { "type": "string" },
+            "engine": { "type": "string" },
+            "segments": {
+              "type": "array",
+              "items": { "$ref": "#/definitions/segment" }
+            }
+          }
+        },
+        "recording": {
+          "type": "object",
+          "description": "Recording metadata",
+          "properties": {
+            "name": { "type": ["string", "null"] },
+            "duration": { "type": ["number", "null"] },
+            "language": { "type": ["string", "null"] }
+          }
+        },
+        "segments": {
+          "type": "array",
+          "description": "Array of segments from voice track 2 transcription",
+          "items": { "$ref": "#/definitions/segment" }
+        },
+        "segmentsCount": {
+          "type": "integer",
+          "description": "Number of segments",
+          "minimum": 0
+        },
+        "transcriptText": {
+          "type": ["string", "null"],
+          "description": "Combined transcript text"
+        }
+      }
+    },
+    "markdown": {
+      "type": ["string", "null"],
+      "description": "Markdown table with all segments from both voice tracks, sorted by start time"
+    }
+  },
+  "definitions": {
+    "segment": {
+      "type": "object",
+      "description": "A single transcription segment",
+      "required": ["speaker", "text", "start", "end"],
+      "properties": {
+        "speaker": {
+          "type": "string",
+          "description": "Speaker identifier",
+          "pattern": "^SPEAKER_\\d{2}$"
+        },
+        "text": {
+          "type": "string",
+          "description": "Transcribed text of the segment"
+        },
+        "start": {
+          "type": "number",
+          "description": "Start time in seconds",
+          "minimum": 0
+        },
+        "end": {
+          "type": "number",
+          "description": "End time in seconds",
+          "minimum": 0
+        },
+        "words": {
+          "type": "array",
+          "description": "Array of word objects (optional)",
+          "items": { "type": "object" }
+        },
+        "confidence": {
+          "type": "number",
+          "description": "Confidence score (optional)",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "role": {
+          "type": ["string", "null"],
+          "description": "Speaker role (optional)",
+          "enum": ["operator", "agent", "client", "customer", null]
+        },
+        "overlap": {
+          "type": "boolean",
+          "description": "Whether this segment overlaps with another speaker (optional)"
+        }
+      }
+    }
+  }
+}
+

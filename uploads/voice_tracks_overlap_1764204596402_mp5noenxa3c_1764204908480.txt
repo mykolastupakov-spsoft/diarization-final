@@ -1,0 +1,32 @@
+SPEAKER_00 (operator) [0.60-8.24]: Hi I'm Jessica I'm calling on behalf of Future Health to reconfirm your appointment with our doctor Are you available for a short conversation right now
+SPEAKER_00 (operator) [9.36-12.80]: Yeah Jessica I do available What do you have for me
+SPEAKER_00 (operator) [15.76-22.84]: Great To ensure I have the correct information for you could you please confirm your date of birth for me please
+SPEAKER_00 (operator) [24.16-26.00]: April 29th 1981
+SPEAKER_00 (operator) [32.00-37.92]: Thank you I see you have an appointment scheduled with Doctor Eleanor Vance in General practitioner GP
+SPEAKER_00 (operator) [35.44-36.96]: Wait wait wait for a second
+SPEAKER_00 (operator) [37.92-42.80]: Uh can you please uh make the correction in my date of birth
+SPEAKER_00 (operator) [46.64-55.44]: I'm not able to update your date of birth directly but I can connect you with our team Who can help with that Would you like me to transfer you to a human agent right now
+SPEAKER_00 (operator) [56.44-62.68]: Mm Now let's let's uh move forward to the uh scheduling
+SPEAKER_00 (operator) [65.73-74.01]: No problem Are you looking to reschedule your existing appointment with Doctor Eleanor Vance or would you like to book a completely new appointment
+SPEAKER_00 (operator) [70.57-73.69]: But can you please remind me about this appointment
+SPEAKER_00 (operator) [76.45-100.01]: Of course Your appointment is with Doctor Eleanor Vance General practitioner GP on June 25th at 1:00 pm at Future Health Harley Street Clinic 120 Harley Street London one seven JS Please arrive 15 minutes early and bring your insurance card and any necessary documents Would you like me to send you a reminder via SMS or email
+SPEAKER_00 (operator) [100.73-103.65]: Uh I want to reschedule this one
+SPEAKER_00 (operator) [106.77-115.81]: Sure we can do that Would you like to see available dates with Doctor Eleanor Vance or are you open to another General practitioner GP at a different location
+SPEAKER_00 (operator) [117.13-121.93]: Uh I'd like this appointment to be the soonest possible
+SPEAKER_00 (operator) [124.93-136.87]: Got it The soonest available dates with doctor Eleanor Vance General Practitioner GP hour June 27th June 20th 9th or July 3rd Would any of these days work for you
+SPEAKER_00 (operator) [132.27-133.95]: I can I can do
+SPEAKER_00 (operator) [134.71-136.03]: another doctor as well
+SPEAKER_00 (operator) [138.19-149.59]: Absolutely You can Would you like to stick with a general practitioner GP or are you looking for a different specialty If GP is fine I can check the soonest dates with other available GPS for you
+SPEAKER_00 (operator) [150.15-153.59]: I have some issues with lungs Can I visit the
+SPEAKER_00 (operator) [159.15-168.47]: Yes you can For lung issues you might want to see a pulmonologist Would you like to check the soonest available appointments with a pulmonology specialist
+SPEAKER_00 (operator) [168.99-185.19]: Yes please Any of this works
+SPEAKER_00 (operator) [173.51-182.63]: The soonest available dates with our pulmonologist doctor Chloe Adams are June 30th July 2nd or July 6th Do any of these days work for you
+SPEAKER_00 (operator) [187.71-198.88]: Great For June 30th the available times with Doctor Chloe Adams are 9:15 a.m. 10 a.m. or 10:45 a.m. Which of these times would suit you best
+SPEAKER_00 (operator) [199.60-225.20]: Let's do ten Yes SMS would be great
+SPEAKER_00 (operator) [204.44-222.48]: Perfect I've booked your appointment with Doctor Chloe Adams pulmonologist on June 30th at 10 a.m. at Future Health City Medical Hub 15 Bishopsgate London EC 2N3 AR Would you like me to send you a reminder for this appointment via SMS or email
+SPEAKER_00 (operator) [227.32-233.48]: All set You'll get an SMS reminder for your appointment with Doctor Chloe Adams on June 30th
+SPEAKER_00 (operator) [229.16-232.72]: Are you now Please send me the email as well
+SPEAKER_00 (operator) [234.96-244.56]: No problem I'll send you both an SMS and an email reminder for your appointment Do you have all the information you need or is there anything else I can help with today
+SPEAKER_00 (operator) [245.04-246.24]: Yeah we are good for today
+SPEAKER_00 (operator) [249.36-254.96]: Glad to hear everything's good for today We look forward to seeing you at your appointment Have a great day
+SPEAKER_00 (operator) [256.00-256.92]: Thanks Bye

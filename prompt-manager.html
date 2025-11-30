@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prompt Manager - Diarization Application</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --color-primary: #21808d;
+            --color-primary-hover: #1d7480;
+            --color-secondary: #5e5240;
+            --color-background: #fcfcf9;
+            --color-surface: #ffffff;
+            --color-text: #13343b;
+            --color-text-secondary: #626c71;
+            --color-border: rgba(94, 82, 64, 0.2);
+            --color-success: #22c55e;
+            --color-error: #c0152f;
+            --color-warning: #f59e0b;
+            --spacing-xs: 4px;
+            --spacing-sm: 8px;
+            --spacing-md: 16px;
+            --spacing-lg: 24px;
+            --spacing-xl: 32px;
+            --radius: 8px;
+            --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--color-background);
+            color: var(--color-text);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: var(--spacing-lg);
+        }
+
+        .header {
+            background: var(--color-surface);
+            padding: var(--spacing-lg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            margin-bottom: var(--spacing-lg);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: var(--spacing-md);
+        }
+
+        .header h1 {
+            color: var(--color-primary);
+            font-size: 28px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: var(--spacing-md);
+        }
+
+        .btn {
+            padding: var(--spacing-sm) var(--spacing-md);
+            border: none;
+            border-radius: var(--radius);
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: var(--color-primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--color-primary-hover);
+        }
+
+        .btn-secondary {
+            background: var(--color-secondary);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4a4032;
+        }
+
+        .btn-success {
+            background: var(--color-success);
+            color: white;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .prompts-grid {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: var(--spacing-lg);
+        }
+
+        .prompts-list {
+            background: var(--color-surface);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: var(--spacing-md);
+            max-height: calc(100vh - 200px);
+            overflow-y: auto;
+        }
+
+        .prompts-list h2 {
+            font-size: 18px;
+            margin-bottom: var(--spacing-md);
+            color: var(--color-primary);
+        }
+
+        .prompt-item {
+            padding: var(--spacing-md);
+            border: 2px solid transparent;
+            border-radius: var(--radius);
+            cursor: pointer;
+            margin-bottom: var(--spacing-sm);
+            transition: all 0.2s;
+        }
+
+        .prompt-item:hover {
+            background: rgba(33, 128, 141, 0.05);
+            border-color: var(--color-primary);
+        }
+
+        .prompt-item.active {
+            background: rgba(33, 128, 141, 0.1);
+            border-color: var(--color-primary);
+        }
+
+        .prompt-item-name {
+            font-weight: 600;
+            margin-bottom: var(--spacing-xs);
+            color: var(--color-text);
+        }
+
+        .prompt-item-meta {
+            font-size: 12px;
+            color: var(--color-text-secondary);
+        }
+
+        .editor-panel {
+            background: var(--color-surface);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: var(--spacing-lg);
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - 200px);
+        }
+
+        .editor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-md);
+            padding-bottom: var(--spacing-md);
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .editor-header h2 {
+            color: var(--color-primary);
+            font-size: 20px;
+        }
+
+        .editor-actions {
+            display: flex;
+            gap: var(--spacing-sm);
+        }
+
+        .editor-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        .editor-textarea {
+            flex: 1;
+            width: 100%;
+            padding: var(--spacing-md);
+            border: 2px solid var(--color-border);
+            border-radius: var(--radius);
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            resize: vertical;
+            min-height: 400px;
+            overflow-y: auto;
+        }
+
+        .editor-textarea:focus {
+            outline: none;
+            border-color: var(--color-primary);
+        }
+
+        .editor-stats {
+            margin-top: var(--spacing-md);
+            padding-top: var(--spacing-md);
+            border-top: 1px solid var(--color-border);
+            font-size: 12px;
+            color: var(--color-text-secondary);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .alert {
+            padding: var(--spacing-md);
+            border-radius: var(--radius);
+            margin-bottom: var(--spacing-md);
+            display: none;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert-success {
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid var(--color-success);
+            color: #15803d;
+        }
+
+        .alert-error {
+            background: rgba(192, 21, 47, 0.1);
+            border: 1px solid var(--color-error);
+            color: #991b1b;
+        }
+
+        .alert-info {
+            background: rgba(33, 128, 141, 0.1);
+            border: 1px solid var(--color-primary);
+            color: var(--color-primary);
+        }
+
+        .loading {
+            text-align: center;
+            padding: var(--spacing-xl);
+            color: var(--color-text-secondary);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: var(--spacing-xl);
+            color: var(--color-text-secondary);
+        }
+
+        .empty-state h3 {
+            margin-bottom: var(--spacing-sm);
+            color: var(--color-text);
+        }
+
+        @media (max-width: 1024px) {
+            .prompts-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .prompts-list {
+                max-height: 200px;
+            }
+
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .header-actions {
+                width: 100%;
+                justify-content: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>📝 Prompt Manager</h1>
+                <p style="color: var(--color-text-secondary); margin-top: var(--spacing-xs);">
+                    Manage all prompts used in the diarization application
+                </p>
+            </div>
+            <div class="header-actions">
+                <a href="/" class="btn btn-secondary">← Back to App</a>
+                <button class="btn btn-primary" onclick="loadPrompts()">🔄 Refresh</button>
+            </div>
+        </div>
+
+        <div id="alertContainer"></div>
+
+        <div class="prompts-grid">
+            <div class="prompts-list">
+                <h2>Available Prompts</h2>
+                <div id="promptsList">
+                    <div class="loading">Loading prompts...</div>
+                </div>
+            </div>
+
+            <div class="editor-panel">
+                <div id="editorPlaceholder" class="empty-state">
+                    <h3>Select a prompt to edit</h3>
+                    <p>Choose a prompt from the list on the left to view and edit its content</p>
+                </div>
+
+                <div id="editorContent" style="display: none;">
+                    <div class="editor-header">
+                        <h2 id="editorTitle">Prompt Editor</h2>
+                        <div class="editor-actions">
+                            <button class="btn btn-secondary" onclick="resetEditor()">↺ Reset</button>
+                            <button class="btn btn-success" onclick="savePrompt()" id="saveBtn">💾 Save</button>
+                        </div>
+                    </div>
+                    <div class="editor-content">
+                        <textarea 
+                            id="promptEditor" 
+                            class="editor-textarea" 
+                            placeholder="Prompt content will appear here..."
+                            oninput="onEditorChange()"
+                        ></textarea>
+                        <div class="editor-stats">
+                            <span id="charCount">0 characters</span>
+                            <span id="lineCount">0 lines</span>
+                            <span id="lastModified"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let prompts = [];
+        let currentPrompt = null;
+        let originalContent = '';
+
+        // Load all prompts on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadPrompts();
+        });
+
+        async function loadPrompts() {
+            try {
+                const response = await fetch('/api/prompts');
+                if (!response.ok) {
+                    throw new Error('Failed to load prompts');
+                }
+                const data = await response.json();
+                prompts = data.prompts || [];
+                renderPromptsList();
+            } catch (error) {
+                showAlert('error', `Failed to load prompts: ${error.message}`);
+                document.getElementById('promptsList').innerHTML = 
+                    '<div class="empty-state"><h3>Error loading prompts</h3><p>' + error.message + '</p></div>';
+            }
+        }
+
+        function renderPromptsList() {
+            const container = document.getElementById('promptsList');
+            
+            if (prompts.length === 0) {
+                container.innerHTML = '<div class="empty-state"><h3>No prompts found</h3></div>';
+                return;
+            }
+
+            container.innerHTML = prompts.map(prompt => {
+                const escapedFilename = prompt.filename.replace(/'/g, "\\'");
+                return `
+                <div class="prompt-item ${currentPrompt?.filename === prompt.filename ? 'active' : ''}" 
+                     onclick="selectPrompt('${escapedFilename}')">
+                    <div class="prompt-item-name">${prompt.filename}</div>
+                    <div class="prompt-item-meta">
+                        ${formatBytes(prompt.size)} • ${formatDate(prompt.lastModified)}
+                    </div>
+                </div>
+            `;
+            }).join('');
+        }
+
+        async function selectPrompt(filename) {
+            try {
+                const response = await fetch(`/api/prompts/${filename}`);
+                if (!response.ok) {
+                    throw new Error('Failed to load prompt');
+                }
+                const data = await response.json();
+                
+                currentPrompt = data;
+                originalContent = data.content;
+                
+                document.getElementById('editorPlaceholder').style.display = 'none';
+                const editorContent = document.getElementById('editorContent');
+                editorContent.style.display = 'flex';
+                editorContent.style.flexDirection = 'column';
+                document.getElementById('editorTitle').textContent = data.filename;
+                document.getElementById('promptEditor').value = data.content;
+                document.getElementById('lastModified').textContent = 
+                    `Last modified: ${formatDate(data.lastModified)}`;
+                
+                updateStats();
+                renderPromptsList();
+                
+                // Scroll textarea to top
+                document.getElementById('promptEditor').scrollTop = 0;
+            } catch (error) {
+                showAlert('error', `Failed to load prompt: ${error.message}`);
+            }
+        }
+
+        function onEditorChange() {
+            updateStats();
+        }
+
+        function updateStats() {
+            const content = document.getElementById('promptEditor').value;
+            const charCount = content.length;
+            const lineCount = content.split('\n').length;
+            
+            document.getElementById('charCount').textContent = `${charCount.toLocaleString()} characters`;
+            document.getElementById('lineCount').textContent = `${lineCount} lines`;
+        }
+
+        async function savePrompt() {
+            if (!currentPrompt) {
+                showAlert('error', 'No prompt selected');
+                return;
+            }
+
+            const content = document.getElementById('promptEditor').value;
+            const saveBtn = document.getElementById('saveBtn');
+            
+            saveBtn.disabled = true;
+            saveBtn.textContent = '⏳ Saving...';
+
+            try {
+                const response = await fetch(`/api/prompts/${currentPrompt.filename}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ content })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to save prompt');
+                }
+
+                const data = await response.json();
+                originalContent = content;
+                currentPrompt.lastModified = data.lastModified;
+                currentPrompt.size = data.size;
+                
+                document.getElementById('lastModified').textContent = 
+                    `Last modified: ${formatDate(data.lastModified)}`;
+                
+                showAlert('success', 'Prompt saved successfully! Changes will take effect on next request.');
+                renderPromptsList();
+                
+                // Notify main application (if in same origin)
+                if (window.parent !== window) {
+                    window.parent.postMessage({
+                        type: 'PROMPT_UPDATED',
+                        filename: currentPrompt.filename
+                    }, '*');
+                }
+            } catch (error) {
+                showAlert('error', `Failed to save prompt: ${error.message}`);
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = '💾 Save';
+            }
+        }
+
+        function resetEditor() {
+            if (!currentPrompt) return;
+            
+            if (confirm('Reset all changes? This will restore the original content.')) {
+                document.getElementById('promptEditor').value = originalContent;
+                updateStats();
+                showAlert('info', 'Editor reset to original content');
+            }
+        }
+
+        function showAlert(type, message) {
+            const container = document.getElementById('alertContainer');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type} show`;
+            alert.textContent = message;
+            container.innerHTML = '';
+            container.appendChild(alert);
+            
+            setTimeout(() => {
+                alert.classList.remove('show');
+                setTimeout(() => alert.remove(), 300);
+            }, 3000);
+        }
+
+        function formatBytes(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString();
+        }
+
+        // Handle keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                if (currentPrompt) {
+                    savePrompt();
+                }
+            }
+        });
+    </script>
+</body>
+</html>
+

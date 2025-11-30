@@ -1,0 +1,599 @@
+{
+  "speaker2": {
+    "speaker": "SPEAKER_01",
+    "role": "operator",
+    "roleConfidence": 0.75,
+    "roleSummary": "The speaker is handling the appointment request, confirming details, offering time slots, and closing the call.",
+    "speechmatics": {
+      "success": true,
+      "serviceName": "Model3",
+      "engine": "speechmatics",
+      "segments": [
+        {
+          "speaker": "SPEAKER_00",
+          "text": "Hi I'm calling on behalf of",
+          "start": 0.68,
+          "end": 2.64,
+          "pauses": [
+            {
+              "start": 0.96,
+              "end": 1.56,
+              "duration": 0.6000000000000001
+            }
+          ],
+          "words": [
+            {
+              "word": "Hi",
+              "start": 0.68,
+              "end": 0.96,
+              "speaker": 0,
+              "confidence": 1
+            },
+            {
+              "word": "I'm",
+              "start": 1.56,
+              "end": 1.72,
+              "speaker": 0,
+              "confidence": 1
+            },
+            {
+              "word": "calling",
+              "start": 1.72,
+              "end": 2.04,
+              "speaker": 0,
+              "confidence": 1
+            },
+            {
+              "word": "on",
+              "start": 2.04,
+              "end": 2.16,
+              "speaker": 0,
+              "confidence": 1
+            },
+            {
+              "word": "behalf",
+              "start": 2.16,
+              "end": 2.48,
+              "speaker": 0,
+              "confidence": 1
+            },
+            {
+              "word": "of",
+              "start": 2.48,
+              "end": 2.64,
+              "speaker": 0,
+              "confidence": 1
+            }
+          ]
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "Yeah Jessica I do available What do you have for me",
+          "start": 9.32,
+          "end": 12.8,
+          "pauses": [
+            {
+              "start": 11.2,
+              "end": 11.76,
+              "duration": 0.5600000000000005
+            }
+          ],
+          "words": [
+            {
+              "word": "Yeah",
+              "start": 9.32,
+              "end": 9.72,
+              "speaker": 1,
+              "confidence": 0.97
+            },
+            {
+              "word": "Jessica",
+              "start": 9.76,
+              "end": 10.2,
+              "speaker": 1,
+              "confidence": 1
+            },
+            {
+              "word": "I",
+              "start": 10.24,
+              "end": 10.36,
+              "speaker": 1,
+              "confidence": 1
+            },
+            {
+              "word": "do",
+              "start": 10.36,
+              "end": 10.56,
+              "speaker": 1,
+              "confidence": 1
+            },
+            {
+              "word": "available",
+              "start": 10.56,
+              "end": 11.2,
+              "speaker": 1,
+              "confidence": 1
+            },
+            {
+              "word": "What",
+              "start": 11.76,
+              "end": 11.96,
+              "speaker": 1,
+              "confidence": 1
+            },
+            {
+              "word": "do",
+              "start": 11.96,
+              "end": 12.04,
+              "speaker": 1,
+              "confidence": 0.84
+            },
+            {
+              "word": "you",
+              "start": 12.04,
+              "end": 12.16,
+              "speaker": 1,
+              "confidence": 1
+            },
+            {
+              "word": "have",
+              "start": 12.16,
+              "end": 12.36,
+              "speaker": 1,
+              "confidence": 1
+            },
+            {
+              "word": "for",
+              "start": 12.36,
+              "end": 12.52,
+              "speaker": 1,
+              "confidence": 1
+            },
+            {
+              "word": "me",
+              "start": 12.52,
+              "end": 12.8,
+              "speaker": 1,
+              "confidence": 1
+            }
+          ]
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "Uh April 29th 1981",
+          "start": 23.72,
+          "end": 26,
+          "words": [
+            {
+              "word": "Uh",
+              "start": 23.72,
+              "end": 24.08,
+              "speaker": 1,
+              "confidence": 1
+            },
+            {
+              "word": "April",
+              "start": 24.12,
+              "end": 24.56,
+              "speaker": 1,
+              "confidence": 1
+            },
+            {
+              "word": "29th",
+              "start": 24.56,
+              "end": 25,
+              "speaker": 1,
+              "confidence": 1
+            },
+            {
+              "word": "1981",
+              "start": 25.04,
+              "end": 26,
+              "speaker": 1,
+              "confidence": 1
+            }
+          ]
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "Well wait wait wait for a second",
+          "start": 35.16,
+          "end": 36.96,
+          "words": [
+            {
+              "word": "Well",
+              "start": 35.16,
+              "end": 35.48,
+              "speaker": 1,
+              "confidence": 1
+            },
+            {
+              "word": "wait",
+              "start": 35.48,
+              "end": 35.8,
+              "speaker": 1,
+              "confidence": 1
+            }
+          ]
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "Uh can you please uh make the correction uh in my date of birth",
+          "start": 37.84,
+          "end": 42.88,
+          "words": [
+            {
+              "word": "Uh",
+              "start": 37.84,
+              "end": 38.16,
+              "speaker": 1,
+              "confidence": 1
+            }
+          ]
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "Well",
+          "start": 55.12,
+          "end": 55.48,
+          "words": [
+            {
+              "word": "Well",
+              "start": 55.12,
+              "end": 55.48,
+              "speaker": 1,
+              "confidence": 1
+            }
+          ]
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "Um No let's let's uh move forward to the uh scheduling",
+          "start": 56.44,
+          "end": 62.68,
+          "words": [
+            {
+              "word": "Um",
+              "start": 56.44,
+              "end": 56.72,
+              "speaker": 1,
+              "confidence": 1
+            }
+          ]
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "Can you please remind me about this appointment",
+          "start": 70.77,
+          "end": 73.69,
+          "words": [
+            {
+              "word": "Can",
+              "start": 70.77,
+              "end": 70.93,
+              "speaker": 1,
+              "confidence": 1
+            }
+          ]
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "Yeah Sorry Documents",
+          "start": 91.05,
+          "end": 96.49,
+          "words": [
+            {
+              "word": "Yeah",
+              "start": 91.05,
+              "end": 91.37,
+              "speaker": 1,
+              "confidence": 1
+            }
+          ]
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "Yes Or email",
+          "start": 98.49,
+          "end": 100.05,
+          "words": [
+            {
+              "word": "Yes",
+              "start": 98.49,
+              "end": 98.73,
+              "speaker": 1,
+              "confidence": 1
+            }
+          ]
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "Uh I want to reschedule this one",
+          "start": 100.61,
+          "end": 103.65,
+          "words": [
+            {
+              "word": "Uh",
+              "start": 100.61,
+              "end": 100.93,
+              "speaker": 1,
+              "confidence": 1
+            }
+          ]
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "Okay Okay",
+          "start": 109.77,
+          "end": 115.65,
+          "words": [
+            {
+              "word": "Okay",
+              "start": 109.77,
+              "end": 110.13,
+              "speaker": 1,
+              "confidence": 1
+            }
+          ]
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "Uh I'd like this appointment to be the soonest possible",
+          "start": 117.05,
+          "end": 121.97,
+          "words": [
+            {
+              "word": "Uh",
+              "start": 117.05,
+              "end": 117.37,
+              "speaker": 1,
+              "confidence": 1
+            }
+          ]
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "Okay",
+          "start": 127.41,
+          "end": 127.81,
+          "words": [
+            {
+              "word": "Okay",
+              "start": 127.41,
+              "end": 127.81,
+              "speaker": 1,
+              "confidence": 1
+            }
+          ]
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "I can I can do another doctor as well",
+          "start": 132.27,
+          "end": 136.07,
+          "words": [
+            {
+              "word": "I",
+              "start": 132.27,
+              "end": 132.39,
+              "speaker": 1,
+              "confidence": 1
+            }
+          ]
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "You Know I have some issues with lungs Uh can I visit the doctor",
+          "start": 147.87,
+          "end": 154.51,
+          "words": [
+            {
+              "word": "You",
+              "start": 147.87,
+              "end": 148.03,
+              "speaker": 1,
+              "confidence": 1
+            }
+          ]
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "Yes please",
+          "start": 168.91,
+          "end": 169.71,
+          "words": [
+            {
+              "word": "Yes",
+              "start": 168.91,
+              "end": 169.15,
+              "speaker": 1,
+              "confidence": 1
+            }
+          ]
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "It'll be Fixed to any of these days Work for you",
+          "start": 174.23,
+          "end": 182.63,
+          "words": [
+            {
+              "word": "It'll",
+              "start": 174.23,
+              "end": 174.59,
+              "speaker": 1,
+              "confidence": 1
+            }
+          ]
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "Works",
+          "start": 184.75,
+          "end": 185.19,
+          "words": [
+            {
+              "word": "Works",
+              "start": 184.75,
+              "end": 185.19,
+              "speaker": 1,
+              "confidence": 1
+            }
+          ]
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "Yes No Five",
+          "start": 189.59,
+          "end": 196,
+          "words": [
+            {
+              "word": "Yes",
+              "start": 189.59,
+              "end": 189.83,
+              "speaker": 1,
+              "confidence": 1
+            }
+          ]
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "Let's do ten",
+          "start": 199.68,
+          "end": 200.48,
+          "words": [
+            {
+              "word": "Let's",
+              "start": 199.68,
+              "end": 199.92,
+              "speaker": 1,
+              "confidence": 1
+            }
+          ]
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "Club On par with men",
+          "start": 213.16,
+          "end": 220.32,
+          "words": [
+            {
+              "word": "Club",
+              "start": 213.16,
+              "end": 213.56,
+              "speaker": 1,
+              "confidence": 1
+            }
+          ]
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "Yes",
+          "start": 223.24,
+          "end": 223.72,
+          "words": [
+            {
+              "word": "Yes",
+              "start": 223.24,
+              "end": 223.72,
+              "speaker": 1,
+              "confidence": 1
+            }
+          ]
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "All right Do you know Please send me the email as well",
+          "start": 229.16,
+          "end": 232.72,
+          "words": [
+            {
+              "word": "All",
+              "start": 229.16,
+              "end": 229.36,
+              "speaker": 1,
+              "confidence": 1
+            }
+          ]
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "Do you have all the information you need or is there anything else you can send this to me",
+          "start": 240.28,
+          "end": 244.52,
+          "words": [
+            {
+              "word": "Do",
+              "start": 240.28,
+              "end": 240.44,
+              "speaker": 1,
+              "confidence": 1
+            }
+          ]
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "Thank you We look forward to seeing your appointment Have a great day",
+          "start": 249.48,
+          "end": 255.04,
+          "words": [
+            {
+              "word": "Thank",
+              "start": 249.48,
+              "end": 249.84,
+              "speaker": 1,
+              "confidence": 1
+            }
+          ]
+        },
+        {
+          "speaker": "SPEAKER_01",
+          "text": "Thanks Bye",
+          "start": 255.96,
+          "end": 256.96,
+          "words": [
+            {
+              "word": "Thanks",
+              "start": 255.96,
+              "end": 256.44,
+              "speaker": 1,
+              "confidence": 1
+            },
+            {
+              "word": "Bye",
+              "start": 256.44,
+              "end": 256.96,
+              "speaker": 1,
+              "confidence": 1
+            }
+          ]
+        }
+      ]
+    },
+    "recording": {
+      "name": "1764418405479_1_SPEAKER_01.wav",
+      "duration": null,
+      "language": "en"
+    },
+    "segments": [
+      {
+        "speaker": "SPEAKER_01",
+        "text": "Yeah Jessica I do available What do you have for me",
+        "start": 9.32,
+        "end": 12.8,
+        "words": [
+          {
+            "word": "Yeah",
+            "start": 9.32,
+            "end": 9.72,
+            "speaker": 1,
+            "confidence": 0.97
+          }
+        ]
+      }
+    ],
+    "segmentsCount": 34,
+    "transcriptText": "Hi I'm calling on behalf of Yeah Jessica I do available What do you have for me Uh April 29th 1981 Well wait wait wait for a second Uh can you please uh make the correction uh in my date of birth Well Um No let's let's uh move forward to the uh scheduling Can you please remind me about this appointment Yeah Sorry Documents Yes Or email Uh I want to reschedule this one Okay Okay Uh I'd like this appointment to be the soonest possible Okay I can I can do another doctor as well You Know I have some issues with lungs Uh can I visit the doctor Yes please It'll be Fixed to any of these days Work for you Works Great For June 30th The available times with Doctor Chloe Adams are 9:15 a.m. 10 a.m. or 10:45 a.m. Which of these times would suit you best Let's do ten Perfect I've booked your appointment with Doctor Chloe Adams pulmonologist on June 30th at 10 a.m. Club On par with men Yes SMS would be great All right Do you know Please send me the email as well Do you have all the information you need or is there anything else you can send this to me Yeah we are good for today Thank you We look forward to seeing your appointment Have a great day Thanks Bye"
+  }
+}
+

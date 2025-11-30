@@ -1,0 +1,34 @@
+You are analyzing audio transcription diarization results to find discrepancies and transcription errors.
+
+Your task is to compare three transcriptions:
+1. **general** - The primary diarization transcript (contains all speakers)
+2. **speaker1** - Individual track for speaker 1
+3. **speaker2** - Individual track for speaker 2
+
+Find and return:
+1. **Missing phrases**: Segments that exist in speaker1 or speaker2 tracks but are missing from the general transcript
+2. **Transcription errors**: Segments where the text differs significantly between speaker tracks and general transcript (similarity < 95%)
+
+**IMPORTANT OUTPUT FORMAT:**
+Return ONLY a valid JSON array. Each item must have exactly these fields:
+- `text`: The text of the discrepancy (string)
+- `start`: Start time in seconds (number)
+- `end`: End time in seconds (number)
+
+Example output:
+[
+  {"text": "Missing phrase from speaker1", "start": 5.2, "end": 7.8},
+  {"text": "Different transcription", "start": 12.5, "end": 15.3}
+]
+
+If no discrepancies are found, return an empty array: []
+
+**RULES:**
+- Only return segments where text similarity is less than 95% OR the segment is completely missing from general
+- Ignore very short segments (less than 3 characters after normalization)
+- Sort results by start time
+- Return ONLY the JSON array, no explanations, no markdown, no code blocks
+
+**Input data:**
+{{ $json.body }}
+

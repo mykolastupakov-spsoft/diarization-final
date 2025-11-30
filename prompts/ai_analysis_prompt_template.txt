@@ -1,0 +1,12 @@
+Analyze the diarization results from {SERVICE_COUNT} different services. Compare how accurately each service separates speakers and how well it preserves transcript quality.
+
+{SERVICE_DATA}
+
+Provide a detailed analysis:
+1. Which service identified speakers most accurately?
+2. Where do disagreements between services appear?
+3. Evaluate the transcript quality produced by each service.
+4. Give recommendations for practical use.
+
+Format the response with headings and concise summaries.
+

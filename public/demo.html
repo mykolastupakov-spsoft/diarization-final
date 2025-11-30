@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Diarization Demo</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Audio Diarization Demo</h1>
+    
+    <form id="diarizationForm" class="demo-form">
+      <div class="form-group">
+        <label for="audioFile">Audio File:</label>
+        <input type="file" id="audioFile" name="audio" accept="audio/*" required>
+      </div>
+      
+      <div class="form-group">
+        <label for="language">Language:</label>
+        <select id="language" name="language" required>
+          <option value="ar">Arabic</option>
+          <option value="en" selected>English</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <button type="submit" id="submitBtn" class="submit-btn">
+          <span class="btn-text">Process Audio</span>
+          <span class="spinner" id="spinner" style="display: none;"></span>
+        </button>
+      </div>
+      
+      <div id="errorMessage" class="error-label" style="display: none;"></div>
+    </form>
+    
+    <!-- Progress Section -->
+    <div id="progressSection" class="progress-section" style="display: none;">
+      <h2>Processing Progress</h2>
+      <div id="progressSteps" class="progress-steps"></div>
+    </div>
+    
+    <!-- Results Section -->
+    <div id="resultsContainer" class="results-container" style="display: none;">
+      <h2>Results</h2>
+      <div class="legend">
+        <div class="legend-item">
+          <div class="legend-color original"></div>
+          <span>Original Segments</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color corrected"></div>
+          <span>Corrected Segments</span>
+        </div>
+      </div>
+      <!-- Results Table -->
+      <div id="resultsInfo" class="results-info"></div>
+    </div>
+  </div>
+  
+  <script>
+    const form = document.getElementById('diarizationForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const spinner = document.getElementById('spinner');
+    const btnText = submitBtn.querySelector('.btn-text');
+    const errorMessage = document.getElementById('errorMessage');
+    const resultsContainer = document.getElementById('resultsContainer');
+    const progressSection = document.getElementById('progressSection');
+    const progressSteps = document.getElementById('progressSteps');
+    let xhr = null;
+    let lastResult = null;
+    
+    // Load demo configuration from server
+    let demoConfig = {
+      speakerCount: 2,
+      pipelineMode: 'mode3',
+      llmMode: 'smart',
+      transcriptionEngine: 'speechmatics',
+      isLocal: false
+    };
+    
+    async function loadDemoConfig() {
+      try {
+        const response = await fetch('/api/demo-config');
+        if (response.ok) {
+          demoConfig = await response.json();
+          console.log('🔍 [DEMO] Loaded config from server:', demoConfig);
+        } else {
+          console.warn('⚠️ [DEMO] Failed to load demo config, status:', response.status);
+        }
+      } catch (error) {
+        console.warn('⚠️ [DEMO] Failed to load demo config, using defaults:', error);
+      }
+    }
+    
+    // Load config on page load
+    loadDemoConfig();
+    
+    // Initialize progress steps
+    function initProgressSteps() {
+      progressSteps.innerHTML = `
+        <div class="progress-step" data-step="1">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <div class="step-title">Initial Audio Analysis</div>
+            <div class="step-status">Waiting...</div>
+          </div>
+        </div>
+        <div class="progress-step" data-step="2">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <div class="step-title">Speaker Separation</div>
+            <div class="step-status">Waiting...</div>
+          </div>
+        </div>
+        <div class="progress-step" data-step="3">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <div class="step-title">Voice Track Transcription & Role Analysis</div>
+            <div class="step-status">Waiting...</div>
+          </div>
+        </div>
+        <div class="progress-step" data-step="5">
+          <div class="step-number">5</div>
+          <div class="step-content">
+            <div class="step-title">Overlap Correction</div>
+            <div class="step-status">Waiting...</div>
+          </div>
+        </div>
+      `;
+    }
+    
+    // Update progress step
+    function updateProgressStep(step, status, description) {
+      const stepEl = progressSteps.querySelector(`[data-step="${step}"]`);
+      if (!stepEl) return;
+      
+      const statusEl = stepEl.querySelector('.step-status');
+      const stepNumber = stepEl.querySelector('.step-number');
+      
+      stepEl.className = `progress-step step-${status}`;
+      statusEl.textContent = description || status;
+      
+      if (status === 'completed') {
+        stepNumber.textContent = '✓';
+        stepNumber.style.background = '#2ecc71';
+      } else if (status === 'processing') {
+        stepNumber.style.background = '#3498db';
+      }
+    }
+    
+    // Extract segments from response
+    function extractSegments(data) {
+      let originalSegments = [];
+      let correctedSegments = [];
+      
+      // Extract from primaryDiarization
+      if (data.primaryDiarization) {
+        const primary = data.primaryDiarization;
+        if (primary.recordings && Array.isArray(primary.recordings) && primary.recordings[0]) {
+          const recording = primary.recordings[0];
+          if (recording.results) {
+            const resultKey = Object.keys(recording.results)[0];
+            if (recording.results[resultKey] && recording.results[resultKey].segments) {
+              originalSegments = recording.results[resultKey].segments;
+            }
+          }
+        } else if (primary.segments) {
+          originalSegments = primary.segments;
+        }
+      }
+      
+      // Extract from correctedDiarization
+      if (data.correctedDiarization) {
+        const corrected = data.correctedDiarization;
+        if (corrected.recordings && Array.isArray(corrected.recordings) && corrected.recordings[0]) {
+          const recording = corrected.recordings[0];
+          if (recording.results && recording.results['overlap-corrected']) {
+            correctedSegments = recording.results['overlap-corrected'].segments || [];
+          }
+        } else if (corrected.segments) {
+          correctedSegments = corrected.segments;
+        }
+      }
+      
+      return { originalSegments, correctedSegments };
+    }
+    
+    // Get speaker label
+    function getSpeakerLabel(segment) {
+      if (segment.role === 'operator' || segment.role === 'agent') {
+        return 'Agent';
+      } else if (segment.role === 'client' || segment.role === 'customer') {
+        return 'Client';
+      }
+      return segment.speaker || 'Unknown';
+    }
+    
+    // Show summary info
+    // Render markdown table
+    function renderMarkdownTable(markdown, container, originalSegments = []) {
+      if (!markdown) {
+        container.innerHTML = '<div class="error-label">No markdown content received.</div>';
+        return;
+      }
+      
+      console.log('📋 Rendering markdown table, length:', markdown.length);
+      
+      // Parse markdown table and render as HTML
+      const lines = markdown.split('\n');
+      let html = '<table class="markdown-table">';
+      let inTable = false;
+      let headerProcessed = false;
+      let hasTableRows = false;
+      let rowCount = 0;
+      
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmedLine = line.trim();
+        
+        // Check if this is a markdown table row
+        if (trimmedLine.startsWith('|') && trimmedLine.endsWith('|')) {
+          hasTableRows = true;
+          
+          if (!inTable) {
+            inTable = true;
+            html += '<thead><tr>';
+          }
+          
+          // Split by | - markdown tables have | at start and end
+          const parts = trimmedLine.split('|');
+          const cells = [];
+          
+          // Process parts: skip first empty, process middle, skip last empty
+          for (let j = 0; j < parts.length; j++) {
+            const part = parts[j];
+            if (j === 0 && part.trim() === '') continue;
+            if (j === parts.length - 1 && part.trim() === '') continue;
+            cells.push(part.trim());
+          }
+          
+          // Skip separator row (|---|---| or |:---:|)
+          const isSeparator = cells.length > 0 && cells.every(c => {
+            const trimmed = c.trim();
+            return trimmed === '' || trimmed.match(/^:?-+:?$/) || trimmed.match(/^:?-+:?$/);
+          });
+          
+          if (isSeparator) {
+            if (!headerProcessed && inTable) {
+              html += '</tr></thead><tbody>';
+              headerProcessed = true;
+            }
+            continue;
+          }
+          
+          // Valid data row
+          rowCount++;
+          html += '<tr>';
+          cells.forEach((cell, cellIndex) => {
+            const tag = headerProcessed ? 'td' : 'th';
+            let cellHtml;
+
+            // For data rows, column index 2 is "Text" (Segment ID | Speaker | Text | Start Time | End Time)
+            if (headerProcessed && cellIndex === 2 && originalSegments && originalSegments.length > 0) {
+              cellHtml = highlightOriginalText(cell, originalSegments);
+            } else {
+              cellHtml = escapeHtml(cell);
+            }
+
+            html += `<${tag}>${cellHtml}</${tag}>`;
+          });
+          html += '</tr>';
+        } else if (inTable && trimmedLine === '' && headerProcessed) {
+          // Empty line after table body - might indicate end
+          continue;
+        } else if (inTable && !trimmedLine.startsWith('|') && headerProcessed) {
+          // Non-table line after table started - might be end of table
+          continue;
+        }
+      }
+      
+      // Close table if still open
+      if (inTable) {
+        if (headerProcessed) {
+          html += '</tbody>';
+        } else {
+          html += '</tr></thead>';
+        }
+      }
+      
+      html += '</table>';
+      
+      // If no table found, render as preformatted text
+      if (!hasTableRows) {
+        console.warn('⚠️ No table rows found, rendering as preformatted text');
+        html = `<div style="white-space: pre-wrap; font-family: monospace; padding: 12px 14px; background: #f8f9fa; color: #2c3e50; border-radius: 6px; border: 1px solid #e0e0e0;">${escapeHtml(markdown)}</div>`;
+      }
+      
+      container.innerHTML = html;
+      console.log('✅ Markdown table rendered, rows:', rowCount);
+    }
+    
+    // Escape regular expression special characters
+    function escapeRegExp(string) {
+      return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+    
+    // Escape HTML
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+    
+    // Get text from original segment (supports multiple possible schemas)
+    function getSegmentText(segment) {
+      if (!segment || typeof segment !== 'object') return '';
+      if (typeof segment.text === 'string') return segment.text;
+      if (typeof segment.transcript === 'string') return segment.transcript;
+      if (Array.isArray(segment.words) && segment.words.length > 0) {
+        // Some schemas store words array; join into phrase
+        return segment.words.map(w => w.word || w.text || '').join(' ').trim();
+      }
+      if (Array.isArray(segment.alternatives) && segment.alternatives[0]?.content) {
+        return segment.alternatives[0].content;
+      }
+      return '';
+    }
+    
+    // Highlight fragments of cell text that come from original diarization segments
+    // Currently disabled - just returns escaped text
+    function highlightOriginalText(cellText, originalSegments) {
+      // Return plain escaped text without highlighting
+      return escapeHtml(cellText || '');
+    }
+    
+    // Show results with markdown table
+    function showResults(data) {
+      const resultsEl = document.getElementById('resultsInfo');
+      
+      // Try to get markdown table from corrected diarization
+      let markdownTable = null;
+      
+      // Check top level first
+      if (data.markdownTable) {
+        markdownTable = data.markdownTable;
+        console.log('📋 Found markdown table at top level');
+      } else if (data.correctedDiarization) {
+        const corrected = data.correctedDiarization;
+        if (corrected.recordings && Array.isArray(corrected.recordings) && corrected.recordings[0]) {
+          const recording = corrected.recordings[0];
+          if (recording.results && recording.results['overlap-corrected']) {
+            const rawData = recording.results['overlap-corrected'].rawData;
+            if (rawData && rawData.markdownTable) {
+              markdownTable = rawData.markdownTable;
+              console.log('📋 Found markdown table in correctedDiarization.recordings[0].results');
+            }
+          }
+        } else if (corrected.rawData && corrected.rawData.markdownTable) {
+          markdownTable = corrected.rawData.markdownTable;
+          console.log('📋 Found markdown table in correctedDiarization.rawData');
+        }
+      }
+      
+      // Extract original/corrected segments for highlighting and summary
+      const { originalSegments, correctedSegments } = extractSegments(data);
+      
+      // Debug: log what we found
+      console.log('🔍 [showResults] Data structure:', {
+        hasMarkdownTable: !!data.markdownTable,
+        hasCorrectedDiarization: !!data.correctedDiarization,
+        markdownTableLength: markdownTable ? markdownTable.length : 0,
+        dataKeys: Object.keys(data)
+      });
+      
+      // Always show results container with markdown table container
+      let html = '<div class="results-card"><h3>Results</h3>';
+      html += '<div id="markdownTableContainer" class="markdown-table-container"></div>';
+      resultsEl.innerHTML = html;
+      
+      // Render markdown table or show message
+      const markdownContainer = document.getElementById('markdownTableContainer');
+      if (markdownContainer) {
+        if (markdownTable) {
+          // Pass originalSegments so that original text fragments can be highlighted
+          renderMarkdownTable(markdownTable, markdownContainer, originalSegments);
+        } else {
+          // Show message that markdown table is not available
+          let message = '<div style="color: #ffffff; padding: var(--space-16);">';
+          message += '<p style="color: #e74c3c; margin-bottom: 8px; font-weight: 600;">⚠️ Markdown table is not available.</p>';
+          message += '<p style="margin-bottom: var(--space-16);">This may happen if:</p>';
+          message += '<ul style="margin-left: var(--space-24); margin-bottom: var(--space-16);">';
+          message += '<li>Markdown generation failed during processing</li>';
+          message += '<li>Voice tracks were not processed successfully</li>';
+          message += '<li>Processing timed out before markdown generation</li>';
+          message += '</ul>';
+          message += '<p style="margin-bottom: var(--space-16);">Summary information:</p>';
+          message += '<div style="background-color: #1a1a1a; padding: var(--space-16); border-radius: var(--radius-md, 8px);">';
+          
+          if (originalSegments.length > 0) {
+            const originalSpeakers = new Set(originalSegments.map(s => s.speaker)).size;
+            message += `<div style="color: #ffffff; margin-bottom: var(--space-8);">
+              <strong>Original:</strong> ${originalSegments.length} segments, ${originalSpeakers} speakers
+            </div>`;
+          }
+          
+          if (correctedSegments.length > 0) {
+            const correctedSpeakers = new Set(correctedSegments.map(s => s.speaker)).size;
+            message += `<div style="color: #ffffff; margin-bottom: var(--space-8);">
+              <strong>Corrected:</strong> ${correctedSegments.length} segments, ${correctedSpeakers} speakers
+            </div>`;
+          }
+          
+          if (data.totalDuration) {
+            message += `<div style="color: #ffffff; margin-bottom: var(--space-8);">
+              <strong>Processing Time:</strong> ${data.totalDuration}
+            </div>`;
+          }
+          
+          message += '</div></div>';
+          markdownContainer.innerHTML = message;
+          console.warn('⚠️ Markdown table not found in response');
+        }
+      }
+    }
+    
+    // Handle form submission with SSE
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      // Reset UI
+      errorMessage.style.display = 'none';
+      resultsContainer.style.display = 'none';
+      progressSection.style.display = 'block';
+      spinner.style.display = 'inline-block';
+      btnText.textContent = 'Processing...';
+      submitBtn.disabled = true;
+      
+      initProgressSteps();
+      
+      const formData = new FormData();
+      const audioFile = document.getElementById('audioFile').files[0];
+      const language = document.getElementById('language').value;
+      
+      if (!audioFile) {
+        showError('Please select an audio file');
+        progressSection.style.display = 'none';
+        return;
+      }
+      
+      formData.append('audio', audioFile);
+      formData.append('language', language);
+      formData.append('speakerCount', demoConfig.speakerCount);
+      formData.append('pipelineMode', demoConfig.pipelineMode);
+      formData.append('mode', demoConfig.llmMode);
+      formData.append('engine', demoConfig.transcriptionEngine);
+      
+      // Debug: Log what we're sending
+      console.log('🔍 [DEMO] Sending request with config:', {
+        speakerCount: demoConfig.speakerCount,
+        pipelineMode: demoConfig.pipelineMode,
+        llmMode: demoConfig.llmMode,
+        transcriptionEngine: demoConfig.transcriptionEngine,
+        isLocal: demoConfig.isLocal,
+        language: language
+      });
+      
+      try {
+        // Use XHR for SSE support
+        xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/diarize-overlap', true);
+        
+        let buffer = '';
+        let finalResult = null;
+        
+        xhr.onprogress = () => {
+          const text = xhr.responseText;
+          const newData = text.substring(buffer.length);
+          buffer = text;
+          
+          const lines = newData.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.substring(6));
+                
+                if (data.type === 'step-progress') {
+                  // Update progress
+                  updateProgressStep(data.step, data.status, data.description);
+                } else if (data.type === 'final-result') {
+                  finalResult = data;
+                } else if (data.type === 'pipeline-error') {
+                  throw new Error(data.error || 'Pipeline error');
+                }
+              } catch (parseError) {
+                console.warn('Failed to parse SSE data:', parseError);
+              }
+            }
+          }
+        };
+        
+        xhr.onload = () => {
+          if (xhr.status === 200) {
+            // Parse final result from buffer
+            const lines = buffer.split('\n');
+            for (let i = lines.length - 1; i >= 0; i--) {
+              const line = lines[i];
+              if (line.startsWith('data: ')) {
+                try {
+                  const data = JSON.parse(line.substring(6));
+                  if (data.type === 'final-result' || data.success) {
+                    finalResult = data;
+                    break;
+                  }
+                } catch (e) {
+                  // Continue searching
+                }
+              }
+            }
+            
+            if (!finalResult) {
+              throw new Error('No final result received');
+            }
+            
+            // Extract and display results
+            const { originalSegments, correctedSegments } = extractSegments(finalResult);
+            
+            if (originalSegments.length > 0 || correctedSegments.length > 0) {
+              resultsContainer.style.display = 'block';
+              showResults(finalResult);
+            } else {
+              showError('No segments found in response');
+            }
+          } else {
+            try {
+              const error = JSON.parse(xhr.responseText);
+              throw new Error(error.error || `Server error: ${xhr.status}`);
+            } catch (parseError) {
+              throw new Error(`Server error: ${xhr.status}`);
+            }
+          }
+        };
+        
+        xhr.onerror = () => {
+          throw new Error('Network error during processing');
+        };
+        
+        xhr.send(formData);
+        
+      } catch (error) {
+        console.error('Error:', error);
+        showError(error.message || 'Failed to process audio');
+        progressSection.style.display = 'none';
+      } finally {
+        spinner.style.display = 'none';
+        btnText.textContent = 'Process Audio';
+        submitBtn.disabled = false;
+      }
+    });
+    
+    function showError(message) {
+      errorMessage.textContent = message;
+      errorMessage.style.display = 'block';
+    }
+  </script>
+</body>
+</html>

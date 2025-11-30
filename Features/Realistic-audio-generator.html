@@ -1,0 +1,2874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Call Center Noise Overlay</title>
+    <style>
+        :root {
+            --color-background: #fcfcf9;
+            --color-surface: #fffffd;
+            --color-text: #13343b;
+            --color-text-secondary: #626c71;
+            --color-primary: #21808d;
+            --color-primary-hover: #1d7480;
+            --color-border: rgba(94, 82, 64, 0.2);
+            --color-secondary: rgba(94, 82, 64, 0.12);
+            --color-secondary-hover: rgba(94, 82, 64, 0.2);
+            --radius-base: 8px;
+            --radius-lg: 12px;
+            --space-8: 8px;
+            --space-12: 12px;
+            --space-16: 16px;
+            --space-24: 24px;
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04);
+            --font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --color-background: #1f2121;
+                --color-surface: #262828;
+                --color-text: #f5f5f5;
+                --color-text-secondary: rgba(167, 169, 169, 0.7);
+                --color-primary: #32b8c6;
+                --color-primary-hover: #2da6b2;
+                --color-border: rgba(119, 124, 124, 0.3);
+                --color-secondary: rgba(119, 124, 124, 0.15);
+                --color-secondary-hover: rgba(119, 124, 124, 0.25);
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-family-base);
+            background: var(--color-background);
+            color: var(--color-text);
+            padding: var(--space-24);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: var(--space-24);
+            color: var(--color-text);
+        }
+
+        .card {
+            background: var(--color-surface);
+            border-radius: var(--radius-lg);
+            padding: var(--space-24);
+            margin-bottom: var(--space-16);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--color-border);
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: var(--space-16);
+            color: var(--color-text);
+        }
+
+        .upload-zone {
+            border: 2px dashed var(--color-border);
+            border-radius: var(--radius-base);
+            padding: 48px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: var(--space-16);
+        }
+
+        .upload-zone:hover {
+            border-color: var(--color-primary);
+            background: var(--color-secondary);
+        }
+
+        .upload-zone.dragover {
+            border-color: var(--color-primary);
+            background: var(--color-secondary);
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: var(--space-12);
+            opacity: 0.5;
+        }
+
+        .form-group {
+            margin-bottom: var(--space-16);
+        }
+
+        label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: var(--space-8);
+            font-size: 14px;
+            color: var(--color-text);
+        }
+
+        select, input[type="range"], input[type="number"], input[type="text"], input[type="file"], textarea {
+            width: 100%;
+            padding: var(--space-12);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-base);
+            background: var(--color-surface);
+            color: var(--color-text);
+            font-size: 14px;
+            font-family: var(--font-family-base);
+        }
+
+        input[type="range"] {
+            padding: 0;
+            height: 32px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: var(--radius-base);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            width: 100%;
+            margin-top: var(--space-8);
+        }
+
+        .btn-primary {
+            background: var(--color-primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--color-primary-hover);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: var(--color-secondary);
+            color: var(--color-text);
+        }
+
+        .btn-secondary:hover {
+            background: var(--color-secondary-hover);
+        }
+
+        .slider-value {
+            display: inline-block;
+            font-weight: 600;
+            color: var(--color-primary);
+            margin-left: var(--space-8);
+        }
+
+        .help-text {
+            font-size: 13px;
+            color: var(--color-text-secondary);
+            margin-top: 4px;
+        }
+
+        .audio-controls {
+            display: flex;
+            gap: var(--space-8);
+            margin-top: var(--space-16);
+        }
+
+        .audio-controls button {
+            flex: 1;
+        }
+
+        .status {
+            padding: var(--space-12);
+            border-radius: var(--radius-base);
+            margin-top: var(--space-16);
+            font-size: 14px;
+            display: none;
+        }
+
+        .status.show {
+            display: block;
+        }
+
+        .status.success {
+            background: rgba(33, 128, 141, 0.15);
+            color: var(--color-primary);
+            border: 1px solid var(--color-primary);
+        }
+
+        .status.error {
+            background: rgba(192, 21, 47, 0.15);
+            color: #c0152f;
+            border: 1px solid #c0152f;
+        }
+
+        .status.info {
+            background: rgba(98, 108, 113, 0.15);
+            color: var(--color-text-secondary);
+            border: 1px solid var(--color-border);
+        }
+
+        audio {
+            width: 100%;
+            margin-top: var(--space-16);
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .api-section {
+            background: var(--color-secondary);
+            padding: var(--space-16);
+            border-radius: var(--radius-base);
+            margin-bottom: var(--space-16);
+        }
+
+        .api-section label {
+            font-size: 13px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: var(--space-8);
+            margin-bottom: var(--space-16);
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .tab {
+            padding: var(--space-12) var(--space-16);
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .tab:hover {
+            color: var(--color-text);
+        }
+
+        .tab.active {
+            color: var(--color-primary);
+            border-bottom-color: var(--color-primary);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--color-border);
+            border-top-color: var(--color-primary);
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin-left: var(--space-8);
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-24);">
+            <h1 style="margin: 0;">🎙️ Call Center Noise Overlay</h1>
+            <a href="/" class="btn btn-secondary" style="text-decoration: none; width: auto; margin-top: 0; padding: var(--space-12) var(--space-24);">← Back to App</a>
+        </div>
+
+        <div class="card">
+            <div class="section-title">1. Audio Source</div>
+            
+            <div class="tabs">
+                <button class="tab active" data-tab="upload">Upload Audio</button>
+                <button class="tab" data-tab="generate">Generate Dialogue</button>
+            </div>
+
+            <div id="uploadTab" class="tab-content active">
+                <div class="upload-zone" id="uploadZone">
+                    <div class="upload-icon">📁</div>
+                    <div>Drop audio file here or click to browse</div>
+                    <div class="help-text">Supports MP3, WAV, OGG, and other audio formats</div>
+                </div>
+                <input type="file" id="audioFile" accept="audio/*" class="hidden">
+                <audio id="originalAudio" controls class="hidden"></audio>
+            </div>
+
+            <div id="generateTab" class="tab-content">
+                <div class="form-group">
+                    <label for="numSpeakers">Number of Speakers</label>
+                    <input type="number" id="numSpeakers" min="2" max="6" value="2">
+                    <div class="help-text">Number of speakers in the dialogue (2-6)</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="dialogueLength">Dialogue Length</label>
+                    <select id="dialogueLength">
+                        <option value="short">Short (4 exchanges)</option>
+                        <option value="medium" selected>Medium (8 exchanges)</option>
+                        <option value="long">Long (15 exchanges)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="dialogueScenario">Scenario</label>
+                    <select id="dialogueScenario">
+                        <option value="customer_service" selected>Customer Service</option>
+                        <option value="tech_support">Tech Support</option>
+                        <option value="sales">Sales</option>
+                        <option value="complaint">Customer Complaint</option>
+                        <option value="billing">Billing Inquiry</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="dialoguePrompt">Prompt (optional)</label>
+                    <textarea id="dialoguePrompt" rows="4" placeholder="Describe the situation, tone, language or constraints you want the dialogue to follow..."></textarea>
+                    <div class="help-text">Add custom instructions for the LLM (e.g., language, emotions, industry terms). Leave empty to use the default scenario template.</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="numOverlaps">
+                        Number of Overlaps (Interruptions)
+                        <span class="slider-value" id="numOverlapsValue">2</span>
+                    </label>
+                    <input type="range" id="numOverlaps" min="0" max="10" value="2">
+                    <div class="help-text">How many times speakers should interrupt each other (0-10)</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="speechRate">Speech Rate</label>
+                    <input type="range" id="speechRate" min="0.5" max="2" step="0.1" value="1">
+                    <span class="slider-value" id="speechRateValue">1.0x</span>
+                    <div class="help-text">Speed of speech synthesis (ElevenLabs)</div>
+                </div>
+
+                <div class="api-section" style="margin-top: var(--space-16);">
+                    <div class="form-group">
+                        <label for="dialogueElevenLabsKey">ElevenLabs API Key (for voice generation)</label>
+                        <input type="text" id="dialogueElevenLabsKey" placeholder="Enter your ElevenLabs API key">
+                        <div class="help-text">Uses the same key as background generation if left empty</div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Voice Selection (Optional)</label>
+                    <div id="speakerVoices" style="display: flex; flex-direction: column; gap: var(--space-8);">
+                        <!-- Speaker voice selectors will be generated here -->
+                    </div>
+                    <div class="help-text">Leave empty to use default voices. You can specify ElevenLabs voice IDs for each speaker.</div>
+                </div>
+
+                <button class="btn btn-primary" id="generateDialogueBtn">
+                    🎙️ Generate Dialogue with ElevenLabs
+                </button>
+
+                <div id="dialogueStatus" class="status"></div>
+
+                <div class="card" style="margin-top: var(--space-16); background: var(--color-secondary);">
+                    <div class="section-title" style="font-size: 14px; margin-bottom: var(--space-8);">Cached Dialogues</div>
+                    <div class="help-text" style="margin-bottom: var(--space-12);">
+                        Previously generated dialogues are cached for faster reuse. Click to load.
+                    </div>
+                    <div id="cachedDialoguesList" style="display: flex; flex-direction: column; gap: var(--space-8);">
+                        <!-- Cached dialogues will appear here -->
+                    </div>
+                    <div style="display: flex; gap: var(--space-8); margin-top: var(--space-12);">
+                        <button class="btn btn-secondary" id="clearDialogueCacheBtn" style="flex: 1;">
+                            🗑️ Clear Dialogue Cache
+                        </button>
+                        <button class="btn btn-secondary" id="clearAudioCacheBtn" style="flex: 1;">
+                            🗑️ Clear Audio Cache
+                        </button>
+                    </div>
+                </div>
+
+                <div id="dialoguePreview" class="hidden" style="margin-top: var(--space-16); padding: var(--space-16); background: var(--color-secondary); border-radius: var(--radius-base); max-height: 300px; overflow-y: auto;">
+                    <div class="section-title" style="font-size: 14px; margin-bottom: var(--space-8);">Generated Dialogue</div>
+                    <div id="dialogueText" style="font-size: 13px; line-height: 1.8; color: var(--color-text-secondary);"></div>
+                    <button class="btn btn-secondary hidden" id="downloadDialogueBtn" style="margin-top: var(--space-12);">
+                        💾 Download Dialogue Audio (WAV)
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="section-title">2. Background Source</div>
+            
+            <div class="tabs">
+                <button class="tab active" data-tab="preset">Preset Noise</button>
+                <button class="tab" data-tab="upload">Upload Background</button>
+                <button class="tab" data-tab="elevenlabs">ElevenLabs AI</button>
+            </div>
+
+            <div id="presetTab" class="tab-content active">
+                <div class="form-group">
+                    <label for="noiseType">Background Type</label>
+                    <select id="noiseType">
+                        <option value="white">White Noise (General Office)</option>
+                        <option value="brown">Brown Noise (Low Rumble)</option>
+                        <option value="pink">Pink Noise (Balanced)</option>
+                        <option value="office">Office Ambience</option>
+                        <option value="conversation">Distant Conversations</option>
+                    </select>
+                    <div class="help-text">Different noise types simulate various call center environments</div>
+                </div>
+            </div>
+
+            <div id="uploadTab" class="tab-content">
+                <div class="form-group">
+                    <label for="backgroundFile">Upload Background Audio</label>
+                    <input type="file" id="backgroundFile" accept="audio/*">
+                    <div class="help-text">Upload your own background audio file to use instead of preset noise types</div>
+                </div>
+            </div>
+
+            <div id="elevenlabsTab" class="tab-content">
+                <div class="api-section">
+                    <div class="form-group">
+                        <label for="elevenLabsKey">ElevenLabs API Key</label>
+                        <input type="text" id="elevenLabsKey" placeholder="Enter your ElevenLabs API key">
+                        <div class="help-text">Get your API key from <a href="https://elevenlabs.io" target="_blank" style="color: var(--color-primary);">elevenlabs.io</a></div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="backgroundPrompt">Background Description</label>
+                    <textarea id="backgroundPrompt" rows="4" placeholder="Describe the background audio you want to generate, e.g., 'Busy call center with multiple agents talking, keyboard typing sounds, and occasional phone ringing'">Busy call center environment with multiple people talking in the background, keyboard typing sounds, and occasional phone ringing</textarea>
+                    <div class="help-text">Describe the call center atmosphere you want to create</div>
+                </div>
+
+                <button class="btn btn-primary" id="generateBackground">
+                    Generate Background Audio
+                </button>
+
+                <div id="elevenLabsStatus" class="status"></div>
+
+                <div class="card" style="background: var(--color-bg); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); margin-top: var(--space-16);">
+                    <div class="section-title" style="margin-bottom: var(--space-8);">Saved ElevenLabs Backgrounds</div>
+                    <div class="help-text" style="margin-bottom: var(--space-12);">
+                        We store previously generated backgrounds locally so you can reuse them without spending extra credits. Hold Shift while clicking "Generate" to force a fresh sample.
+                    </div>
+                    <div id="elevenLabsSavedList" style="display: flex; flex-direction: column; gap: var(--space-8);"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="section-title">3. Mix Settings</div>
+            
+            <div class="form-group">
+                <label for="noiseLevel">
+                    Background Volume
+                    <span class="slider-value" id="noiseLevelValue">30%</span>
+                </label>
+                <input type="range" id="noiseLevel" min="0" max="100" value="30">
+                <div class="help-text">Higher values create busier call center atmosphere</div>
+            </div>
+
+            <div class="form-group">
+                <label for="voiceLevel">
+                    Voice Volume
+                    <span class="slider-value" id="voiceLevelValue">100%</span>
+                </label>
+                <input type="range" id="voiceLevel" min="0" max="100" value="100">
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="section-title">4. Process Audio</div>
+            
+            <button class="btn btn-primary" id="processBtn" disabled>
+                Process & Preview
+            </button>
+
+            <div id="statusMessage" class="status"></div>
+
+            <audio id="processedAudio" controls class="hidden"></audio>
+
+            <div class="audio-controls hidden" id="audioControls">
+                <button class="btn btn-primary" id="downloadBtn">
+                    💾 Download WAV
+                </button>
+                <button class="btn btn-secondary" id="saveSettingsBtn">
+                    💾 Save Settings
+                </button>
+                <button class="btn btn-primary" id="diarizeBtn" style="background: var(--color-success);">
+                    🚀 Start Diarization Flow
+                </button>
+            </div>
+
+            <div id="savedResults" class="card hidden" style="margin-top: var(--space-16);">
+                <div class="section-title">Saved Results</div>
+                <div id="savedResultsList" style="display: flex; flex-direction: column; gap: var(--space-8);">
+                    <!-- Saved results will appear here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const uploadZone = document.getElementById('uploadZone');
+        const audioFileInput = document.getElementById('audioFile');
+        const originalAudio = document.getElementById('originalAudio');
+        const processBtn = document.getElementById('processBtn');
+        const processedAudio = document.getElementById('processedAudio');
+        const statusMessage = document.getElementById('statusMessage');
+        const audioControls = document.getElementById('audioControls');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+        const diarizeBtn = document.getElementById('diarizeBtn');
+        const savedResults = document.getElementById('savedResults');
+        const savedResultsList = document.getElementById('savedResultsList');
+        const noiseLevel = document.getElementById('noiseLevel');
+        const voiceLevel = document.getElementById('voiceLevel');
+        const noiseLevelValue = document.getElementById('noiseLevelValue');
+        const voiceLevelValue = document.getElementById('voiceLevelValue');
+        const noiseType = document.getElementById('noiseType');
+        const backgroundFile = document.getElementById('backgroundFile');
+        const generateBackgroundBtn = document.getElementById('generateBackground');
+        const elevenLabsStatus = document.getElementById('elevenLabsStatus');
+        const elevenLabsKey = document.getElementById('elevenLabsKey');
+        const backgroundPrompt = document.getElementById('backgroundPrompt');
+        const elevenLabsSavedList = document.getElementById('elevenLabsSavedList');
+        const generateDialogueBtn = document.getElementById('generateDialogueBtn');
+        const dialogueStatus = document.getElementById('dialogueStatus');
+        const dialoguePreview = document.getElementById('dialoguePreview');
+        const dialogueText = document.getElementById('dialogueText');
+        const numSpeakers = document.getElementById('numSpeakers');
+        const dialogueLength = document.getElementById('dialogueLength');
+        const dialogueScenario = document.getElementById('dialogueScenario');
+        const dialoguePrompt = document.getElementById('dialoguePrompt');
+        const numOverlaps = document.getElementById('numOverlaps');
+        const numOverlapsValue = document.getElementById('numOverlapsValue');
+        const speechRate = document.getElementById('speechRate');
+        const speechRateValue = document.getElementById('speechRateValue');
+        const dialogueElevenLabsKey = document.getElementById('dialogueElevenLabsKey');
+        const speakerVoices = document.getElementById('speakerVoices');
+        const downloadDialogueBtn = document.getElementById('downloadDialogueBtn');
+        const cachedDialoguesList = document.getElementById('cachedDialoguesList');
+        const clearDialogueCacheBtn = document.getElementById('clearDialogueCacheBtn');
+        const clearAudioCacheBtn = document.getElementById('clearAudioCacheBtn');
+
+        const ELEVENLABS_CACHE_KEY = 'audioGeneratorElevenLabsCache';
+        const ELEVENLABS_CACHE_LIMIT = 10;
+        const ELEVENLABS_KEY_STORAGE = 'audioGeneratorElevenLabsKey';
+        
+        const DIALOGUE_CACHE_KEY = 'audioGeneratorDialogueCache';
+        const DIALOGUE_CACHE_LIMIT = 20;
+        const AUDIO_SEGMENT_CACHE_KEY = 'audioGeneratorAudioSegmentCache';
+        const AUDIO_SEGMENT_CACHE_LIMIT = 100;
+        const ORIGINAL_DIALOGUE_STORAGE_KEY = 'diarizationOriginalScript';
+        const ANALYZER_PAYLOAD_STORAGE_KEY = 'diarizationAnalyzerPayload';
+        const FLOW_INTENT_STORAGE_KEY = 'diarizationFlowIntent';
+        
+        let currentAudioSource = 'upload'; // 'upload' or 'generate'
+        let generatedDialogueBuffer = null;
+        let generatedDialogueScript = [];
+        let availableVoices = [];
+        let audioSegmentDB = null;
+
+        let audioContext;
+        let sourceBuffer;
+        let uploadedBackgroundBuffer;
+        let generatedBackgroundBuffer;
+        let currentBackgroundSource = 'preset'; // 'preset', 'upload', or 'elevenlabs'
+        let currentProcessedBlob = null;
+        let currentProcessedUrl = null;
+        let savedResultsData = [];
+        let voiceReady = false;
+        let backgroundReady = true; // preset noise is always available by default
+        let elevenLabsCache = loadElevenLabsCache();
+        const savedElevenLabsKey = loadElevenLabsKey();
+        if (elevenLabsKey && savedElevenLabsKey) {
+            elevenLabsKey.value = savedElevenLabsKey;
+        }
+        if (elevenLabsKey) {
+            elevenLabsKey.addEventListener('input', (event) => {
+                persistElevenLabsKey(event.target.value);
+            });
+        }
+
+        renderElevenLabsSavedBackgrounds();
+
+        // Load available voices
+        function loadVoices() {
+            if ('speechSynthesis' in window) {
+                // Wait for voices to load
+                const loadVoicesList = () => {
+                    availableVoices = speechSynthesis.getVoices();
+                    // Filter for English voices
+                    availableVoices = availableVoices.filter(voice => 
+                        voice.lang.startsWith('en') || voice.lang.includes('en')
+                    );
+                    console.log(`Loaded ${availableVoices.length} English voices`);
+                };
+                
+                loadVoicesList();
+                if (speechSynthesis.onvoiceschanged !== undefined) {
+                    speechSynthesis.onvoiceschanged = loadVoicesList;
+                }
+            }
+        }
+        loadVoices();
+
+        function deriveSpeakerLabel(entry, index) {
+            if (!entry) {
+                return `Speaker ${index + 1}`;
+            }
+            const role = (entry.role || '').toString().toLowerCase();
+            if (role.includes('agent') || role.includes('operator')) {
+                return 'Agent';
+            }
+            if (role.includes('client') || role.includes('customer') || role.includes('caller')) {
+                return 'Client';
+            }
+            const speakerId = entry.speaker ?? entry.speakerId;
+            if (typeof speakerId === 'number' && Number.isFinite(speakerId)) {
+                return `Speaker ${speakerId}`;
+            }
+            if (typeof speakerId === 'string' && speakerId.trim()) {
+                return speakerId.trim().startsWith('Speaker')
+                    ? speakerId.trim()
+                    : `Speaker ${speakerId.trim()}`;
+            }
+            return `Speaker ${index + 1}`;
+        }
+
+        function buildDialogueLines(dialogue = []) {
+            if (!Array.isArray(dialogue)) return [];
+            return dialogue
+                .map((entry, index) => {
+                    const text = (entry?.text || '').toString().trim();
+                    if (!text) return null;
+                    const label = deriveSpeakerLabel(entry, index);
+                    return `${label}: ${text}`;
+                })
+                .filter(Boolean);
+        }
+
+        function persistOriginalDialogue(dialogue = [], meta = {}) {
+            const lines = buildDialogueLines(dialogue);
+            if (!lines.length) return;
+            const payload = {
+                text: lines.join('\n'),
+                lines,
+                meta: {
+                    ...meta,
+                    scenario: dialogueScenario?.value || meta.scenario || null,
+                    numSpeakers: numSpeakers?.value || meta.numSpeakers || null,
+                    dialogueLength: dialogueLength?.value || meta.dialogueLength || null
+                },
+                updatedAt: new Date().toISOString()
+            };
+            try {
+                localStorage.setItem(ORIGINAL_DIALOGUE_STORAGE_KEY, JSON.stringify(payload));
+            } catch (error) {
+                console.warn('Failed to persist original dialogue payload', error);
+            }
+            syncOriginalDialogueWithServer(dialogue, payload.meta).catch(err => {
+                console.warn('Failed to sync original dialogue with server', err);
+            });
+        }
+
+        function ensureOriginalDialogueStoredFromPreview() {
+            if (generatedDialogueScript.length) {
+                persistOriginalDialogue(generatedDialogueScript, { source: 'generator' });
+                return true;
+            }
+            if (!dialogueText) return false;
+            const fallbackLines = dialogueText.innerText
+                .split('\n')
+                .map(line => line.trim())
+                .filter(Boolean);
+            if (!fallbackLines.length) return false;
+
+            const fallbackDialogue = fallbackLines.map((line, index) => {
+                const [label, ...rest] = line.split(':');
+                const content = rest.join(':').trim();
+                return {
+                    speaker: label?.trim() || `Speaker ${index + 1}`,
+                    text: content || line
+                };
+            });
+            persistOriginalDialogue(fallbackDialogue, { source: 'preview-text' });
+            return true;
+        }
+
+        function markFlowIntent(targetView = 'overlap') {
+            try {
+                localStorage.setItem(
+                    FLOW_INTENT_STORAGE_KEY,
+                    JSON.stringify({
+                        targetView,
+                        triggeredAt: new Date().toISOString()
+                    })
+                );
+            } catch (error) {
+                console.warn('Failed to store diarization flow intent', error);
+            }
+        }
+
+        async function syncOriginalDialogueWithServer(dialogue = [], meta = {}) {
+            try {
+                const lines = buildDialogueLines(dialogue);
+                if (!lines.length) return;
+                await fetch('/api/dialogue-scripts', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        text: lines.join('\n'),
+                        lines,
+                        meta
+                    })
+                });
+            } catch (error) {
+                throw error;
+            }
+        }
+
+        // Tab switching for audio source
+        document.querySelectorAll('#uploadTab, #generateTab').forEach(tab => {
+            const parent = tab.closest('.card');
+            if (parent) {
+                const tabs = parent.querySelectorAll('.tab');
+                tabs.forEach(t => {
+                    t.addEventListener('click', () => {
+                        const tabName = t.dataset.tab;
+                        
+                        tabs.forEach(tb => tb.classList.remove('active'));
+                        parent.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                        
+                        t.classList.add('active');
+                        document.getElementById(tabName + 'Tab').classList.add('active');
+                        
+                        currentAudioSource = tabName;
+                        if (currentAudioSource === 'upload') {
+                            voiceReady = !!sourceBuffer;
+                        } else {
+                            voiceReady = !!generatedDialogueBuffer;
+                        }
+                        updateProcessButtonState();
+                    });
+                });
+            }
+        });
+
+        // Tab switching for background source
+        document.querySelectorAll('.card').forEach(card => {
+            const tabs = card.querySelectorAll('.tab[data-tab="preset"], .tab[data-tab="upload"], .tab[data-tab="elevenlabs"]');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const tabName = tab.dataset.tab;
+                    
+                    tabs.forEach(t => t.classList.remove('active'));
+                    card.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    
+                    tab.classList.add('active');
+                    const tabContent = document.getElementById(tabName + 'Tab');
+                    if (tabContent) {
+                        tabContent.classList.add('active');
+                    }
+                    
+                    currentBackgroundSource = tabName;
+                    resetBackgroundState();
+                    if (currentBackgroundSource === 'preset') {
+                        backgroundReady = true;
+                    }
+                    updateProcessButtonState();
+                });
+            });
+        });
+
+        // Upload zone handlers
+        uploadZone.addEventListener('click', () => audioFileInput.click());
+
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleAudioFile(files[0]);
+            }
+        });
+
+        audioFileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleAudioFile(e.target.files[0]);
+            }
+        });
+
+        backgroundFile.addEventListener('change', async (e) => {
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                try {
+                    if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    const arrayBuffer = await file.arrayBuffer();
+                    uploadedBackgroundBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                    backgroundReady = true;
+                    updateProcessButtonState();
+                    showStatus('Background audio loaded successfully', 'success');
+                } catch (error) {
+                    showStatus('Error loading background audio: ' + error.message, 'error');
+                }
+            }
+        });
+
+        async function handleAudioFile(file) {
+            try {
+                const url = URL.createObjectURL(file);
+                originalAudio.src = url;
+                originalAudio.classList.remove('hidden');
+                
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                
+                const arrayBuffer = await file.arrayBuffer();
+                sourceBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                
+                voiceReady = true;
+                updateProcessButtonState();
+                showStatus('Audio file loaded successfully', 'success');
+            } catch (error) {
+                showStatus('Error loading audio: ' + error.message, 'error');
+            }
+        }
+
+        // ElevenLabs integration
+        generateBackgroundBtn.addEventListener('click', async (event) => {
+            const apiKey = elevenLabsKey.value.trim();
+            const prompt = backgroundPrompt.value.trim();
+            const normalizedPrompt = normalizePrompt(prompt);
+            const forceRegenerate = event.shiftKey;
+
+            if (!prompt) {
+                showElevenLabsStatus('Please enter a background description', 'error');
+                return;
+            }
+
+            if (!forceRegenerate) {
+                const cachedBackground = getCachedElevenLabsBackground(normalizedPrompt);
+                if (cachedBackground) {
+                    generateBackgroundBtn.disabled = true;
+                    generateBackgroundBtn.innerHTML = 'Loading saved background... <span class="loading"></span>';
+                    await loadBackgroundFromCache(cachedBackground);
+                    generateBackgroundBtn.disabled = false;
+                    generateBackgroundBtn.textContent = 'Generate Background Audio';
+                    showElevenLabsStatus('Loaded saved background (Shift+Click "Generate" to force a fresh sample).', 'success');
+                    return;
+                }
+            }
+
+            if (!apiKey) {
+                showElevenLabsStatus('Please enter your ElevenLabs API key', 'error');
+                return;
+            }
+
+            generateBackgroundBtn.disabled = true;
+            generateBackgroundBtn.innerHTML = forceRegenerate
+                ? 'Regenerating... <span class="loading"></span>'
+                : 'Generating... <span class="loading"></span>';
+            showElevenLabsStatus('Generating background audio with ElevenLabs AI...', 'info');
+
+            try {
+                const response = await fetch('https://api.elevenlabs.io/v1/sound-generation', {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'audio/mpeg',
+                        'Content-Type': 'application/json',
+                        'xi-api-key': apiKey
+                    },
+                    body: JSON.stringify({
+                        text: prompt,
+                        duration_seconds: 30,
+                        prompt_influence: 0.3
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`API error: ${response.status} - ${errorText}`);
+                }
+
+                const audioBlob = await response.blob();
+                const arrayBuffer = await audioBlob.arrayBuffer();
+                
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                
+                generatedBackgroundBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                await saveElevenLabsBackground(prompt, normalizedPrompt, audioBlob);
+                currentBackgroundSource = 'elevenlabs';
+                showElevenLabsStatus('✓ Background audio generated successfully! You can now process your audio.', 'success');
+                backgroundReady = true;
+                updateProcessButtonState();
+            } catch (error) {
+                showElevenLabsStatus('Error generating audio: ' + error.message, 'error');
+            } finally {
+                generateBackgroundBtn.disabled = false;
+                generateBackgroundBtn.textContent = 'Generate Background Audio';
+            }
+        });
+
+        function showElevenLabsStatus(message, type) {
+            elevenLabsStatus.textContent = message;
+            elevenLabsStatus.className = 'status show ' + type;
+        }
+
+        function normalizePrompt(value) {
+            return (value || '').trim().toLowerCase();
+        }
+
+        function loadElevenLabsCache() {
+            try {
+                const stored = JSON.parse(localStorage.getItem(ELEVENLABS_CACHE_KEY));
+                return Array.isArray(stored) ? stored : [];
+            } catch (error) {
+                console.warn('Failed to load ElevenLabs cache', error);
+                return [];
+            }
+        }
+
+        function persistElevenLabsCache() {
+            try {
+                localStorage.setItem(ELEVENLABS_CACHE_KEY, JSON.stringify(elevenLabsCache));
+            } catch (error) {
+                console.warn('Failed to persist ElevenLabs cache', error);
+            }
+        }
+
+        function getCachedElevenLabsBackground(promptKey) {
+            return elevenLabsCache.find(entry => entry.promptKey === promptKey);
+        }
+
+        function renderElevenLabsSavedBackgrounds() {
+            if (!elevenLabsSavedList) return;
+            elevenLabsSavedList.innerHTML = '';
+
+            if (!elevenLabsCache.length) {
+                const empty = document.createElement('div');
+                empty.className = 'help-text';
+                empty.textContent = 'No saved backgrounds yet.';
+                elevenLabsSavedList.appendChild(empty);
+                return;
+            }
+
+            elevenLabsCache.forEach(entry => {
+                const item = document.createElement('div');
+                item.style.display = 'flex';
+                item.style.flexDirection = 'column';
+                item.style.gap = '4px';
+                item.style.padding = '12px';
+                item.style.borderRadius = '8px';
+                item.style.background = 'rgba(255,255,255,0.04)';
+
+                const title = document.createElement('div');
+                title.style.fontWeight = '600';
+                title.textContent = entry.prompt;
+
+                const meta = document.createElement('div');
+                meta.className = 'help-text';
+                const date = new Date(entry.createdAt).toLocaleString();
+                meta.textContent = `Saved ${date}`;
+
+                const actions = document.createElement('div');
+                actions.style.display = 'flex';
+                actions.style.gap = '8px';
+
+                const useBtn = document.createElement('button');
+                useBtn.className = 'btn btn-secondary';
+                useBtn.textContent = 'Use';
+                useBtn.addEventListener('click', () => loadBackgroundFromCache(entry));
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'btn btn-secondary';
+                deleteBtn.textContent = 'Remove';
+                deleteBtn.addEventListener('click', () => {
+                    elevenLabsCache = elevenLabsCache.filter(item => item.id !== entry.id);
+                    persistElevenLabsCache();
+                    renderElevenLabsSavedBackgrounds();
+                    showElevenLabsStatus('Saved background removed.', 'info');
+                });
+
+                actions.appendChild(useBtn);
+                actions.appendChild(deleteBtn);
+
+                item.appendChild(title);
+                item.appendChild(meta);
+                item.appendChild(actions);
+
+                elevenLabsSavedList.appendChild(item);
+            });
+        }
+
+        async function saveElevenLabsBackground(prompt, promptKey, audioBlob) {
+            try {
+                const dataUrl = await blobToDataUrl(audioBlob);
+                const existingIndex = elevenLabsCache.findIndex(entry => entry.promptKey === promptKey);
+                if (existingIndex !== -1) {
+                    elevenLabsCache.splice(existingIndex, 1);
+                }
+
+                elevenLabsCache.unshift({
+                    id: Date.now().toString(),
+                    prompt,
+                    promptKey,
+                    createdAt: new Date().toISOString(),
+                    dataUrl
+                });
+
+                if (elevenLabsCache.length > ELEVENLABS_CACHE_LIMIT) {
+                    elevenLabsCache = elevenLabsCache.slice(0, ELEVENLABS_CACHE_LIMIT);
+                }
+
+                persistElevenLabsCache();
+                renderElevenLabsSavedBackgrounds();
+            } catch (error) {
+                console.warn('Failed to save ElevenLabs background', error);
+            }
+        }
+
+        function blobToDataUrl(blob) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        }
+
+        function dataUrlToArrayBuffer(dataUrl) {
+            const base64 = dataUrl.split(',')[1];
+            const binaryString = atob(base64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
+        async function loadBackgroundFromCache(entry) {
+            try {
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+
+                const arrayBuffer = dataUrlToArrayBuffer(entry.dataUrl);
+                generatedBackgroundBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                currentBackgroundSource = 'elevenlabs';
+                backgroundReady = true;
+                updateProcessButtonState();
+                showElevenLabsStatus(`Loaded saved ElevenLabs background: "${entry.prompt}"`, 'success');
+            } catch (error) {
+                showElevenLabsStatus('Failed to load saved background: ' + error.message, 'error');
+            }
+        }
+
+        function loadElevenLabsKey() {
+            try {
+                return localStorage.getItem(ELEVENLABS_KEY_STORAGE) || '';
+            } catch (error) {
+                console.warn('Failed to load ElevenLabs API key', error);
+                return '';
+            }
+        }
+
+        function persistElevenLabsKey(value) {
+            try {
+                localStorage.setItem(ELEVENLABS_KEY_STORAGE, value || '');
+            } catch (error) {
+                console.warn('Failed to persist ElevenLabs API key', error);
+            }
+        }
+
+        function updateProcessButtonState() {
+            // Check if we have audio source (uploaded or generated)
+            const hasAudio = currentAudioSource === 'upload' ? !!sourceBuffer : !!generatedDialogueBuffer;
+            voiceReady = hasAudio;
+            
+            if (currentBackgroundSource === 'preset') {
+                processBtn.disabled = !voiceReady;
+            } else {
+                processBtn.disabled = !(voiceReady && backgroundReady);
+            }
+        }
+
+        function resetBackgroundState() {
+            backgroundReady = false;
+            updateProcessButtonState();
+        }
+
+        // Slider updates
+        noiseLevel.addEventListener('input', (e) => {
+            noiseLevelValue.textContent = e.target.value + '%';
+        });
+
+        voiceLevel.addEventListener('input', (e) => {
+            voiceLevelValue.textContent = e.target.value + '%';
+        });
+
+        numOverlaps.addEventListener('input', (e) => {
+            numOverlapsValue.textContent = e.target.value;
+        });
+
+        speechRate.addEventListener('input', (e) => {
+            speechRateValue.textContent = parseFloat(e.target.value).toFixed(1) + 'x';
+        });
+
+        // Update speaker voice selectors when number of speakers changes
+        numSpeakers.addEventListener('change', updateSpeakerVoiceSelectors);
+        updateSpeakerVoiceSelectors();
+
+        function updateSpeakerVoiceSelectors() {
+            const count = parseInt(numSpeakers.value) || 2;
+            speakerVoices.innerHTML = '';
+            
+            for (let i = 1; i <= count; i++) {
+                const group = document.createElement('div');
+                group.style.display = 'flex';
+                group.style.gap = 'var(--space-8)';
+                group.style.alignItems = 'center';
+                
+                const label = document.createElement('label');
+                label.textContent = `Speaker ${i}:`;
+                label.style.minWidth = '80px';
+                label.style.fontSize = '13px';
+                
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.id = `speaker${i}Voice`;
+                input.placeholder = 'Voice ID (optional)';
+                input.style.flex = '1';
+                input.style.padding = 'var(--space-8)';
+                input.style.border = '1px solid var(--color-border)';
+                input.style.borderRadius = 'var(--radius-base)';
+                input.style.background = 'var(--color-surface)';
+                input.style.color = 'var(--color-text)';
+                input.style.fontSize = '13px';
+                
+                group.appendChild(label);
+                group.appendChild(input);
+                speakerVoices.appendChild(group);
+            }
+        }
+
+        // Load ElevenLabs key for dialogue generation
+        if (dialogueElevenLabsKey && savedElevenLabsKey) {
+            dialogueElevenLabsKey.value = savedElevenLabsKey;
+        }
+
+        // Initialize IndexedDB for audio segment cache
+        async function initAudioSegmentDB() {
+            if (audioSegmentDB) return audioSegmentDB;
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open('AudioSegmentCacheDB', 1);
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    audioSegmentDB = request.result;
+                    resolve(audioSegmentDB);
+                };
+                request.onupgradeneeded = (event) => {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains('segments')) {
+                        db.createObjectStore('segments', { keyPath: 'id' });
+                    }
+                };
+            });
+        }
+
+        function getPromptCacheSuffix(promptText = '') {
+            if (!promptText || !promptText.trim()) {
+                return 'default';
+            }
+            let hash = 0;
+            const normalized = promptText.trim();
+            for (let i = 0; i < normalized.length; i++) {
+                hash = ((hash << 5) - hash) + normalized.charCodeAt(i);
+                hash |= 0;
+            }
+            return `p${Math.abs(hash)}`;
+        }
+
+        // Generate cache key for dialogue
+        function generateDialogueCacheKey(numSpeakers, dialogueLength, scenario, numOverlaps, promptText = '') {
+            const promptPart = getPromptCacheSuffix(promptText);
+            return `dialogue_${numSpeakers}_${dialogueLength}_${scenario}_${numOverlaps}_${promptPart}`;
+        }
+
+        // Generate cache key for audio segment
+        function generateAudioSegmentCacheKey(text, voiceId, rate) {
+            const textHash = text.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+            return `audio_${voiceId}_${rate.toFixed(1)}_${textHash}`;
+        }
+
+        // Load dialogue cache
+        function loadDialogueCache() {
+            try {
+                const stored = localStorage.getItem(DIALOGUE_CACHE_KEY);
+                return stored ? JSON.parse(stored) : {};
+            } catch (error) {
+                console.warn('Failed to load dialogue cache', error);
+                return {};
+            }
+        }
+
+        // Save dialogue cache
+        function saveDialogueCache(cache) {
+            try {
+                const entries = Object.entries(cache);
+                if (entries.length > DIALOGUE_CACHE_LIMIT) {
+                    entries.sort((a, b) => (b[1].timestamp || 0) - (a[1].timestamp || 0));
+                    const limited = Object.fromEntries(entries.slice(0, DIALOGUE_CACHE_LIMIT));
+                    localStorage.setItem(DIALOGUE_CACHE_KEY, JSON.stringify(limited));
+                } else {
+                    localStorage.setItem(DIALOGUE_CACHE_KEY, JSON.stringify(cache));
+                }
+            } catch (error) {
+                console.warn('Failed to save dialogue cache', error);
+            }
+        }
+
+        // Get cached dialogue
+        function getCachedDialogue(numSpeakers, dialogueLength, scenario, numOverlaps, promptText = '') {
+            const cache = loadDialogueCache();
+            const key = generateDialogueCacheKey(numSpeakers, dialogueLength, scenario, numOverlaps, promptText);
+            if (cache[key]) {
+                return cache[key];
+            }
+            if (!promptText || !promptText.trim()) {
+                const legacyKey = `dialogue_${numSpeakers}_${dialogueLength}_${scenario}_${numOverlaps}`;
+                return cache[legacyKey] || null;
+            }
+            return null;
+        }
+
+        // Save dialogue to cache
+        function saveDialogueToCache(numSpeakers, dialogueLength, scenario, numOverlaps, dialogue, promptText = '') {
+            const cache = loadDialogueCache();
+            const key = generateDialogueCacheKey(numSpeakers, dialogueLength, scenario, numOverlaps, promptText);
+            cache[key] = {
+                dialogue: dialogue,
+                timestamp: Date.now(),
+                params: { numSpeakers, dialogueLength, scenario, numOverlaps, prompt: promptText || '' }
+            };
+            saveDialogueCache(cache);
+        }
+
+        // Get cached audio segment from IndexedDB
+        async function getCachedAudioSegment(text, voiceId, rate) {
+            try {
+                if (!audioSegmentDB) {
+                    await initAudioSegmentDB();
+                }
+            } catch (error) {
+                console.warn('Failed to init IndexedDB', error);
+                return null;
+            }
+            
+            return new Promise((resolve) => {
+                const key = generateAudioSegmentCacheKey(text, voiceId, rate);
+                const transaction = audioSegmentDB.transaction(['segments'], 'readonly');
+                const store = transaction.objectStore('segments');
+                const request = store.get(key);
+                
+                request.onsuccess = () => {
+                    const result = request.result;
+                    if (result && result.audioData) {
+                        let arrayBuffer;
+                        if (result.audioData instanceof ArrayBuffer) {
+                            arrayBuffer = result.audioData;
+                        } else if (result.audioData.buffer) {
+                            arrayBuffer = result.audioData.buffer;
+                        } else {
+                            // Try to convert
+                            arrayBuffer = new Uint8Array(result.audioData).buffer;
+                        }
+                        
+                        if (!audioContext) {
+                            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                        }
+                        audioContext.decodeAudioData(arrayBuffer.slice(0)).then(buffer => {
+                            resolve(buffer);
+                        }).catch(err => {
+                            console.warn('Failed to decode cached audio', err);
+                            resolve(null);
+                        });
+                    } else {
+                        resolve(null);
+                    }
+                };
+                request.onerror = () => resolve(null);
+            });
+        }
+
+        // Save audio segment to IndexedDB
+        async function saveAudioSegmentToCache(text, voiceId, rate, audioBuffer) {
+            try {
+                if (!audioSegmentDB) {
+                    await initAudioSegmentDB();
+                }
+            } catch (error) {
+                console.warn('Failed to init IndexedDB', error);
+                return;
+            }
+            
+            return new Promise((resolve) => {
+                const key = generateAudioSegmentCacheKey(text, voiceId, rate);
+                
+                // Convert AudioBuffer to ArrayBuffer (WAV format)
+                const wav = audioBufferToWav(audioBuffer);
+                
+                const transaction = audioSegmentDB.transaction(['segments'], 'readwrite');
+                const store = transaction.objectStore('segments');
+                
+                // Count existing entries
+                const countRequest = store.count();
+                countRequest.onsuccess = () => {
+                    const count = countRequest.result;
+                    if (count >= AUDIO_SEGMENT_CACHE_LIMIT) {
+                        // Delete oldest entries - get all and sort by timestamp
+                        const getAllRequest = store.getAll();
+                        getAllRequest.onsuccess = () => {
+                            const all = getAllRequest.result;
+                            all.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+                            const toDelete = all.slice(0, count - AUDIO_SEGMENT_CACHE_LIMIT + 1);
+                            toDelete.forEach(item => store.delete(item.id));
+                            
+                            // Save new entry
+                            store.put({
+                                id: key,
+                                text: text,
+                                voiceId: voiceId,
+                                rate: rate,
+                                audioData: wav,
+                                timestamp: Date.now()
+                            });
+                            resolve();
+                        };
+                    } else {
+                        // Save new entry
+                        store.put({
+                            id: key,
+                            text: text,
+                            voiceId: voiceId,
+                            rate: rate,
+                            audioData: wav,
+                            timestamp: Date.now()
+                        });
+                        resolve();
+                    }
+                };
+                countRequest.onerror = () => resolve();
+            });
+        }
+
+        // Generate dialogue
+        generateDialogueBtn.addEventListener('click', async () => {
+            try {
+                generateDialogueBtn.disabled = true;
+                generateDialogueBtn.innerHTML = 'Generating... <span class="loading"></span>';
+                
+                const numSpeakersVal = parseInt(numSpeakers.value);
+                const dialogueLengthVal = dialogueLength.value;
+                const scenarioVal = dialogueScenario.value;
+                const numOverlapsVal = parseInt(numOverlaps.value);
+                const customPrompt = dialoguePrompt ? dialoguePrompt.value.trim() : '';
+                
+                // Check cache first
+                const cachedDialogue = getCachedDialogue(numSpeakersVal, dialogueLengthVal, scenarioVal, numOverlapsVal, customPrompt);
+                let dialogue = null;
+                
+                if (cachedDialogue && cachedDialogue.dialogue) {
+                    showDialogueStatus('Using cached dialogue...', 'info');
+                    dialogue = cachedDialogue.dialogue;
+                } else {
+                    showDialogueStatus('Generating dialogue with AI...', 'info');
+                    const response = await fetch('/api/generate-dialogue', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            numSpeakers: numSpeakersVal,
+                            dialogueLength: dialogueLengthVal,
+                            scenario: scenarioVal,
+                            numOverlaps: numOverlapsVal,
+                            prompt: customPrompt || null
+                        })
+                    });
+
+                    if (!response.ok) {
+                        let errorMessage = `API error: ${response.status}`;
+                        try {
+                            const errorData = await response.json();
+                            errorMessage = errorData.error || errorData.details || errorMessage;
+                            if (errorData.details) {
+                                errorMessage += ` - ${errorData.details}`;
+                            }
+                        } catch (e) {
+                            const errorText = await response.text();
+                            if (errorText) {
+                                errorMessage += ` - ${errorText.substring(0, 200)}`;
+                            }
+                        }
+                        throw new Error(errorMessage);
+                    }
+
+                    const data = await response.json();
+                    dialogue = data.dialogue || [];
+
+                    if (dialogue.length === 0) {
+                        throw new Error('No dialogue generated');
+                    }
+                    
+                    // Save to cache
+                    saveDialogueToCache(numSpeakersVal, dialogueLengthVal, scenarioVal, numOverlapsVal, dialogue, customPrompt);
+                }
+
+                // Display dialogue preview
+                dialogueText.innerHTML = dialogue.map((item, i) => 
+                    `<div style="margin-bottom: var(--space-8);">
+                        <strong style="color: var(--color-primary);">Speaker ${item.speaker}:</strong> 
+                        <span>${item.text}</span>
+                    </div>`
+                ).join('');
+                dialoguePreview.classList.remove('hidden');
+                generatedDialogueScript = dialogue;
+                persistOriginalDialogue(dialogue, {
+                    source: 'cache',
+                    scenario: params.scenario,
+                    numSpeakers: params.numSpeakers,
+                    dialogueLength: params.dialogueLength,
+                    prompt: params.prompt || undefined
+                });
+                generatedDialogueScript = dialogue;
+                persistOriginalDialogue(dialogue, {
+                    source: 'generator',
+                    scenario: scenarioVal,
+                    numSpeakers: numSpeakersVal,
+                    dialogueLength: dialogueLengthVal,
+                    prompt: customPrompt || undefined
+                });
+
+                // Synthesize speech with ElevenLabs
+                const apiKey = (dialogueElevenLabsKey.value.trim() || elevenLabsKey.value.trim());
+                if (!apiKey) {
+                    showDialogueStatus('Please enter your ElevenLabs API key', 'error');
+                    generateDialogueBtn.disabled = false;
+                    generateDialogueBtn.textContent = '🎙️ Generate Dialogue with ElevenLabs';
+                    return;
+                }
+
+                showDialogueStatus('Synthesizing speech with ElevenLabs TTS...', 'info');
+                generatedDialogueBuffer = await synthesizeDialogueWithElevenLabs(
+                    dialogue, 
+                    parseInt(numOverlaps.value), 
+                    parseFloat(speechRate.value),
+                    apiKey
+                );
+
+                if (generatedDialogueBuffer) {
+                    // Set as source buffer
+                    sourceBuffer = generatedDialogueBuffer;
+                    voiceReady = true;
+                    updateProcessButtonState();
+
+                    // Show in audio player
+                    const wav = audioBufferToWav(generatedDialogueBuffer);
+                    const blob = new Blob([wav], { type: 'audio/wav' });
+                    const url = URL.createObjectURL(blob);
+                    originalAudio.src = url;
+                    originalAudio.classList.remove('hidden');
+
+                    // Show download button
+                    downloadDialogueBtn.classList.remove('hidden');
+                    downloadDialogueBtn.onclick = () => {
+                        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+                        const filename = `dialogue-${dialogueScenario.value}-${numSpeakers.value}speakers-${timestamp}.wav`;
+                        downloadAudio(blob, url, filename);
+                    };
+
+                    showDialogueStatus('✓ Dialogue generated and synthesized successfully! You can download it or process with background noise.', 'success');
+                } else {
+                    throw new Error('Failed to synthesize dialogue');
+                }
+            } catch (error) {
+                console.error('Dialogue generation error:', error);
+                showDialogueStatus('Error: ' + error.message, 'error');
+            } finally {
+                generateDialogueBtn.disabled = false;
+                generateDialogueBtn.textContent = '🎙️ Generate Dialogue with ElevenLabs';
+            }
+        });
+
+        function showDialogueStatus(message, type) {
+            dialogueStatus.textContent = message;
+            dialogueStatus.className = 'status show ' + type;
+        }
+
+        // Request Queue class for limiting concurrent API requests
+        class RequestQueue {
+            constructor(maxConcurrent = 2) {
+                this.maxConcurrent = maxConcurrent;
+                this.running = 0;
+                this.queue = [];
+            }
+
+            async add(fn) {
+                return new Promise((resolve, reject) => {
+                    const run = async () => {
+                        this.running++;
+                        try {
+                            const result = await fn();
+                            resolve(result);
+                        } catch (error) {
+                            reject(error);
+                        } finally {
+                            this.running--;
+                            // Process next item in queue
+                            if (this.queue.length > 0) {
+                                const next = this.queue.shift();
+                                next();
+                            }
+                        }
+                    };
+
+                    if (this.running < this.maxConcurrent) {
+                        run();
+                    } else {
+                        this.queue.push(run);
+                    }
+                });
+            }
+        }
+
+        // Synthesize dialogue with ElevenLabs TTS and create overlapping audio
+        async function synthesizeDialogueWithElevenLabs(dialogue, numOverlaps, rate, apiKey) {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+
+            // Get voice IDs for each speaker
+            const speakerVoiceIds = {};
+            const numSpeakersCount = parseInt(numSpeakers.value) || 2;
+            
+            // Default ElevenLabs voices (you can change these)
+            const defaultVoices = [
+                '21m00Tcm4TlvDq8ikWAM', // Rachel - female
+                'pNInz6obpgDQGcFmaJgB', // Adam - male
+                'EXAVITQu4vr4xnSDxMaL', // Bella - female
+                'VR6AewLTigWG4xSOukaG', // Arnold - male
+                'ThT5KcBeYPX3keUQqHPh', // Dorothy - female
+                'XB0fDUnXU5powFXDhCwa'  // Charley - male
+            ];
+
+            for (let i = 1; i <= numSpeakersCount; i++) {
+                const voiceInput = document.getElementById(`speaker${i}Voice`);
+                const voiceId = voiceInput ? voiceInput.value.trim() : '';
+                speakerVoiceIds[i] = voiceId || defaultVoices[(i - 1) % defaultVoices.length];
+            }
+
+            // Group dialogue by speaker and create flat list for processing
+            const dialogueParts = [];
+            dialogue.forEach(item => {
+                const speakerId = item.speaker;
+                const voiceId = speakerVoiceIds[speakerId] || defaultVoices[0];
+                dialogueParts.push({
+                    speakerId: speakerId,
+                    text: item.text,
+                    startTime: item.startTime || 0,
+                    voiceId: voiceId
+                });
+            });
+
+            // Create request queue with max 2 concurrent requests
+            const queue = new RequestQueue(2);
+            const speakerBuffers = {};
+            let completedLines = 0;
+            window.cachedLines = 0; // Global counter for cache hits
+            const totalLines = dialogueParts.length;
+
+            showDialogueStatus(`Synthesizing speech... 0/${totalLines} lines (0 cached)`, 'info');
+
+            // Process all dialogue parts through the queue
+            const synthesisPromises = dialogueParts.map(part => 
+                queue.add(async () => {
+                    try {
+                        const buffer = await synthesizeTextWithElevenLabs(part.text, part.voiceId, apiKey, rate, part);
+                        
+                        if (!speakerBuffers[part.speakerId]) {
+                            speakerBuffers[part.speakerId] = [];
+                        }
+                        speakerBuffers[part.speakerId].push({
+                            buffer,
+                            startTime: part.startTime,
+                            text: part.text
+                        });
+                        
+                        completedLines++;
+                        showDialogueStatus(`Synthesizing speech... ${completedLines}/${totalLines} lines (${window.cachedLines || 0} cached)`, 'info');
+                        
+                        return buffer;
+                    } catch (error) {
+                        console.error(`Error synthesizing for speaker ${part.speakerId}:`, error);
+                        throw error;
+                    }
+                })
+            );
+
+            await Promise.all(synthesisPromises);
+            
+            // Mix all speaker buffers with overlaps
+            showDialogueStatus('Mixing audio with overlaps...', 'info');
+            const mixedBuffer = mixDialogueWithOverlaps(speakerBuffers, numOverlaps);
+            return mixedBuffer;
+        }
+
+        // Synthesize single text with ElevenLabs TTS (with retry logic and caching)
+        async function synthesizeTextWithElevenLabs(text, voiceId, apiKey, rate, part = null, retries = 3) {
+            // Check cache first
+            const cachedBuffer = await getCachedAudioSegment(text, voiceId, rate);
+            if (cachedBuffer) {
+                // Update cached lines count if part is provided (for progress tracking)
+                if (part && window.cachedLines !== undefined) {
+                    window.cachedLines++;
+                }
+                return cachedBuffer;
+            }
+            
+            // Not in cache - need to generate
+            
+            for (let attempt = 0; attempt < retries; attempt++) {
+                try {
+                    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'audio/mpeg',
+                            'Content-Type': 'application/json',
+                            'xi-api-key': apiKey
+                        },
+                        body: JSON.stringify({
+                            text: text,
+                            model_id: 'eleven_multilingual_v2',
+                            voice_settings: {
+                                stability: 0.5,
+                                similarity_boost: 0.75,
+                                style: 0.0,
+                                use_speaker_boost: true
+                            }
+                        })
+                    });
+
+                    // Handle rate limiting (429)
+                    if (response.status === 429) {
+                        const waitTime = Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
+                        console.warn(`Rate limited (429). Waiting ${waitTime}ms before retry ${attempt + 1}/${retries}...`);
+                        showDialogueStatus(`Rate limited. Waiting ${waitTime/1000}s before retry...`, 'info');
+                        await new Promise(resolve => setTimeout(resolve, waitTime));
+                        continue;
+                    }
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        // If it's the last attempt, throw the error
+                        if (attempt === retries - 1) {
+                            throw new Error(`ElevenLabs API error: ${response.status} - ${errorText}`);
+                        }
+                        // Otherwise, wait and retry
+                        const waitTime = Math.pow(2, attempt) * 1000;
+                        await new Promise(resolve => setTimeout(resolve, waitTime));
+                        continue;
+                    }
+
+                    const audioBlob = await response.blob();
+                    const arrayBuffer = await audioBlob.arrayBuffer();
+                    
+                    if (!audioContext) {
+                        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    }
+                    
+                    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                    
+                    // Apply rate adjustment if needed (ElevenLabs doesn't support rate directly, so we'll use playback rate)
+                    if (rate !== 1.0) {
+                        // Create a new buffer with adjusted rate by resampling
+                        const originalSampleRate = audioBuffer.sampleRate;
+                        const newLength = Math.floor(audioBuffer.length / rate);
+                        const newBuffer = audioContext.createBuffer(
+                            audioBuffer.numberOfChannels,
+                            newLength,
+                            originalSampleRate
+                        );
+                        
+                        for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+                            const originalData = audioBuffer.getChannelData(channel);
+                            const newData = newBuffer.getChannelData(channel);
+                            
+                            for (let i = 0; i < newLength; i++) {
+                                const srcIndex = Math.floor(i * rate);
+                                if (srcIndex < originalData.length) {
+                                    newData[i] = originalData[srcIndex];
+                                }
+                            }
+                        }
+                        
+                        return newBuffer;
+                    }
+                    
+                    // Save to cache
+                    await saveAudioSegmentToCache(text, voiceId, rate, audioBuffer);
+                    
+                    return audioBuffer;
+                } catch (error) {
+                    // If it's the last attempt, throw the error
+                    if (attempt === retries - 1) {
+                        console.error('ElevenLabs TTS error after all retries:', error);
+                        throw error;
+                    }
+                    // Otherwise, wait and retry
+                    const waitTime = Math.pow(2, attempt) * 1000;
+                    console.warn(`Error on attempt ${attempt + 1}/${retries}. Retrying in ${waitTime}ms...`, error);
+                    await new Promise(resolve => setTimeout(resolve, waitTime));
+                }
+            }
+        }
+
+        // Synthesize dialogue with Web Speech API and create overlapping audio (legacy, kept for fallback)
+        async function synthesizeDialogue(dialogue, overlapProb, rate) {
+            return new Promise((resolve, reject) => {
+                if (!('speechSynthesis' in window)) {
+                    reject(new Error('Web Speech API not supported'));
+                    return;
+                }
+
+                if (availableVoices.length === 0) {
+                    availableVoices = speechSynthesis.getVoices().filter(v => v.lang.startsWith('en'));
+                }
+
+                if (availableVoices.length === 0) {
+                    // Try loading voices again
+                    availableVoices = speechSynthesis.getVoices().filter(v => v.lang.startsWith('en'));
+                    if (availableVoices.length === 0) {
+                        // Use default voices if available
+                        availableVoices = speechSynthesis.getVoices();
+                        if (availableVoices.length === 0) {
+                            reject(new Error('No voices available. Please check your browser settings.'));
+                            return;
+                        }
+                    }
+                }
+
+                // Group dialogue by speaker
+                const speakers = {};
+                dialogue.forEach(item => {
+                    const speakerId = item.speaker;
+                    if (!speakers[speakerId]) {
+                        speakers[speakerId] = [];
+                    }
+                    speakers[speakerId].push(item);
+                });
+
+                // Assign voices to speakers
+                const speakerVoices = {};
+                Object.keys(speakers).forEach((speakerId, idx) => {
+                    speakerVoices[speakerId] = availableVoices[idx % availableVoices.length];
+                });
+
+                // Synthesize each speaker's lines
+                const synthesisPromises = [];
+                const speakerBuffers = {};
+
+                Object.keys(speakers).forEach(speakerId => {
+                    const voice = speakerVoices[speakerId];
+                    const lines = speakers[speakerId];
+                    
+                    lines.forEach((line, lineIdx) => {
+                        const promise = synthesizeTextToAudioBuffer(line.text, voice, rate).then(buffer => {
+                            if (!speakerBuffers[speakerId]) {
+                                speakerBuffers[speakerId] = [];
+                            }
+                            speakerBuffers[speakerId].push({
+                                buffer,
+                                startTime: line.startTime || 0,
+                                text: line.text
+                            });
+                        });
+                        synthesisPromises.push(promise);
+                    });
+                });
+
+                Promise.all(synthesisPromises).then(() => {
+                    // Mix all speaker buffers with overlaps
+                    const mixedBuffer = mixDialogueWithOverlaps(speakerBuffers, overlapProb);
+                    resolve(mixedBuffer);
+                }).catch(reject);
+            });
+        }
+
+        // Legacy Web Speech API function (kept for fallback, but not used with ElevenLabs)
+        function synthesizeTextToAudioBuffer(text, voice, rate) {
+            return new Promise((resolve, reject) => {
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+
+                // Estimate duration based on word count and rate
+                const wordCount = text.split(/\s+/).length;
+                const wordsPerMinute = 150 * rate; // Base 150 WPM
+                const estimatedDuration = Math.max(0.5, (wordCount / wordsPerMinute) * 60); // Duration in seconds
+                
+                // Create audio buffer with estimated duration
+                const sampleRate = audioContext.sampleRate;
+                const bufferLength = Math.ceil(estimatedDuration * sampleRate);
+                const buffer = audioContext.createBuffer(2, bufferLength, sampleRate);
+
+                // Generate unique voice characteristics based on voice name
+                const voiceHash = voice ? voice.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 0;
+                const baseFreq = 120 + (voiceHash % 80); // 120-200 Hz base frequency
+                const pitchVariation = 0.1 + (voiceHash % 20) / 100; // 0.1-0.3 variation
+
+                // Generate voice-like audio with formants (characteristic of human speech)
+                for (let channel = 0; channel < 2; channel++) {
+                    const data = buffer.getChannelData(channel);
+                    
+                    // Create formant frequencies (characteristic of human voice)
+                    // Different formants for different voice characteristics
+                    const formants = [
+                        { freq: 600 + (voiceHash % 200), amp: 0.35 },   // F1 (vowel formant)
+                        { freq: 1100 + (voiceHash % 400), amp: 0.25 }, // F2 (vowel formant)
+                        { freq: 2400 + (voiceHash % 600), amp: 0.15 }  // F3 (vowel formant)
+                    ];
+                    
+                    for (let i = 0; i < data.length; i++) {
+                        const t = i / sampleRate;
+                        let sample = 0;
+                        
+                        // Add formants with slight frequency modulation (vibrato)
+                        const vibrato = Math.sin(t * 5) * pitchVariation;
+                        formants.forEach((formant, idx) => {
+                            const freq = formant.freq * (1 + vibrato);
+                            sample += Math.sin(2 * Math.PI * freq * t) * formant.amp;
+                        });
+                        
+                        // Add fundamental frequency (pitch) with variation
+                        const pitch = baseFreq * (1 + Math.sin(t * 2) * 0.05);
+                        sample += Math.sin(2 * Math.PI * pitch * t) * 0.25;
+                        
+                        // Add harmonics for richer sound
+                        for (let h = 2; h <= 4; h++) {
+                            sample += Math.sin(2 * Math.PI * pitch * h * t) * (0.1 / h);
+                        }
+                        
+                        // Add envelope (attack, sustain, release)
+                        const attackTime = 0.05;
+                        const releaseStart = estimatedDuration * 0.85;
+                        let envelope = 1;
+                        
+                        if (t < attackTime) {
+                            envelope = t / attackTime; // Attack
+                        } else if (t > releaseStart) {
+                            envelope = 1 - ((t - releaseStart) / (estimatedDuration - releaseStart)); // Release
+                        }
+                        
+                        // Add subtle noise for breathiness
+                        const noise = (Math.random() - 0.5) * 0.08;
+                        
+                        // Add text-based variation (simulate different phonemes)
+                        const textMod = Math.sin(t * 3 + text.length) * 0.1;
+                        
+                        data[i] = (sample + noise + textMod) * envelope * 0.5;
+                    }
+                }
+
+                // Use Web Speech API for timing reference
+                const utterance = new SpeechSynthesisUtterance(text);
+                if (voice) utterance.voice = voice;
+                utterance.rate = rate;
+                utterance.pitch = 1;
+                utterance.volume = 1;
+
+                let resolved = false;
+                utterance.onend = () => {
+                    if (!resolved) {
+                        resolved = true;
+                        resolve(buffer);
+                    }
+                };
+
+                utterance.onerror = (e) => {
+                    if (!resolved) {
+                        resolved = true;
+                        console.warn('Speech synthesis error, using generated audio:', e);
+                        resolve(buffer);
+                    }
+                };
+
+                // Start synthesis for timing
+                speechSynthesis.speak(utterance);
+                
+                // Fallback timeout
+                setTimeout(() => {
+                    if (!resolved) {
+                        resolved = true;
+                        resolve(buffer);
+                    }
+                }, estimatedDuration * 1000 + 1000);
+            });
+        }
+
+        // Create fallback audio buffer
+        function createFallbackAudioBuffer(duration) {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            const sampleRate = audioContext.sampleRate;
+            const buffer = audioContext.createBuffer(1, duration * sampleRate, sampleRate);
+            const data = buffer.getChannelData(0);
+            
+            for (let i = 0; i < data.length; i++) {
+                const t = i / sampleRate;
+                const freq = 150 + Math.sin(t * 2) * 50;
+                data[i] = Math.sin(2 * Math.PI * freq * t) * 0.3 * Math.exp(-t * 0.1);
+            }
+            
+            return buffer;
+        }
+
+        // Mix dialogue with overlaps
+        function mixDialogueWithOverlaps(speakerBuffers, numOverlaps) {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+
+            // Create a flat list of all segments with speaker info, sorted by start time
+            const allSegments = [];
+            Object.keys(speakerBuffers).forEach(speakerId => {
+                speakerBuffers[speakerId].forEach(seg => {
+                    allSegments.push({
+                        speakerId: speakerId,
+                        buffer: seg.buffer,
+                        startTime: seg.startTime,
+                        endTime: seg.startTime + (seg.buffer.duration || 0),
+                        originalStartTime: seg.startTime
+                    });
+                });
+            });
+
+            // Sort by start time
+            allSegments.sort((a, b) => a.startTime - b.startTime);
+
+            // Calculate total duration needed
+            let maxEndTime = 0;
+            allSegments.forEach(seg => {
+                if (seg.endTime > maxEndTime) maxEndTime = seg.endTime;
+            });
+
+            const sampleRate = audioContext.sampleRate;
+            const totalLength = Math.ceil((maxEndTime + 2) * sampleRate); // Add 2s padding
+            const mixedBuffer = audioContext.createBuffer(2, totalLength, sampleRate);
+
+            // Track overlaps count to guarantee exact number
+            let overlapsCount = 0;
+            const targetOverlaps = Math.max(0, numOverlaps);
+            const speakerIds = Object.keys(speakerBuffers).map(id => parseInt(id));
+            const firstSpeaker = Math.min(...speakerIds);
+            const secondSpeaker = Math.max(...speakerIds);
+
+            // Find all potential overlap opportunities (different speakers, close enough)
+            // Optimized: only check recent segments, not all previous ones
+            const overlapOpportunities = [];
+            for (let segIdx = 1; segIdx < allSegments.length; segIdx++) {
+                const seg = allSegments[segIdx];
+                
+                // Only check last 3 segments for efficiency (most overlaps happen with recent speech)
+                const checkRange = Math.min(segIdx, 3);
+                for (let i = segIdx - 1; i >= segIdx - checkRange && i >= 0; i--) {
+                    const prevSeg = allSegments[i];
+                    if (prevSeg.speakerId !== seg.speakerId) {
+                        const prevDuration = prevSeg.buffer.duration || 0;
+                        const prevEndTime = prevSeg.endTime;
+                        const timeGap = seg.startTime - prevSeg.startTime;
+                        
+                        // More lenient check: if segments are within 3x duration or current starts before previous ends
+                        const isCloseEnough = timeGap < prevDuration * 3.0 || seg.startTime < prevEndTime;
+                        
+                        if (isCloseEnough) {
+                            const isClientInterrupting = (seg.speakerId === secondSpeaker && prevSeg.speakerId === firstSpeaker);
+                            overlapOpportunities.push({
+                                segIdx: segIdx,
+                                prevSegIdx: i,
+                                seg: seg,
+                                prevSeg: prevSeg,
+                                priority: isClientInterrupting ? 2 : 1, // Client interrupting has higher priority
+                                gap: seg.startTime - prevEndTime // Negative if overlapping
+                            });
+                            break; // Only consider one previous segment per current segment
+                        }
+                    }
+                }
+            }
+            
+            console.log(`Found ${overlapOpportunities.length} overlap opportunities, target: ${targetOverlaps}`);
+
+            // Sort opportunities by priority (client interrupting first), then by gap (overlapping first)
+            overlapOpportunities.sort((a, b) => {
+                if (a.priority !== b.priority) return b.priority - a.priority;
+                // Prefer segments that already overlap (negative gap)
+                if (a.gap < 0 && b.gap >= 0) return -1;
+                if (a.gap >= 0 && b.gap < 0) return 1;
+                return a.segIdx - b.segIdx;
+            });
+
+            // Select exact number of overlaps (or all available if less than target)
+            const selectedOverlaps = overlapOpportunities.slice(0, Math.min(targetOverlaps, overlapOpportunities.length));
+            const overlapMap = new Map(); // Map segment index to overlap info
+
+            console.log(`Selected ${selectedOverlaps.length} overlaps to apply`);
+
+            selectedOverlaps.forEach(opp => {
+                overlapMap.set(opp.segIdx, {
+                    prevSeg: opp.prevSeg,
+                    prevEndTime: opp.prevSeg.endTime,
+                    prevDuration: opp.prevSeg.buffer.duration || 0,
+                    gap: opp.gap
+                });
+            });
+
+            // Process each segment and apply overlaps
+            allSegments.forEach((seg, segIdx) => {
+                let startOffset = Math.floor(seg.startTime * sampleRate);
+                
+                // Check if this segment should overlap
+                const overlapInfo = overlapMap.get(segIdx);
+                if (overlapInfo) {
+                    const prevEndTime = overlapInfo.prevEndTime;
+                    const prevDuration = overlapInfo.prevDuration;
+                    
+                    // Calculate overlap amount - very aggressive
+                    let overlapAmount = 0;
+                    const gap = overlapInfo.gap;
+                    
+                    if (gap < 0 || seg.startTime < prevEndTime) {
+                        // Already overlapping or starts before previous ends - maximize overlap
+                        const currentOverlap = Math.max(0, prevEndTime - seg.startTime);
+                        overlapAmount = Math.max(
+                            prevDuration * 0.5, // At least 50% of previous duration
+                            currentOverlap + prevDuration * 0.3 // Current overlap + 30% more
+                        );
+                    } else {
+                        // Current segment starts after previous ends - start it much earlier to overlap
+                        overlapAmount = gap + prevDuration * 0.6; // Close gap + overlap 60% into previous
+                    }
+                    
+                    // Apply overlap - start earlier
+                    const newStartTime = seg.startTime - overlapAmount;
+                    startOffset = Math.max(0, Math.floor(newStartTime * sampleRate));
+                    overlapsCount++;
+                    console.log(`Applied overlap: segment ${segIdx} starts ${overlapAmount.toFixed(2)}s earlier`);
+                }
+
+                // Copy audio data to mixed buffer
+                for (let channel = 0; channel < Math.min(seg.buffer.numberOfChannels, 2); channel++) {
+                    const sourceData = seg.buffer.getChannelData(channel);
+                    const destData = mixedBuffer.getChannelData(channel);
+                    
+                    for (let i = 0; i < sourceData.length && (startOffset + i) < destData.length; i++) {
+                        destData[startOffset + i] += sourceData[i] * 0.8; // Mix with 80% volume
+                    }
+                }
+            });
+
+            return mixedBuffer;
+        }
+
+        processBtn.addEventListener('click', processAudio);
+
+        async function processAudio() {
+            try {
+                processBtn.disabled = true;
+                showStatus('Processing audio...', 'info');
+
+                // Use generated dialogue if available, otherwise use uploaded audio
+                const audioBuffer = currentAudioSource === 'generate' ? generatedDialogueBuffer : sourceBuffer;
+                
+                if (!audioBuffer) {
+                    if (currentAudioSource === 'generate') {
+                        showStatus('Please generate a dialogue first.', 'error');
+                    } else {
+                        showStatus('Please upload a voice recording before processing.', 'error');
+                    }
+                    processBtn.disabled = false;
+                    return;
+                }
+
+                const offlineContext = new OfflineAudioContext(
+                    audioBuffer.numberOfChannels,
+                    audioBuffer.length,
+                    audioBuffer.sampleRate
+                );
+
+                // Source audio
+                const source = offlineContext.createBufferSource();
+                source.buffer = audioBuffer;
+
+                const voiceGain = offlineContext.createGain();
+                voiceGain.gain.value = voiceLevel.value / 100;
+
+                // Background audio
+                let backgroundSource;
+                let backgroundBuffer;
+
+                if (currentBackgroundSource === 'elevenlabs' && generatedBackgroundBuffer) {
+                    backgroundBuffer = generatedBackgroundBuffer;
+                    backgroundSource = offlineContext.createBufferSource();
+                    backgroundSource.buffer = backgroundBuffer;
+                    backgroundSource.loop = true;
+                } else if (currentBackgroundSource === 'upload' && uploadedBackgroundBuffer) {
+                    backgroundBuffer = uploadedBackgroundBuffer;
+                    backgroundSource = offlineContext.createBufferSource();
+                    backgroundSource.buffer = backgroundBuffer;
+                    backgroundSource.loop = true;
+                } else {
+                    // Generate preset noise
+                    backgroundBuffer = generateNoise(offlineContext, audioBuffer.length, noiseType.value);
+                    backgroundSource = offlineContext.createBufferSource();
+                    backgroundSource.buffer = backgroundBuffer;
+                }
+
+                const noiseGain = offlineContext.createGain();
+                noiseGain.gain.value = noiseLevel.value / 100;
+
+                // Connect nodes
+                source.connect(voiceGain);
+                voiceGain.connect(offlineContext.destination);
+
+                backgroundSource.connect(noiseGain);
+                noiseGain.connect(offlineContext.destination);
+
+                // Start playback
+                source.start(0);
+                backgroundSource.start(0);
+
+                // Render
+                const renderedBuffer = await offlineContext.startRendering();
+
+                // Convert to blob
+                const wav = audioBufferToWav(renderedBuffer);
+                const blob = new Blob([wav], { type: 'audio/wav' });
+                const url = URL.createObjectURL(blob);
+
+                // Store for saving
+                currentProcessedBlob = blob;
+                currentProcessedUrl = url;
+
+                processedAudio.src = url;
+                processedAudio.classList.remove('hidden');
+                audioControls.classList.remove('hidden');
+
+                // Update download button
+                downloadBtn.onclick = () => {
+                    downloadAudio(blob, url);
+                };
+
+                // Update diarize button
+                diarizeBtn.onclick = () => {
+                    startIntegratedFlow(blob);
+                };
+
+                // Load saved results on success
+                loadSavedResults();
+
+                showStatus('✓ Audio processed successfully!', 'success');
+            } catch (error) {
+                showStatus('Error processing audio: ' + error.message, 'error');
+            } finally {
+                processBtn.disabled = false;
+                updateProcessButtonState();
+            }
+        }
+
+        function generateNoise(context, length, type) {
+            const buffer = context.createBuffer(2, length, context.sampleRate);
+            
+            for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+                const data = buffer.getChannelData(channel);
+                
+                switch(type) {
+                    case 'white':
+                        for (let i = 0; i < length; i++) {
+                            data[i] = Math.random() * 2 - 1;
+                        }
+                        break;
+                        
+                    case 'brown':
+                        let lastOut = 0;
+                        for (let i = 0; i < length; i++) {
+                            const white = Math.random() * 2 - 1;
+                            data[i] = (lastOut + (0.02 * white)) / 1.02;
+                            lastOut = data[i];
+                            data[i] *= 3.5;
+                        }
+                        break;
+                        
+                    case 'pink':
+                        let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+                        for (let i = 0; i < length; i++) {
+                            const white = Math.random() * 2 - 1;
+                            b0 = 0.99886 * b0 + white * 0.0555179;
+                            b1 = 0.99332 * b1 + white * 0.0750759;
+                            b2 = 0.96900 * b2 + white * 0.1538520;
+                            b3 = 0.86650 * b3 + white * 0.3104856;
+                            b4 = 0.55000 * b4 + white * 0.5329522;
+                            b5 = -0.7616 * b5 - white * 0.0168980;
+                            data[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
+                            data[i] *= 0.11;
+                            b6 = white * 0.115926;
+                        }
+                        break;
+                        
+                    case 'office':
+                        for (let i = 0; i < length; i++) {
+                            const base = Math.random() * 2 - 1;
+                            const typing = Math.random() > 0.95 ? (Math.random() * 0.5) : 0;
+                            data[i] = (base * 0.3 + typing) * 0.5;
+                        }
+                        break;
+                        
+                    case 'conversation':
+                        for (let i = 0; i < length; i++) {
+                            const base = Math.random() * 2 - 1;
+                            const freq = 200 + Math.random() * 100;
+                            const voice = Math.sin(2 * Math.PI * freq * i / context.sampleRate);
+                            const modulation = Math.random() > 0.98 ? voice * 0.3 : 0;
+                            data[i] = (base * 0.2 + modulation) * 0.6;
+                        }
+                        break;
+                }
+            }
+            
+            return buffer;
+        }
+
+        function audioBufferToWav(buffer) {
+            const length = buffer.length * buffer.numberOfChannels * 2 + 44;
+            const arrayBuffer = new ArrayBuffer(length);
+            const view = new DataView(arrayBuffer);
+            const channels = [];
+            let offset = 0;
+            let pos = 0;
+
+            // WAV header
+            setUint32(0x46464952); // "RIFF"
+            setUint32(length - 8); // file length - 8
+            setUint32(0x45564157); // "WAVE"
+            setUint32(0x20746d66); // "fmt " chunk
+            setUint32(16); // length = 16
+            setUint16(1); // PCM (uncompressed)
+            setUint16(buffer.numberOfChannels);
+            setUint32(buffer.sampleRate);
+            setUint32(buffer.sampleRate * 2 * buffer.numberOfChannels); // avg. bytes/sec
+            setUint16(buffer.numberOfChannels * 2); // block-align
+            setUint16(16); // 16-bit
+            setUint32(0x61746164); // "data" - chunk
+            setUint32(length - pos - 4); // chunk length
+
+            // Write interleaved data
+            for (let i = 0; i < buffer.numberOfChannels; i++) {
+                channels.push(buffer.getChannelData(i));
+            }
+
+            while (pos < length) {
+                for (let i = 0; i < buffer.numberOfChannels; i++) {
+                    let sample = Math.max(-1, Math.min(1, channels[i][offset]));
+                    sample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+                    view.setInt16(pos, sample, true);
+                    pos += 2;
+                }
+                offset++;
+            }
+
+            return arrayBuffer;
+
+            function setUint16(data) {
+                view.setUint16(pos, data, true);
+                pos += 2;
+            }
+
+            function setUint32(data) {
+                view.setUint32(pos, data, true);
+                pos += 4;
+            }
+        }
+
+        function showStatus(message, type) {
+            statusMessage.textContent = message;
+            statusMessage.className = 'status show ' + type;
+        }
+
+        // Download audio with proper filename
+        function downloadAudio(blob, url, customName = null) {
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+            const backgroundType = currentBackgroundSource === 'preset' ? noiseType.value : currentBackgroundSource;
+            const filename = customName || `call-center-audio-${backgroundType}-${timestamp}.wav`;
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            showStatus(`✓ Downloaded: ${filename}`, 'success');
+        }
+
+        // Save current settings and result
+        saveSettingsBtn.addEventListener('click', () => {
+            if (!currentProcessedBlob) {
+                showStatus('No processed audio to save. Please process audio first.', 'error');
+                return;
+            }
+
+            const settings = {
+                id: Date.now().toString(),
+                timestamp: new Date().toISOString(),
+                backgroundSource: currentBackgroundSource,
+                noiseType: noiseType.value,
+                noiseLevel: noiseLevel.value,
+                voiceLevel: voiceLevel.value,
+                backgroundPrompt: backgroundPrompt.value,
+                audioBlob: null, // Will be stored separately
+                filename: `call-center-audio-${currentBackgroundSource}-${Date.now()}.wav`
+            };
+
+            // Convert blob to base64 for storage
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                settings.audioBlob = reader.result; // Base64 string
+                
+                // Save to localStorage
+                savedResultsData.push(settings);
+                localStorage.setItem('audioGeneratorResults', JSON.stringify(savedResultsData));
+                
+                // Also save the blob URL mapping
+                const urlMap = JSON.parse(localStorage.getItem('audioGeneratorUrls') || '{}');
+                urlMap[settings.id] = currentProcessedUrl;
+                localStorage.setItem('audioGeneratorUrls', JSON.stringify(urlMap));
+                
+                showStatus('✓ Settings and result saved successfully!', 'success');
+                loadSavedResults();
+            };
+            reader.readAsDataURL(currentProcessedBlob);
+        });
+
+        // Load saved results
+        function loadSavedResults() {
+            try {
+                const saved = localStorage.getItem('audioGeneratorResults');
+                if (saved) {
+                    savedResultsData = JSON.parse(saved);
+                    
+                    if (savedResultsData.length > 0) {
+                        savedResults.classList.remove('hidden');
+                        renderSavedResults();
+                    } else {
+                        savedResults.classList.add('hidden');
+                    }
+                } else {
+                    savedResults.classList.add('hidden');
+                }
+            } catch (error) {
+                console.error('Error loading saved results:', error);
+                savedResults.classList.add('hidden');
+            }
+        }
+
+        // Render saved results list
+        function renderSavedResults() {
+            savedResultsList.innerHTML = savedResultsData.map((result, index) => {
+                const date = new Date(result.timestamp);
+                const dateStr = date.toLocaleString();
+                const backgroundLabel = result.backgroundSource === 'preset' 
+                    ? `Preset: ${result.noiseType}` 
+                    : result.backgroundSource === 'upload' 
+                    ? 'Uploaded Background' 
+                    : 'ElevenLabs AI';
+                
+                return `
+                    <div style="padding: var(--space-12); border: 1px solid var(--color-border); border-radius: var(--radius-base); background: var(--color-surface);">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: var(--space-8);">
+                            <div>
+                                <div style="font-weight: 600; margin-bottom: var(--space-4);">${result.filename}</div>
+                                <div style="font-size: var(--font-size-sm); color: var(--color-text-secondary);">
+                                    ${dateStr} • ${backgroundLabel} • Noise: ${result.noiseLevel}% • Voice: ${result.voiceLevel}%
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: var(--space-8);">
+                                <button class="btn btn-secondary" onclick="playSavedResult('${result.id}')" style="padding: var(--space-8) var(--space-12); font-size: var(--font-size-sm);">
+                                    ▶️ Play
+                                </button>
+                                <button class="btn btn-secondary" onclick="downloadSavedResult('${result.id}')" style="padding: var(--space-8) var(--space-12); font-size: var(--font-size-sm);">
+                                    💾 Download
+                                </button>
+                                <button class="btn btn-secondary" onclick="deleteSavedResult('${result.id}')" style="padding: var(--space-8) var(--space-12); font-size: var(--font-size-sm);">
+                                    🗑️ Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Play saved result
+        window.playSavedResult = function(id) {
+            const result = savedResultsData.find(r => r.id === id);
+            if (!result) return;
+
+            // Convert base64 back to blob
+            const byteCharacters = atob(result.audioBlob.split(',')[1]);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: 'audio/wav' });
+            const url = URL.createObjectURL(blob);
+
+            // Play in new audio element
+            const audio = new Audio(url);
+            audio.play();
+            
+            showStatus(`Playing: ${result.filename}`, 'info');
+        };
+
+        // Download saved result
+        window.downloadSavedResult = function(id) {
+            const result = savedResultsData.find(r => r.id === id);
+            if (!result) return;
+
+            // Convert base64 back to blob
+            const byteCharacters = atob(result.audioBlob.split(',')[1]);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: 'audio/wav' });
+            const url = URL.createObjectURL(blob);
+
+            downloadAudio(blob, url, result.filename);
+        };
+
+        // Delete saved result
+        window.deleteSavedResult = function(id) {
+            if (!confirm('Delete this saved result?')) return;
+
+            savedResultsData = savedResultsData.filter(r => r.id !== id);
+            localStorage.setItem('audioGeneratorResults', JSON.stringify(savedResultsData));
+
+            // Remove URL mapping
+            const urlMap = JSON.parse(localStorage.getItem('audioGeneratorUrls') || '{}');
+            delete urlMap[id];
+            localStorage.setItem('audioGeneratorUrls', JSON.stringify(urlMap));
+
+            loadSavedResults();
+            showStatus('Result deleted', 'info');
+        };
+
+        // Store file in IndexedDB for large files
+        async function storeFileInIndexedDB(blob, filename) {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open('AudioGeneratorDB', 1);
+                
+                request.onerror = () => reject(request.error);
+                request.onupgradeneeded = (event) => {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains('files')) {
+                        db.createObjectStore('files');
+                    }
+                };
+                request.onsuccess = () => {
+                    const db = request.result;
+                    const transaction = db.transaction(['files'], 'readwrite');
+                    const store = transaction.objectStore('files');
+                    
+                    transaction.oncomplete = () => {
+                        db.close();
+                        resolve();
+                    };
+                    transaction.onerror = () => {
+                        db.close();
+                        reject(transaction.error || new Error('IndexedDB transaction failed'));
+                    };
+                    
+                    const fileData = {
+                        name: filename,
+                        type: 'audio/wav',
+                        blob: blob,
+                        size: blob.size,
+                        timestamp: Date.now()
+                    };
+                    
+                    store.put(fileData, 'currentFile');
+                };
+            });
+        }
+
+        async function startIntegratedFlow(blob) {
+            if (!blob) {
+                showStatus('No processed audio available. Please process audio first.', 'error');
+                return;
+            }
+            ensureOriginalDialogueStoredFromPreview();
+            markFlowIntent('overlap');
+            await sendToDiarization(blob, { targetView: 'overlap' });
+        }
+
+        // Send audio to main app for diarization
+        async function sendToDiarization(blob, options = {}) {
+            if (!blob) {
+                showStatus('No processed audio available. Please process audio first.', 'error');
+                return;
+            }
+
+            try {
+                diarizeBtn.disabled = true;
+                diarizeBtn.textContent = '⏳ Sending...';
+                
+                // Convert blob to File object
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+                const backgroundType = currentBackgroundSource === 'preset' ? noiseType.value : currentBackgroundSource;
+                const filename = `call-center-audio-${backgroundType}-${timestamp}.wav`;
+
+                const targetView = options.targetView || 'upload';
+
+                // Try to send via postMessage if in iframe or opened from parent
+                if (window.parent !== window) {
+                    if (targetView && targetView !== 'upload') {
+                        markFlowIntent(targetView);
+                    }
+                    // In iframe - send file data via postMessage
+                    const arrayBuffer = await blob.arrayBuffer();
+                    // Use chunked base64 encoding for large files
+                    const uint8Array = new Uint8Array(arrayBuffer);
+                    let base64 = '';
+                    const chunkSize = 8192; // Process in chunks to avoid memory issues
+                    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+                        const chunk = uint8Array.slice(i, i + chunkSize);
+                        base64 += String.fromCharCode.apply(null, chunk);
+                    }
+                    base64 = btoa(base64);
+                    
+                    window.parent.postMessage({
+                        type: 'AUDIO_GENERATOR_FILE',
+                        file: {
+                            name: filename,
+                            type: 'audio/wav',
+                            data: base64,
+                            size: blob.size
+                        },
+                        targetView
+                    }, '*');
+                    
+                    showStatus('✓ Audio sent to main app! Check the upload view.', 'success');
+                    diarizeBtn.disabled = false;
+                    diarizeBtn.textContent = '🎙️ Send to Diarization';
+                    return;
+                }
+
+                // If opened in new tab, use IndexedDB for reliable storage (handles large files)
+                try {
+                    // Store in IndexedDB (supports large files)
+                    await storeFileInIndexedDB(blob, filename);
+                    
+                    // Also store metadata in localStorage for quick access
+                    const metadata = {
+                        name: filename,
+                        type: 'audio/wav',
+                        size: blob.size,
+                        timestamp: Date.now(),
+                        storageType: 'indexeddb'
+                    };
+                    
+                    localStorage.setItem('audioGeneratorFile', JSON.stringify(metadata));
+                    localStorage.setItem('audioGeneratorReady', 'true');
+                    if (targetView && targetView !== 'upload') {
+                        markFlowIntent(targetView);
+                    }
+                    
+                    // Open main app in same window
+                    const mainAppUrl = window.location.origin + '/';
+                    const viewQuery = targetView && targetView !== 'upload' ? `?view=${encodeURIComponent(targetView)}` : '';
+                    window.location.href = mainAppUrl + viewQuery + '#upload';
+                    
+                    showStatus('✓ Opening main app with audio file...', 'success');
+                } catch (indexedDBError) {
+                    // If IndexedDB fails, try localStorage as fallback
+                    console.log('IndexedDB not available, trying localStorage...', indexedDBError);
+                    
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        try {
+                            const fileData = {
+                                name: filename,
+                                type: 'audio/wav',
+                                data: reader.result, // Base64 string
+                                size: blob.size,
+                                timestamp: Date.now(),
+                                storageType: 'localstorage'
+                            };
+                            
+                            const fileDataStr = JSON.stringify(fileData);
+                            localStorage.setItem('audioGeneratorFile', fileDataStr);
+                            localStorage.setItem('audioGeneratorReady', 'true');
+                            if (targetView && targetView !== 'upload') {
+                                markFlowIntent(targetView);
+                            }
+                            
+                            // Open main app in same window
+                            const mainAppUrl = window.location.origin + '/';
+                            const viewQuery = targetView && targetView !== 'upload' ? `?view=${encodeURIComponent(targetView)}` : '';
+                            window.location.href = mainAppUrl + viewQuery + '#upload';
+                            
+                            showStatus('✓ Opening main app with audio file...', 'success');
+                        } catch (error) {
+                            // If localStorage also fails, this is very unlikely
+                            showStatus('Error: ' + error.message + '. Please try again.', 'error');
+                            diarizeBtn.disabled = false;
+                            diarizeBtn.textContent = '🎙️ Send to Diarization';
+                        }
+                    };
+                    reader.onerror = () => {
+                        showStatus('Error reading file. Please try again.', 'error');
+                        diarizeBtn.disabled = false;
+                        diarizeBtn.textContent = '🎙️ Send to Diarization';
+                    };
+                    reader.readAsDataURL(blob);
+                }
+                
+            } catch (error) {
+                showStatus('Error sending to diarization: ' + error.message, 'error');
+                console.error(error);
+                diarizeBtn.disabled = false;
+                diarizeBtn.textContent = '🎙️ Send to Diarization';
+            }
+        }
+
+        // Render cached dialogues
+        function renderCachedDialogues() {
+            if (!cachedDialoguesList) return;
+            
+            const cache = loadDialogueCache();
+            const entries = Object.entries(cache);
+            
+            cachedDialoguesList.innerHTML = '';
+            
+            if (entries.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'help-text';
+                empty.textContent = 'No cached dialogues yet.';
+                cachedDialoguesList.appendChild(empty);
+                return;
+            }
+            
+            // Sort by timestamp (newest first)
+            entries.sort((a, b) => (b[1].timestamp || 0) - (a[1].timestamp || 0));
+            
+            entries.forEach(([key, data]) => {
+                const item = document.createElement('div');
+                item.style.display = 'flex';
+                item.style.flexDirection = 'column';
+                item.style.gap = '4px';
+                item.style.padding = '12px';
+                item.style.borderRadius = '8px';
+                item.style.background = 'rgba(255,255,255,0.04)';
+                item.style.cursor = 'pointer';
+                item.style.transition = 'background 0.2s';
+                
+                item.addEventListener('mouseenter', () => {
+                    item.style.background = 'rgba(255,255,255,0.08)';
+                });
+                item.addEventListener('mouseleave', () => {
+                    item.style.background = 'rgba(255,255,255,0.04)';
+                });
+                
+                const params = data.params || {};
+                const title = document.createElement('div');
+                title.style.fontWeight = '600';
+                title.textContent = `${params.scenario || 'dialogue'} - ${params.numSpeakers || 2} speakers, ${params.dialogueLength || 'medium'} length`;
+                
+                let promptPreview = null;
+                if (params.prompt && params.prompt.trim()) {
+                    promptPreview = document.createElement('div');
+                    promptPreview.className = 'help-text';
+                    const previewText = params.prompt.trim();
+                    promptPreview.textContent = `Prompt: ${previewText.length > 120 ? previewText.slice(0, 117) + '…' : previewText}`;
+                }
+
+                const meta = document.createElement('div');
+                meta.className = 'help-text';
+                const date = new Date(data.timestamp).toLocaleString();
+                meta.textContent = `Cached ${date} • ${data.dialogue?.length || 0} lines`;
+                
+                item.addEventListener('click', () => {
+                    loadCachedDialogue(data.dialogue, params);
+                });
+                
+                item.appendChild(title);
+                if (promptPreview) {
+                    item.appendChild(promptPreview);
+                }
+                item.appendChild(meta);
+                cachedDialoguesList.appendChild(item);
+            });
+        }
+        
+        // Load cached dialogue
+        async function loadCachedDialogue(dialogue, params) {
+            try {
+                generateDialogueBtn.disabled = true;
+                showDialogueStatus('Loading cached dialogue...', 'info');
+                
+                // Set UI values
+                if (params.numSpeakers) numSpeakers.value = params.numSpeakers;
+                if (params.dialogueLength) dialogueLength.value = params.dialogueLength;
+                if (params.scenario) dialogueScenario.value = params.scenario;
+                if (params.numOverlaps !== undefined) numOverlaps.value = params.numOverlaps;
+                if (dialoguePrompt) {
+                    dialoguePrompt.value = params.prompt || '';
+                }
+                numOverlapsValue.textContent = numOverlaps.value;
+                
+                // Display dialogue preview
+                dialogueText.innerHTML = dialogue.map((item, i) => 
+                    `<div style="margin-bottom: var(--space-8);">
+                        <strong style="color: var(--color-primary);">Speaker ${item.speaker}:</strong> 
+                        <span>${item.text}</span>
+                    </div>`
+                ).join('');
+                dialoguePreview.classList.remove('hidden');
+                
+                // Synthesize speech with ElevenLabs (will use cached audio segments)
+                const apiKey = (dialogueElevenLabsKey.value.trim() || elevenLabsKey.value.trim());
+                if (!apiKey) {
+                    showDialogueStatus('Please enter your ElevenLabs API key', 'error');
+                    generateDialogueBtn.disabled = false;
+                    generateDialogueBtn.textContent = '🎙️ Generate Dialogue with ElevenLabs';
+                    return;
+                }
+                
+                showDialogueStatus('Synthesizing speech (using cache when available)...', 'info');
+                generatedDialogueBuffer = await synthesizeDialogueWithElevenLabs(
+                    dialogue, 
+                    parseInt(numOverlaps.value), 
+                    parseFloat(speechRate.value),
+                    apiKey
+                );
+                
+                if (generatedDialogueBuffer) {
+                    sourceBuffer = generatedDialogueBuffer;
+                    voiceReady = true;
+                    updateProcessButtonState();
+                    
+                    const wav = audioBufferToWav(generatedDialogueBuffer);
+                    const blob = new Blob([wav], { type: 'audio/wav' });
+                    const url = URL.createObjectURL(blob);
+                    originalAudio.src = url;
+                    originalAudio.classList.remove('hidden');
+                    
+                    downloadDialogueBtn.classList.remove('hidden');
+                    downloadDialogueBtn.onclick = () => {
+                        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+                        const filename = `dialogue-${dialogueScenario.value}-${numSpeakers.value}speakers-${timestamp}.wav`;
+                        downloadAudio(blob, url, filename);
+                    };
+                    
+                    showDialogueStatus('✓ Cached dialogue loaded and synthesized successfully!', 'success');
+                } else {
+                    throw new Error('Failed to synthesize dialogue');
+                }
+            } catch (error) {
+                console.error('Error loading cached dialogue:', error);
+                showDialogueStatus('Error: ' + error.message, 'error');
+            } finally {
+                generateDialogueBtn.disabled = false;
+                generateDialogueBtn.textContent = '🎙️ Generate Dialogue with ElevenLabs';
+            }
+        }
+        
+        // Clear dialogue cache
+        clearDialogueCacheBtn.addEventListener('click', () => {
+            if (confirm('Clear all cached dialogues? This will not delete audio segments.')) {
+                localStorage.removeItem(DIALOGUE_CACHE_KEY);
+                renderCachedDialogues();
+                showDialogueStatus('Dialogue cache cleared', 'info');
+            }
+        });
+        
+        // Clear audio segment cache
+        clearAudioCacheBtn.addEventListener('click', async () => {
+            if (confirm('Clear all cached audio segments? This will free up storage space.')) {
+                try {
+                    if (!audioSegmentDB) {
+                        await initAudioSegmentDB();
+                    }
+                    const transaction = audioSegmentDB.transaction(['segments'], 'readwrite');
+                    const store = transaction.objectStore('segments');
+                    await store.clear();
+                    showDialogueStatus('Audio segment cache cleared', 'info');
+                } catch (error) {
+                    console.error('Failed to clear audio cache', error);
+                    showDialogueStatus('Error clearing audio cache: ' + error.message, 'error');
+                }
+            }
+        });
+
+        // Load saved results on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSavedResults();
+            renderCachedDialogues();
+            initAudioSegmentDB().catch(err => console.warn('IndexedDB init failed', err));
+        });
+    </script>
+</body>
+</html>
+

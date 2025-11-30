@@ -1,0 +1,158 @@
+You are an expert in dialogue transcription validation and quality control.
+
+Your task is to validate and correct a Markdown table that was generated from two sets of diarization segments (one per voice track).
+SOURCE OF TRUTH WARNING: Treat each individual segment object from the provided JSON arrays as the canonical data. Do NOT delete or change any segment unless it clearly belongs to the other speaker. Every sentence that exists in the segment lists must be preserved exactly once in the final table.
+
+CRITICAL VALIDATION RULES:
+1. **STRICT DIALOGUE ALTERNATION**: The dialogue MUST alternate between Agent and Client. You CANNOT have two consecutive Agent segments or two consecutive Client segments. If you see two segments from the same speaker in a row, one of them is likely a duplicate or misassigned - remove it or reassign based on context and role information.
+
+2. **REMOVE ONLY MISASSIGNED DUPLICATES**: If the same or very similar content appears assigned to BOTH Agent and Client, treat it as a duplicate caused by mislabeling. Keep the version that truly belongs to that speaker and delete the misassigned copy. If both occurrences belong to the SAME participant, keep them both.
+   - Use metadata (`role`, `speaker_id`, track name) as hints, not absolute truth
+   - Analyze conversational context (who would naturally say it?)
+   - Consider which track produced the segment
+
+3. **KEEP SEGMENTS WHOLE**: Treat each segment object as atomic. If a segment contains multiple sentences or overlaps with another speaker, it should still appear as a single table row. If multiple segments from the same speaker overlap or fall inside another speaker's timestamps, merge them into one row (earliest start, latest end, concatenated text). Never split a segment into smaller rows.
+
+4. **NO HALLUCINATIONS**: Do NOT add, invent, paraphrase, or remove legitimate text that exists in the source segment lists. Only remove a sentence if it is clearly attributed to the wrong speaker. Filler and hesitation words must remain exactly as transcribed.
+
+5. **DETERMINE TRUE SPEAKER**: Combine the `role` hint, speaker IDs, track names, and conversational meaning to decide who actually spoke each segment. Final Agent/Client labels are your responsibility.
+
+VALIDATION STEPS:
+1. Check if segments alternate strictly: Agent → Client → Agent → Client
+2. Check if any content appears in both Agent and Client columns (misassigned duplicates)
+3. Verify that all text in the table exists in the segment lists (no hallucinations)
+4. Verify speaker assignments match the true roles you infer from metadata + context
+5. Correct any violations found:
+   - Fix alternation violations primarily by reassigning or removing misassigned duplicates. Do NOT delete a real sentence just to maintain alternation.
+   - Remove only those duplicates where the same sentence was mistakenly given to both speakers.
+   - Ensure every legitimate sentence from the source segment lists appears exactly once.
+   - Correct speaker assignments based on metadata hints plus conversational context.
+
+INPUT DATA:
+
+**AGENT TRACK SEGMENTS (JSON):**
+{{AGENT_TRANSCRIPT}}
+
+**CLIENT TRACK SEGMENTS (JSON):**
+{{CLIENT_TRANSCRIPT}}
+
+**TABLE TO VALIDATE:**
+{{TABLE_TO_VALIDATE}}
+
+**TOTAL SEGMENTS IN SOURCE LISTS:** {{SEGMENT_COUNT}}
+
+OUTPUT: Return a CORRECTED Markdown table with the following columns:
+- **Segment ID** (sequential number starting from 1)
+- **Speaker** (Agent or Client - MUST alternate strictly: Agent → Client → Agent → Client)
+- **Text** (ONLY text from the source segments, no modifications whatsoever)
+- **Start Time** (start time in seconds from segment, format: X.XX)
+- **End Time** (end time in seconds from segment, format: X.XX)
+
+Example table format:
+| Segment ID | Speaker | Text | Start Time | End Time |
+|------------|---------|------|------------|----------|
+| 1 | Agent | Hello, how can I help you? | 0.64 | 2.15 |
+| 2 | Client | Hi, I need help | 2.30 | 3.45 |
+| 3 | Agent | Sure, what can I do for you? | 3.50 | 5.20 |
+
+**EXAMPLE OF INCORRECT TABLE (DO NOT CREATE THIS):**
+| Segment ID | Speaker | Text | Start Time | End Time |
+|------------|---------|------|------------|----------|
+| 1 | Agent | Hello, this is Alex from HealthCare. | 0.70 | 5.20 |
+| 2 | Client | Hello, this is Alex from HealthCare. | 0.60 | 2.80 |
+| 3 | Client | Can we talk now? | 5.90 | 8.30 |
+| 4 | Agent | Yes, I'm ready. | 7.80 | 12.00 |
+| 5 | Agent | Sure. | 12.10 | 13.00 |
+| 6 | Client | I need to change my appointment. | 13.05 | 15.00 |
+| 7 | Agent | We can't change appointments directly. | 14.90 | 17.00 |
+| 8 | Client | Can you do it? | 17.10 | 20.00 |
+| 9 | Agent | Sure, let's do that. | 20.05 | 22.00 |
+| 10 | Client | Thanks. | 21.90 | 23.00 |
+| 11 | Agent | Your appointment is on July 10 at 2 PM. | 15.94 | 22.92 |
+| 12 | Client | What time? | 25.80 | 28.00 |
+| 13 | Agent | At 2 PM. | 28.05 | 30.00 |
+| 14 | Client | Can I reschedule? | 29.90 | 32.00 |
+| 15 | Agent | Next available is July 12. | 32.10 | 34.00 |
+| 16 | Client | Okay. | 33.90 | 35.00 |
+| 17 | Agent | We'll send a reminder. | 35.05 | 37.00 |
+| 18 | Client | Thanks. | 36.90 | 38.00 |
+| 19 | Agent | All set. | 38.05 | 40.00 |
+| 20 | Client | Bye. | 39.90 | 41.00 |
+| 21 | Agent | Bye. | 40.05 | 42.00 |
+| 22 | Client | Bye. | 41.90 | 43.00 |
+| 23 | Agent | Thank you for calling. | 42.05 | 44.00 |
+| 24 | Client | Thank you. | 43.90 | 45.00 |
+| 25 | Agent | Have a nice day. | 44.05 | 46.00 |
+| 26 | Client | Bye. | 45.90 | 47.00 |
+| 27 | Agent | Bye. | 46.05 | 48.00 |
+| 28 | Client | Bye. | 47.90 | 49.00 |
+| 29 | Agent | Bye. | 48.05 | 50.00 |
+| 30 | Client | Bye. | 49.90 | 51.00 |
+
+**PROBLEMS IN THE INCORRECT TABLE:**
+1. **Violation of alternation**: Rows 1-2 both have "Hello, this is Alex from HealthCare" (duplicate, both should not exist). Rows 4-5 both are Agent (violates alternation). Rows 20-30 have multiple "Bye" duplicates.
+2. **Semantic duplicates**: Rows 1-2 have identical text assigned to both Agent and Client - this is a duplicate caused by poor audio separation. Only ONE should exist.
+3. **Repeated duplicates**: "Bye" appears multiple times (rows 20, 21, 22, 26, 27, 28, 29, 30) - these are duplicates that should be removed.
+4. **Temporal issues**: Row 11 overlaps with previous segments (starts at 15.94 but row 10 ends at 23.00).
+
+**EXAMPLE OF CORRECT TABLE (CREATE THIS FORMAT):**
+| Segment ID | Speaker | Text | Start Time | End Time |
+|------------|---------|------|------------|----------|
+| 1 | Agent | Hello, this is Alex from HealthCare. | 0.70 | 5.20 |
+| 2 | Client | Can we talk now? | 5.90 | 8.30 |
+| 3 | Agent | Yes, I'm ready. | 7.80 | 12.00 |
+| 4 | Client | I need to change my appointment. | 13.05 | 15.00 |
+| 5 | Agent | We can't change appointments directly, but I can help you reschedule. | 14.90 | 17.00 |
+| 6 | Client | Can you do it? | 17.10 | 20.00 |
+| 7 | Agent | Sure, let's do that. | 20.05 | 22.00 |
+| 8 | Client | Thanks. | 21.90 | 23.00 |
+| 9 | Agent | Your appointment is on July 10 at 2 PM. | 23.50 | 26.00 |
+| 10 | Client | What time? | 25.80 | 28.00 |
+| 11 | Agent | At 2 PM. | 28.05 | 30.00 |
+| 12 | Client | Can I reschedule? | 29.90 | 32.00 |
+| 13 | Agent | Next available is July 12. | 32.10 | 34.00 |
+| 14 | Client | Okay. | 33.90 | 35.00 |
+| 15 | Agent | We'll send a reminder. | 35.05 | 37.00 |
+| 16 | Client | Thanks. | 36.90 | 38.00 |
+| 17 | Agent | All set. Thank you for calling. | 38.05 | 41.00 |
+| 18 | Client | Bye. | 39.90 | 41.00 |
+
+**WHY THE CORRECT TABLE IS GOOD:**
+1. **Strict alternation**: Agent → Client → Agent → Client (no two consecutive segments from same speaker)
+2. **No duplicates**: Removed duplicate "Hello, this is Alex from HealthCare" (kept only Agent version). Removed multiple "Bye" duplicates (kept only one).
+3. **No semantic duplicates**: Same content doesn't appear for both Agent and Client
+4. **No hallucinations**: All text exists in the source segment lists
+5. **Proper timestamps**: All timestamps are from original segments, no overlapping issues
+
+IMPORTANT VALIDATION CHECKS:
+1. **Alternation Check**: Go through the table row by row. If you see two consecutive rows with the same speaker, investigate carefully:
+   - If one is a misassigned duplicate (same sentence exists for the other speaker), remove or reassign it.
+   - If both are legitimate consecutive sentences from that speaker (per your evaluation of the segments), KEEP them even if alternation temporarily breaks.
+   - Restore alternation only when it does not remove real content.
+
+2. **Segment Integrity Check**: Ensure each row corresponds to a whole segment (or merged block of overlapping segments). If a single segment was split into multiple rows, recombine it. If multiple same-speaker segments overlap in time or lie within another speaker’s timestamps, merge them into one row (earliest start, latest end, concatenated text).
+
+3. **Misassigned Duplicate Check**: Compare text in Agent and Client columns. If you see similar content (same meaning, different wording) assigned to both speakers:
+   - Check which segment list produced it and whether metadata/context indicate a specific speaker.
+   - Keep ONLY the instance belonging to the correct speaker and remove the misassigned copy.
+   - If both belong to the same participant, KEEP both.
+
+4. **Hallucination Check**: Verify every piece of text in the table exists in the provided segment lists:
+   - Do NOT add text that wasn't in the provided segments
+   - Do NOT paraphrase or "improve" text
+   - Use text exactly as provided (including filler words like "uh", "um")
+
+5. **Speaker Verification**: Use metadata hints plus conversational meaning to confirm each segment is assigned to the correct participant.
+
+CORRECTIONS TO MAKE:
+- Resolve alternation issues by reassigning/removing only misassigned duplicates. Never delete a true sentence just to keep the pattern.
+- Remove duplicates ONLY when the same content appears under both speakers; keep the version aligned with the correct participant.
+- Merge overlapping or interleaved same-speaker segments so that each participant’s speech stays in a single continuous row (earliest start, latest end, concatenated text).
+- Ensure every legitimate sentence from the segment lists appears exactly once in the table.
+- Correct speaker assignments based on metadata hints plus conversational context.
+- Ensure all timestamps are from original segments.
+
+**CRITICAL FOR REASONING MODELS**: After your reasoning process, you MUST generate the final corrected Markdown table in the `content` field. Do not leave `content` empty. The table is the required output.
+
+Return ONLY the corrected Markdown table, no additional text or explanations.
+**RELEVANCE SAFEGUARD**: If a sentence exists in the source segments and its speaker assignment matches the inferred context, it MUST remain in the table. Removing true speech content is forbidden.

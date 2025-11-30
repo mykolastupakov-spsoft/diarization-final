@@ -1,0 +1,51 @@
+SPEAKER_00 (operator) [0.87-8.19]: Hi in j ess ica i. ' m calling i ' ll be half of future health to rec on f. Ir m your appoint ment with our doctor are you. Avail able for a short convers ation right now.
+SPEAKER_01 (client) [9.56-11.92]: Yeah i just i do avail able what you. Share for me.
+SPEAKER_00 (operator) [15.64-21.76]: Great to ens ure i have، the correct inform ation for you could you please confir m your date of birth for me please.
+SPEAKER_01 (client) [24.86-25.86]: I truth only nine ninety eighty one.
+SPEAKER_00 (operator) [32.21-37.57]: Thank you. I see you. Have an appoint ment sched. Ul ed with doctor EW an. Or. V ance in general pract ition er je. Ep
+SPEAKER_01 (client) [35.41-35.77]: But، what right for us back on.
+SPEAKER_01 (client) [38.72-42.16]: Can you please make the correct ions in، my date of birth.
+SPEAKER_00 (operator) [42.23-42.67]: any thing like the direct ory.
+SPEAKER_00 (operator) [47.19-55.39]: I ' m not able، to update your date of birth direct ly، but i، can connect you with our team who، can help with that would you like me، the trans fer you to a human ag ent right now.
+SPEAKER_01 (client) [55.31-62.23]: No no that s، let s move forward to، the sched ule.
+SPEAKER_00 (operator) [59.78-60.06]: That s that s what.
+SPEAKER_00 (operator) [65.87-72.51]: No problem are you looking to res ch ed ule your exist ing appoint ment with dr ele an or v ance or would you like to book a comp letely new appoint ment.
+SPEAKER_01 (client) [70.88-72.20]: Can you please remind me about، the appoint ments.
+SPEAKER_00 (operator) [77.36-99.84]: Of course your appoint ment is with dr ele an or v ance general pract ition er GP on june twenty fifth at one PM at future health hard ly street cl in ic one two oh har ley street london one g. Seven. JS please arr ive fifteen minutes early in bring your ins urance card and any necess ary. Docum ents would you like me to send you. A remind er. V ia sm s or email.
+SPEAKER_01 (client) [91.29-91.33]: Yeah.
+SPEAKER_00 (operator) [101.28-102.72]: I want to was conf used.
+SPEAKER_01 (client) [101.51-103.31]: Yeah now i want to sched ule this one.
+SPEAKER_00 (operator) [108.77-115.33]: Sure we can do that would you like to see avail able d ates with dr. E ll en or v ance are you. Open to another general pract ition er GP at. A differe nt loc ation
+SPEAKER_01 (client) [109.76-109.80]: Ok؟
+SPEAKER_01 (client) [118.32-121.88]: i would like this appoint ment to be the soon est poss ible.
+SPEAKER_00 (operator) [118.75-118.95]: but like this appoint ment.
+SPEAKER_00 (operator) [121.92-122.08]: With the.
+SPEAKER_00 (operator) [126.07-136.07]: Got it، the soon est avail able d ates with dr e ll en or v ance general pract ition er GP are june twenty sevent h june twenty nin th or july third with any of these days work for you.
+SPEAKER_01 (client) [132.43-135.79]: Hello i can i can do another doctor as well.
+SPEAKER_00 (operator) [140.03-149.43]: Absol utely you can would you like to stick with a general pract ition er GP or you. Looking for. A differe nt. Special ty if GP is. Fine i can check the serious d ates with other avail able g ps. For you
+SPEAKER_01 (client) [150.23-154.51]: I have some، issues was long s، can i visit، the doctor.
+SPEAKER_00 (operator) [160.12-168.24]: Yes you. Can from one issues you might want to see AP. Ul mon olog ist would you like to check the se. Am us avail able appoint ments for. The p. Ul mon ology. Special ist
+SPEAKER_01 (client) [169.03-169.15]: Yes please؟
+SPEAKER_00 (operator) [174.44-178.96]: the soon est avail able d ates with our pal mon olog ist doctor ch lo e adam s are june thir TI eth july second or july.
+SPEAKER_01 (client) [177.63-178.07]: how are you.
+SPEAKER_01 (client) [180.72-181.88]: Text to any of these days work for you.
+SPEAKER_01 (client) [183.99-184.67]: That ' s works.
+SPEAKER_00 (operator) [184.15-184.31]: Any of this works.
+SPEAKER_01 (client) [189.58-197.50]: Great for june thir TI eth the avail able times with dr ch lo e adam s are nine fifteen am ten. Am or ten forty five. Am which of these times with su.
+SPEAKER_00 (operator) [196.39-196.47]: No sorry.
+SPEAKER_01 (client) [197.50-200.06]: It you. Best.
+SPEAKER_00 (operator) [199.95-200.35]: Let ' s do ten.
+SPEAKER_00 (operator) [205.10-205.14]: Perfect.
+SPEAKER_01 (client) [207.12-211.16]: Perfect and book your appoint ment with doctor ch lo e adam SP. Ul mon olog ist on june third at ten. Am.
+SPEAKER_00 (operator) [210.52-222.20]: Yes at ten. Am at future health se. MI medical h. Ub fifteen the shop SG ate london EC two n three AR would you like me to send you. A remind er. For this appoint ment be a sm s or email.
+SPEAKER_01 (client) [213.11-213.51]: Mo h ab.
+SPEAKER_01 (client) [223.23-225.07]: Yes sm s would be great.
+SPEAKER_00 (operator) [223.80-224.44]: S that you، can do this.
+SPEAKER_00 (operator) [228.70-232.94]: All set you. ' re getting sm s remind er for your appoint ment with dr ch lo e adam s on june thir TI eth.
+SPEAKER_01 (client) [230.51-232.07]: J un o please stand me in the in my office well.
+SPEAKER_00 (operator) [235.05-243.73]: No problem awesome you both an sm s and an email remind er for your appoint ment do you. Have all the inform ation you. Need or is there any thing else i can help with today.
+SPEAKER_01 (client) [244.94-246.22]: No free hot mail do you have all، the inform ation you need see i will good for today.
+SPEAKER_01 (client) [249.73-250.01]: Good job since gets، happen ing.
+SPEAKER_00 (operator) [250.67-254.31]: Here every thing is good for today we look forward to seeing you at your appoint ment have a great day.
+SPEAKER_00 (operator) [254.54-254.70]: Every day؟
+SPEAKER_01 (client) [256.83-256.87]: Bye؟

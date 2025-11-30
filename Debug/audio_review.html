@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Огляд аудіо та розділених треків</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .section-title {
+            font-size: 1.8em;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .audio-player {
+            width: 100%;
+            margin: 15px 0;
+            border-radius: 10px;
+            background: white;
+            padding: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .audio-player audio {
+            width: 100%;
+            outline: none;
+        }
+
+        .audio-label {
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .transcript-container {
+            margin-top: 30px;
+        }
+
+        .transcript-segment {
+            background: white;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .transcript-segment:hover {
+            transform: translateX(5px);
+            box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+        }
+
+        .speaker-badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9em;
+            margin-right: 10px;
+        }
+
+        .speaker-00 {
+            background: #667eea;
+        }
+
+        .speaker-01 {
+            background: #f093fb;
+        }
+
+        .speaker-02 {
+            background: #4facfe;
+        }
+
+        .time-stamp {
+            color: #666;
+            font-size: 0.9em;
+            margin-left: 10px;
+        }
+
+        .transcript-text {
+            margin-top: 10px;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .info-item {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .info-label {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+
+        .info-value {
+            color: #333;
+            font-size: 1.3em;
+            font-weight: bold;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #666;
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 30px;
+            color: #999;
+            font-style: italic;
+        }
+
+        .file-selector {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f0f0f0;
+            border-radius: 10px;
+        }
+
+        .file-selector select {
+            width: 100%;
+            padding: 10px;
+            border-radius: 5px;
+            border: 2px solid #667eea;
+            font-size: 1em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎵 Огляд аудіо та розділених треків</h1>
+            <p>Оригінальна запис, розділені доріжки та транскрипти</p>
+        </div>
+
+        <div class="content">
+            <div class="file-selector">
+                <label for="jsonFile">Виберіть JSON файл:</label>
+                <select id="jsonFile" onchange="loadData()">
+                    <option value="">-- Виберіть файл --</option>
+                    <option value="diarization_test_results.json">diarization_test_results.json</option>
+                    <option value="case_results/diarization_test_results.json">case_results/diarization_test_results.json</option>
+                    <option value="case_results/diarization_test_results3.json">case_results/diarization_test_results3.json</option>
+                    <option value="case_results/diarization_test_results4.json">case_results/diarization_test_results4.json</option>
+                    <option value="case_results/diarization_test_results5.json">case_results/diarization_test_results5.json</option>
+                    <option value="case_results/diarization_test_results6.json">case_results/diarization_test_results6.json</option>
+                    <option value="case_results/CASE06.json">case_results/CASE06.json</option>
+                </select>
+            </div>
+
+            <div id="loading" class="loading" style="display: none;">
+                Завантаження даних...
+            </div>
+
+            <div id="error" class="error" style="display: none;"></div>
+
+            <div id="content-area"></div>
+        </div>
+    </div>
+
+    <script>
+        async function loadData() {
+            const fileSelect = document.getElementById('jsonFile');
+            const fileName = fileSelect.value;
+            
+            if (!fileName) {
+                document.getElementById('content-area').innerHTML = '';
+                return;
+            }
+
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const contentArea = document.getElementById('content-area');
+
+            loading.style.display = 'block';
+            error.style.display = 'none';
+            contentArea.innerHTML = '';
+
+            try {
+                const response = await fetch(fileName);
+                if (!response.ok) {
+                    throw new Error(`Помилка завантаження: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                renderContent(data);
+            } catch (err) {
+                error.style.display = 'block';
+                error.textContent = `Помилка: ${err.message}`;
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        function renderContent(data) {
+            const contentArea = document.getElementById('content-area');
+            let html = '';
+
+            // Отримуємо перший запис
+            const recording = data.recordings && data.recordings[0] ? data.recordings[0] : null;
+            
+            if (!recording) {
+                contentArea.innerHTML = '<div class="no-data">Немає даних про запис</div>';
+                return;
+            }
+
+            // Інформація про запис
+            html += '<div class="section">';
+            html += '<h2 class="section-title">📋 Інформація про запис</h2>';
+            html += '<div class="info-grid">';
+            html += `<div class="info-item"><div class="info-label">Назва</div><div class="info-value">${escapeHtml(recording.name || 'N/A')}</div></div>`;
+            html += `<div class="info-item"><div class="info-label">Тривалість</div><div class="info-value">${formatDuration(recording.duration || 0)}</div></div>`;
+            html += `<div class="info-item"><div class="info-label">Мова</div><div class="info-value">${escapeHtml(recording.language || 'N/A')}</div></div>`;
+            html += `<div class="info-item"><div class="info-label">Статус</div><div class="info-value">${escapeHtml(recording.status || 'N/A')}</div></div>`;
+            html += '</div></div>';
+
+            // Оригінальний аудіо
+            if (recording.fileName) {
+                html += '<div class="section">';
+                html += '<h2 class="section-title">🎵 Оригінальна запис</h2>';
+                html += '<div class="audio-player">';
+                html += `<div class="audio-label">${escapeHtml(recording.fileName)}</div>`;
+                const audioUrl = getAudioUrl(recording.fileName);
+                if (audioUrl) {
+                    html += `<audio controls><source src="${audioUrl}" type="audio/wav"></audio>`;
+                } else {
+                    html += '<div class="no-data">URL аудіо не знайдено</div>';
+                }
+                html += '</div></div>';
+            }
+
+            // Отримуємо results заздалегідь
+            const results = recording.results || {};
+
+            // Розділені треки (перевіряємо різні місця в структурі даних)
+            let separationSpeakers = null;
+            
+            // Варіант 1: separation на верхньому рівні
+            if (data.separation && data.separation.speakers) {
+                separationSpeakers = data.separation.speakers;
+            }
+            // Варіант 2: separation в recording
+            else if (recording.separation && recording.separation.speakers) {
+                separationSpeakers = recording.separation.speakers;
+            }
+            // Варіант 3: separation в results
+            else if (results.separation && results.separation.speakers) {
+                separationSpeakers = results.separation.speakers;
+            }
+
+            if (separationSpeakers && separationSpeakers.length > 0) {
+                html += '<div class="section">';
+                html += '<h2 class="section-title">🎤 Розділені доріжки спікерів</h2>';
+                separationSpeakers.forEach((speaker, index) => {
+                    html += '<div class="audio-player">';
+                    html += `<div class="audio-label"><span class="speaker-badge speaker-${index % 3}">${escapeHtml(speaker.name || `Speaker ${index}`)}</span></div>`;
+                    const speakerUrl = speaker.downloadUrl || speaker.url || speaker.local_path;
+                    if (speakerUrl) {
+                        // Якщо це локальний шлях, конвертуємо в URL
+                        let audioUrl = speakerUrl;
+                        if (speakerUrl.startsWith('/') && !speakerUrl.startsWith('http')) {
+                            audioUrl = `../${speakerUrl.replace(/^\//, '')}`;
+                        }
+                        html += `<audio controls><source src="${audioUrl}" type="audio/${speaker.format || 'wav'}"></audio>`;
+                    } else {
+                        html += '<div class="no-data">URL не знайдено</div>';
+                    }
+                    html += '</div>';
+                });
+                html += '</div>';
+            }
+
+            // Транскрипти
+            let hasTranscripts = false;
+
+            for (const [serviceName, serviceData] of Object.entries(results)) {
+                if (serviceData && serviceData.segments && Array.isArray(serviceData.segments) && serviceData.segments.length > 0) {
+                    hasTranscripts = true;
+                    html += '<div class="section">';
+                    html += `<h2 class="section-title">📝 Транскрипти (${escapeHtml(serviceData.serviceName || serviceName)})</h2>`;
+                    html += '<div class="transcript-container">';
+                    
+                    serviceData.segments.forEach(segment => {
+                        const speaker = segment.speaker || 'UNKNOWN';
+                        const speakerNum = speaker.replace('SPEAKER_', '');
+                        html += '<div class="transcript-segment">';
+                        html += `<span class="speaker-badge speaker-${speakerNum % 3}">${escapeHtml(speaker)}</span>`;
+                        html += `<span class="time-stamp">${formatTime(segment.start)} - ${formatTime(segment.end)}</span>`;
+                        html += `<div class="transcript-text">${escapeHtml(segment.text || segment.originalText || '')}</div>`;
+                        html += '</div>';
+                    });
+                    
+                    html += '</div></div>';
+                }
+            }
+
+            if (!hasTranscripts) {
+                html += '<div class="section">';
+                html += '<h2 class="section-title">📝 Транскрипти</h2>';
+                html += '<div class="no-data">Транскрипти не знайдено</div>';
+                html += '</div>';
+            }
+
+            contentArea.innerHTML = html;
+        }
+
+        function getAudioUrl(fileName) {
+            if (!fileName) return null;
+            
+            // Спробуємо знайти файл в різних місцях
+            const possiblePaths = [
+                `../uploads/${fileName}`,
+                `../audio examples/${fileName}`,
+                `uploads/${fileName}`,
+                `audio examples/${fileName}`,
+                fileName
+            ];
+            
+            // Повертаємо перший можливий шлях
+            // В реальному застосунку можна перевірити наявність через fetch
+            return possiblePaths[0];
+        }
+
+        function formatDuration(seconds) {
+            if (!seconds) return 'N/A';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function formatTime(seconds) {
+            if (seconds === undefined || seconds === null) return 'N/A';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Автоматично завантажити перший файл при завантаженні сторінки
+        window.addEventListener('DOMContentLoaded', () => {
+            const fileSelect = document.getElementById('jsonFile');
+            if (fileSelect.options.length > 1) {
+                fileSelect.selectedIndex = 1;
+                loadData();
+            }
+        });
+    </script>
+</body>
+</html>
+

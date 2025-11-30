@@ -1,0 +1,449 @@
+{
+  "realtime": {
+    "raw_payload": {
+      "service": "azure_realtime",
+      "language": "en-US",
+      "segments": [
+        {
+          "type": "final",
+          "speakerId": "Guest-1",
+          "text": "Hi, I'm Jessica. I'm calling on behalf of Future Health to reconfirm your appointment with our doctor. Are you available for a short conversation right now?",
+          "offset": 0.71,
+          "duration": 7.599999999999999
+        },
+        {
+          "type": "final",
+          "speakerId": "Guest-2",
+          "text": "Yeah, Jessica, I do. Available. What do you have for me?",
+          "offset": 9.39,
+          "duration": 3.6400000000000006
+        },
+        {
+          "type": "final",
+          "speakerId": "Guest-1",
+          "text": "Great, to ensure I have the correct information for you, could you please confirm your date of birth for me please?",
+          "offset": 15.93,
+          "duration": 7.199999999999999
+        },
+        {
+          "type": "final",
+          "speakerId": "Guest-2",
+          "text": "April 29, 1981.",
+          "offset": 23.87,
+          "duration": 2.280000000000001
+        },
+        {
+          "type": "final",
+          "speakerId": "Guest-1",
+          "text": "Thank you. I see you have an appointment scheduled with Doctor Eleanor Vance in General practitioner, Jeep.",
+          "offset": 32.07,
+          "duration": 5.799999999999997
+        },
+        {
+          "type": "final",
+          "speakerId": "Guest-2",
+          "text": "Can you please make the correction in my date of birth?",
+          "offset": 37.87,
+          "duration": 5.0
+        },
+        {
+          "type": "final",
+          "speakerId": "Guest-1",
+          "text": "I'm not able to update your date of birth directly, but I can connect you with our team who can help with that. Would you like me to transfer you to a human agent right now?",
+          "offset": 46.69,
+          "duration": 8.96
+        },
+        {
+          "type": "final",
+          "speakerId": "Guest-2",
+          "text": "No, let's, let's move forward to the scheduling.",
+          "offset": 58.03,
+          "duration": 4.600000000000001
+        },
+        {
+          "type": "final",
+          "speakerId": "Guest-1",
+          "text": "No problem. Are you looking to reschedule your existing appointment with Doctor Eleanor Vance, or would you like to book a completely new appointment?",
+          "offset": 65.73,
+          "duration": 8.36
+        },
+        {
+          "type": "final",
+          "speakerId": "Guest-1",
+          "text": "Of course, your appointment is with Doctor Eleanor Vance, General practitioner, GP on June 25th at 1:00 PM at Future Health Harley Street Clinic, 120 Harley Street, London, 1G7 JS. Please arrive 15 minutes early and bring your insurance card and any necessary documents. Would you like me to send you a reminder via SMS or e-mail?",
+          "offset": 76.53,
+          "duration": 23.28
+        },
+        {
+          "type": "final",
+          "speakerId": "Guest-2",
+          "text": "Uh, I want to reschedule this one.",
+          "offset": 101.04,
+          "duration": 2.480000000000004
+        },
+        {
+          "type": "final",
+          "speakerId": "Guest-1",
+          "text": "Sure, we can do that. Would you like to see available dates with Doctor Eleanor Vance or are you open to another General practitioner GP at a different location?",
+          "offset": 106.85,
+          "duration": 9.159999999999997
+        },
+        {
+          "type": "final",
+          "speakerId": "Guest-2",
+          "text": "Uh, I'd like this appointment to be the soonest possible.",
+          "offset": 117.8,
+          "duration": 4.320000000000007
+        },
+        {
+          "type": "final",
+          "speakerId": "Guest-1",
+          "text": "Got it. The soonest available dates with Doctor Eleanor Vance, General practitioner GP, are June 27th, June 29th or July 3rd. Would any of these days work for you?",
+          "offset": 125.05,
+          "duration": 12.16000000000001
+        },
+        {
+          "type": "final",
+          "speakerId": "Guest-1",
+          "text": "Absolutely you can. Would you like to stick with a General practitioner GP or are you looking for a different specialty? If GP is fine, I can check the soonest dates with other available GPS for you.",
+          "offset": 138.26,
+          "duration": 11.560000000000002
+        },
+        {
+          "type": "final",
+          "speakerId": "Guest-2",
+          "text": "I have some issues with lungs, can I visit the doctor?",
+          "offset": 150.27,
+          "duration": 4.280000000000001
+        },
+        {
+          "type": "final",
+          "speakerId": "Guest-1",
+          "text": "Yes, you can. For lung issues, you might want to see a pulmonologist. Would you like to check the soonest available appointments with a pulmonology specialist? Yes please.",
+          "offset": 159.29,
+          "duration": 10.439999999999998
+        },
+        {
+          "type": "final",
+          "speakerId": "Guest-1",
+          "text": "The soonest available dates with our pulmonologist, Dr. Chloe Adams, are June 30th, July 2nd, or July 6th. Do any of these days work for you?",
+          "offset": 173.51,
+          "duration": 9.400000000000006
+        },
+        {
+          "type": "final",
+          "speakerId": "Guest-2",
+          "text": "Any of this works.",
+          "offset": 183.95,
+          "duration": 1.3199999999999932
+        },
+        {
+          "type": "final",
+          "speakerId": "Guest-1",
+          "text": "Great for June 30th. The available times with Doctor Chloe Adams are 915 AM, 10 AM, or 10:45 AM. Which of these times would suit you best?",
+          "offset": 187.83,
+          "duration": 11.080000000000013
+        },
+        {
+          "type": "final",
+          "speakerId": "Guest-2",
+          "text": "Let's do 10.",
+          "offset": 199.55,
+          "duration": 0.9199999999999875
+        },
+        {
+          "type": "final",
+          "speakerId": "Guest-1",
+          "text": "Perfect. I've booked your appointment with Doctor Chloe Adams, Pulmonologist on June 30th at 10 AM at Future Health City Medical Hub, 15 Bishopsgate, London, EC2N 3AR. Would you like me to send you a reminder for this appointment via SMS or e-mail?",
+          "offset": 204.55,
+          "duration": 18.159999999999997
+        },
+        {
+          "type": "final",
+          "speakerId": "Guest-2",
+          "text": "Yes, SMS would be great.",
+          "offset": 223.19,
+          "duration": 2.0800000000000125
+        },
+        {
+          "type": "final",
+          "speakerId": "Guest-1",
+          "text": "All Sect You'll get an SMS reminder for your appointment with Doctor Chloe Adams on June 30th.",
+          "offset": 227.43,
+          "duration": 6.159999999999997
+        },
+        {
+          "type": "final",
+          "speakerId": "Guest-1",
+          "text": "No problem, I'll send you both an SMS and an e-mail reminder for your appointment. Do you have all the information you need or is there anything else I can help with today?",
+          "offset": 234.97,
+          "duration": 9.560000000000002
+        },
+        {
+          "type": "final",
+          "speakerId": "Guest-1",
+          "text": "Glad to hear everything's good for today. We look forward to seeing you at your appointment. Have a great day.",
+          "offset": 249.36,
+          "duration": 5.800000000000011
+        },
+        {
+          "type": "final",
+          "speakerId": "Guest-2",
+          "text": "Thanks. Bye.",
+          "offset": 256.03,
+          "duration": 0.9200000000000159
+        }
+      ],
+      "speakerMap": {
+        "Guest-1": "SPEAKER_01",
+        "Guest-2": "SPEAKER_02"
+      }
+    },
+    "segments": [
+      {
+        "speaker": "SPEAKER_01",
+        "text": "Hi, I'm Jessica. I'm calling on behalf of Future Health to reconfirm your appointment with our doctor. Are you available for a short conversation right now?",
+        "start": 0.71,
+        "end": 8.309999999999999,
+        "words": [],
+        "confidence": 0.9,
+        "pauses": []
+      },
+      {
+        "speaker": "SPEAKER_02",
+        "text": "Yeah, Jessica, I do. Available. What do you have for me?",
+        "start": 9.39,
+        "end": 13.030000000000001,
+        "words": [],
+        "confidence": 0.9,
+        "pauses": []
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "Great, to ensure I have the correct information for you, could you please confirm your date of birth for me please?",
+        "start": 15.93,
+        "end": 23.13,
+        "words": [],
+        "confidence": 0.9,
+        "pauses": []
+      },
+      {
+        "speaker": "SPEAKER_02",
+        "text": "April 29, 1981.",
+        "start": 23.87,
+        "end": 26.150000000000002,
+        "words": [],
+        "confidence": 0.9,
+        "pauses": []
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "Thank you. I see you have an appointment scheduled with Doctor Eleanor Vance in General practitioner, Jeep.",
+        "start": 32.07,
+        "end": 37.87,
+        "words": [],
+        "confidence": 0.9,
+        "pauses": []
+      },
+      {
+        "speaker": "SPEAKER_02",
+        "text": "Can you please make the correction in my date of birth?",
+        "start": 37.87,
+        "end": 42.87,
+        "words": [],
+        "confidence": 0.9,
+        "pauses": []
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "I'm not able to update your date of birth directly, but I can connect you with our team who can help with that. Would you like me to transfer you to a human agent right now?",
+        "start": 46.69,
+        "end": 55.65,
+        "words": [],
+        "confidence": 0.9,
+        "pauses": []
+      },
+      {
+        "speaker": "SPEAKER_02",
+        "text": "No, let's, let's move forward to the scheduling.",
+        "start": 58.03,
+        "end": 62.63,
+        "words": [],
+        "confidence": 0.9,
+        "pauses": []
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "No problem. Are you looking to reschedule your existing appointment with Doctor Eleanor Vance, or would you like to book a completely new appointment?",
+        "start": 65.73,
+        "end": 74.09,
+        "words": [],
+        "confidence": 0.9,
+        "pauses": []
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "Of course, your appointment is with Doctor Eleanor Vance, General practitioner, GP on June 25th at 1:00 PM at Future Health Harley Street Clinic, 120 Harley Street, London, 1G7 JS. Please arrive 15 minutes early and bring your insurance card and any necessary documents. Would you like me to send you a reminder via SMS or e-mail?",
+        "start": 76.53,
+        "end": 99.81,
+        "words": [],
+        "confidence": 0.9,
+        "pauses": []
+      },
+      {
+        "speaker": "SPEAKER_02",
+        "text": "Uh, I want to reschedule this one.",
+        "start": 101.04,
+        "end": 103.52000000000001,
+        "words": [],
+        "confidence": 0.9,
+        "pauses": []
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "Sure, we can do that. Would you like to see available dates with Doctor Eleanor Vance or are you open to another General practitioner GP at a different location?",
+        "start": 106.85,
+        "end": 116.00999999999999,
+        "words": [],
+        "confidence": 0.9,
+        "pauses": []
+      },
+      {
+        "speaker": "SPEAKER_02",
+        "text": "Uh, I'd like this appointment to be the soonest possible.",
+        "start": 117.8,
+        "end": 122.12,
+        "words": [],
+        "confidence": 0.9,
+        "pauses": []
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "Got it. The soonest available dates with Doctor Eleanor Vance, General practitioner GP, are June 27th, June 29th or July 3rd. Would any of these days work for you?",
+        "start": 125.05,
+        "end": 137.21,
+        "words": [],
+        "confidence": 0.9,
+        "pauses": []
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "Absolutely you can. Would you like to stick with a General practitioner GP or are you looking for a different specialty? If GP is fine, I can check the soonest dates with other available GPS for you.",
+        "start": 138.26,
+        "end": 149.82,
+        "words": [],
+        "confidence": 0.9,
+        "pauses": []
+      },
+      {
+        "speaker": "SPEAKER_02",
+        "text": "I have some issues with lungs, can I visit the doctor?",
+        "start": 150.27,
+        "end": 154.55,
+        "words": [],
+        "confidence": 0.9,
+        "pauses": []
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "Yes, you can. For lung issues, you might want to see a pulmonologist. Would you like to check the soonest available appointments with a pulmonology specialist? Yes please.",
+        "start": 159.29,
+        "end": 169.73,
+        "words": [],
+        "confidence": 0.9,
+        "pauses": []
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "The soonest available dates with our pulmonologist, Dr. Chloe Adams, are June 30th, July 2nd, or July 6th. Do any of these days work for you?",
+        "start": 173.51,
+        "end": 182.91,
+        "words": [],
+        "confidence": 0.9,
+        "pauses": []
+      },
+      {
+        "speaker": "SPEAKER_02",
+        "text": "Any of this works.",
+        "start": 183.95,
+        "end": 185.26999999999998,
+        "words": [],
+        "confidence": 0.9,
+        "pauses": []
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "Great for June 30th. The available times with Doctor Chloe Adams are 915 AM, 10 AM, or 10:45 AM. Which of these times would suit you best?",
+        "start": 187.83,
+        "end": 198.91000000000003,
+        "words": [],
+        "confidence": 0.9,
+        "pauses": []
+      },
+      {
+        "speaker": "SPEAKER_02",
+        "text": "Let's do 10.",
+        "start": 199.55,
+        "end": 200.47,
+        "words": [],
+        "confidence": 0.9,
+        "pauses": []
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "Perfect. I've booked your appointment with Doctor Chloe Adams, Pulmonologist on June 30th at 10 AM at Future Health City Medical Hub, 15 Bishopsgate, London, EC2N 3AR. Would you like me to send you a reminder for this appointment via SMS or e-mail?",
+        "start": 204.55,
+        "end": 222.71,
+        "words": [],
+        "confidence": 0.9,
+        "pauses": []
+      },
+      {
+        "speaker": "SPEAKER_02",
+        "text": "Yes, SMS would be great.",
+        "start": 223.19,
+        "end": 225.27,
+        "words": [],
+        "confidence": 0.9,
+        "pauses": []
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "All Sect You'll get an SMS reminder for your appointment with Doctor Chloe Adams on June 30th.",
+        "start": 227.43,
+        "end": 233.59,
+        "words": [],
+        "confidence": 0.9,
+        "pauses": []
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "No problem, I'll send you both an SMS and an e-mail reminder for your appointment. Do you have all the information you need or is there anything else I can help with today?",
+        "start": 234.97,
+        "end": 244.53,
+        "words": [],
+        "confidence": 0.9,
+        "pauses": []
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "Glad to hear everything's good for today. We look forward to seeing you at your appointment. Have a great day.",
+        "start": 249.36,
+        "end": 255.16000000000003,
+        "words": [],
+        "confidence": 0.9,
+        "pauses": []
+      },
+      {
+        "speaker": "SPEAKER_02",
+        "text": "Thanks. Bye.",
+        "start": 256.03,
+        "end": 256.95,
+        "words": [],
+        "confidence": 0.9,
+        "pauses": []
+      }
+    ],
+    "total_segments": 27
+  }
+}
