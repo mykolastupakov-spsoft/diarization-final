@@ -1,0 +1,30 @@
+SPEAKER_00 (client) [0.40-4.60]: Okay Okay So what are we going to talk about
+SPEAKER_01 (client) [2.32-4.56]: Okay So what are we going to talk about
+SPEAKER_00 (client) [8.12-13.32]: Let's let's shoot the monologue about the dog and I'll do my monologue about something
+SPEAKER_00 (client) [14.52-15.52]: Did you just
+SPEAKER_01 (client) [14.52-19.40]: Did you decide what something you want to tell about
+SPEAKER_00 (client) [16.28-22.08]: watch something you want to tell Uh I'll come up with something on the fly
+SPEAKER_01 (client) [21.52-23.60]: Sunflower I'm sorry
+SPEAKER_00 (client) [23.28-25.16]: Hi Yeah great
+SPEAKER_01 (client) [24.48-27.28]: boy I don't know Okay so
+SPEAKER_00 (client) [26.16-27.24]: Uh okay So
+SPEAKER_01 (client) [29.52-31.56]: So I'm going to tell you about my dog
+SPEAKER_00 (client) [29.56-31.60]: So tell me about the windows
+SPEAKER_01 (client) [32.76-33.88]: and um
+SPEAKER_00 (client) [33.00-37.04]: which Look good
+SPEAKER_01 (client) [34.68-38.92]: it looks like a wolf And the problem is that every time I take it out
+SPEAKER_00 (client) [37.80-54.36]: Yeah I also wanted to tell you about my yesterday's evening Uh because we decided to go out with my wife and eat some good food today So we went to the pizzeria and ordered
+SPEAKER_01 (client) [42.24-44.60]: Every time I take it out it
+SPEAKER_01 (client) [47.68-63.40]: Very well But in the end of the day uh when I take it to the restaurant after sitting for 10 minutes or 15 minutes politely and quietly it actually starts barking and singing And it's not really possible to
+SPEAKER_00 (client) [55.32-57.76]: pizza And we decided to
+SPEAKER_00 (client) [58.56-65.60]: take away from the restaurant because it was noisy there and uh we don't like it there
+SPEAKER_01 (client) [64.04-72.68]: uh sit with him and focus on work because the damn dog keeps singing and barking inside the restaurant
+SPEAKER_00 (client) [66.52-67.56]: That's why we ate
+SPEAKER_00 (client) [68.48-74.48]: at home Fine and fun You know it was a good time with my wifey
+SPEAKER_01 (client) [73.56-83.88]: so it doesn't let me focus and it doesn't let me chill I have to take him out and have some fun with other dogs that are uh running around
+SPEAKER_00 (client) [75.40-79.04]: Yeah it was a good evening I have to take
+SPEAKER_00 (client) [83.64-87.20]: It Okay What's
+SPEAKER_01 (client) [86.12-91.68]: Okay So that was the second one Okay I agree with you
+SPEAKER_00 (client) [91.28-91.76]: Wrong with you
+SPEAKER_01 (client) [94.84-98.60]: That We are create
+SPEAKER_01 (client) [99.68-102.28]: the test dataset for generalization

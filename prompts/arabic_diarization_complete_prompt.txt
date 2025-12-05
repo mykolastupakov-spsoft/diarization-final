@@ -584,24 +584,28 @@ Format your result as JSON with this EXACT structure:
 CRITICAL JSON RULES:
 ────────────────────
 1. "recordings" MUST be array [] - even for one: [ { ... } ] - NEVER { ... }
-2. Preserve ALL text exactly - DO NOT modify, shorten, or summarize
-3. Only assign speaker labels - DO NOT change text
-4. Output ONLY JSON - start with {, end with } - NO markdown code blocks, NO explanations
-5. Merge consecutive text from SAME speaker into one segment (but keep ALL text)
-6. ALL fields are REQUIRED - do not omit any field
-7. Calculate start/end times: estimate 3-4 words per second
-8. Set language: "ar" for Arabic, "en" for English, "ar" for mixed (default to Arabic)
-9. **CRITICAL**: Each segment MUST have "role" field: "operator" or "client"
-10. Same speaker MUST have same role throughout the conversation
-11. **DO NOT assume** first speaker is always "operator" - determine roles based on CONTENT and MEANING
-12. Analyze WHO provides service vs WHO receives service to assign roles correctly
-13. **CRITICAL**: Each segment MUST have "overlap" field: true or false
-13. Mark "overlap": true if segment's time range overlaps with another speaker's segment
-14. Mark "overlap": false if segment doesn't overlap with any other speaker's segment
+2. **ABSOLUTELY CRITICAL - EXACT WORD MATCHING**: Preserve ALL text EXACTLY as it appears in the input transcript - DO NOT modify, shorten, summarize, paraphrase, or "improve" the text
+3. **WORD-FOR-WORD ACCURACY**: Copy text character-by-character from the input - every word, every punctuation mark, every space must match exactly
+4. **NO SEMANTIC REWRITING**: Do NOT rewrite sentences to "make them better" or "fix grammar" - preserve the EXACT original words even if they seem incorrect
+5. **NO SYNONYMS**: Do NOT replace words with synonyms - use the EXACT words from the input transcript
+6. Only assign speaker labels and roles - DO NOT change ANY text content
+7. Output ONLY JSON - start with {, end with } - NO markdown code blocks, NO explanations
+8. Merge consecutive text from SAME speaker into one segment (but keep ALL text EXACTLY as in input)
+9. ALL fields are REQUIRED - do not omit any field
+10. Calculate start/end times: estimate 3-4 words per second
+11. Set language: "ar" for Arabic, "en" for English, "ar" for mixed (default to Arabic)
+12. **CRITICAL**: Each segment MUST have "role" field: "operator" or "client"
+13. Same speaker MUST have same role throughout the conversation
+14. **DO NOT assume** first speaker is always "operator" - determine roles based on CONTENT and MEANING
+15. Analyze WHO provides service vs WHO receives service to assign roles correctly
+16. **CRITICAL**: Each segment MUST have "overlap" field: true or false
+17. Mark "overlap": true if segment's time range overlaps with another speaker's segment
+18. Mark "overlap": false if segment doesn't overlap with any other speaker's segment
 
 REMEMBER:
 ─────────
-- **FIRST**: Analyze MEANING and CONTEXT - what makes logical sense in the conversation?
+- **ZERO**: **ABSOLUTE RULE - EXACT TEXT PRESERVATION**: Copy text WORD-FOR-WORD from input - DO NOT change, modify, improve, paraphrase, or rewrite ANY words. Preserve EXACT spelling, punctuation, spacing, capitalization, and word order from the original transcript.
+- **FIRST**: Analyze MEANING and CONTEXT - what makes logical sense in the conversation? (But DO NOT change the text based on this analysis)
 - **SECOND**: Identify different speakers based on WHAT they're doing (asking, answering, providing info, requesting help)
 - **THIRD**: Determine ROLES (operator/client) based on WHO provides service vs WHO receives service - analyze CONTENT, NOT speaker order
 - **FOURTH**: Use linguistic markers (gender, dialect) as SUPPORTING EVIDENCE only, not primary criteria
@@ -611,7 +615,8 @@ REMEMBER:
 - DO NOT wrap in ```json or ``` code blocks
 - DO NOT add any text before or after the JSON
 - "recordings" MUST be an array: [ { ... } ]
-- Preserve ALL original text exactly - never modify, shorten, or summarize
-- **CRITICAL**: If linguistic markers suggest one thing but meaning suggests another, TRUST THE MEANING
+- **CRITICAL**: Preserve ALL original text EXACTLY as it appears - never modify, shorten, summarize, paraphrase, or "improve" words
+- **CRITICAL**: If linguistic markers suggest one thing but meaning suggests another, TRUST THE MEANING (but still preserve exact text)
 - **CRITICAL**: DO NOT assume first speaker = operator - determine roles by analyzing conversation content
 - **MANDATORY**: Every segment in the JSON MUST include the "role" field with value "operator" or "client"
+- **ABSOLUTE RULE**: The "text" field in each segment MUST be IDENTICAL to the corresponding text in the input transcript - character-by-character match required

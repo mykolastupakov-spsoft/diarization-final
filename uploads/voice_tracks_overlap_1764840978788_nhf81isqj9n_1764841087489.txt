@@ -1,0 +1,21 @@
+SPEAKER_01 (client) [0.24-1.20]: Okay Let's go
+SPEAKER_00 (client) [9.80-31.40]: Okay Hello So I am calling you in order to report a problem with my bank account Um a lot of money um has been missing since yesterday and I don't know what happened and what happened Are you going to check something or you are waiting until I finish Because I'm not going to finish And we are supposed to overlay all the time
+SPEAKER_01 (client) [31.60-37.20]: I wanted uh to uh let let's do first Mike
+SPEAKER_00 (client) [32.72-34.04]: Um great
+SPEAKER_00 (client) [35.12-40.88]: So we have we have to be speaking all the time at the same time uh together As I said
+SPEAKER_01 (client) [39.12-42.12]: Uh okay I got I got your point Um
+SPEAKER_00 (client) [41.80-47.72]: uh money has been missing from my bank account and I'm calling you to find out and resolve this problem
+SPEAKER_01 (client) [43.20-58.52]: so have you tried to reload the uh account statement Uh a couple of times Because I don't know whether it was the issue with your internet connection
+SPEAKER_00 (client) [48.56-53.60]: Uh because I'm really worried about my account Maybe it was hacked by somebody
+SPEAKER_00 (client) [54.36-58.96]: Maybe some money was stolen and maybe some bad actors
+SPEAKER_01 (client) [59.20-61.40]: on It's really
+SPEAKER_00 (client) [59.80-62.96]: have uh access to my personal email
+SPEAKER_01 (client) [62.20-74.96]: some issues with your bank account in case the money is really stolen Uh we will block your account and will write these bills and will try to
+SPEAKER_00 (client) [63.72-71.28]: and access my bank account And even more money can be stolen in the nearest future So the question to you is
+SPEAKER_00 (client) [72.00-73.04]: what does your bank
+SPEAKER_00 (client) [73.84-79.76]: do in these situations and in these cases and what you can recommend me to recover my funds
+SPEAKER_01 (client) [76.92-80.20]: do something with that situation in our case
+SPEAKER_01 (client) [83.36-86.72]: I think it's okay for the trial uh
+SPEAKER_00 (client) [84.64-85.00]: Okay
+SPEAKER_01 (client) [87.88-91.76]: at this time I'll share this with uh McCullough
+SPEAKER_00 (client) [93.96-94.84]: No problem

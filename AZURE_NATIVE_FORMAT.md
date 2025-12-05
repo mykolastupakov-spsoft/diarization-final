@@ -116,3 +116,6 @@ This will show:
 - Normalized segments (current format)
 - Total segments count
 
+
+
+

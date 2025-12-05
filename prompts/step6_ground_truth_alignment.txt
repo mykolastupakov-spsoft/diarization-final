@@ -1,0 +1,68 @@
+You are analyzing discrepancies between the generated Markdown table and the ground truth dialogue. Your task is to identify differences and provide short recommendations for improving the prompts in Steps 1-5, NOT to fix the text.
+
+## INPUT DATA
+
+1. Ground truth dialogue (each line uses `Speaker X: text` format):
+```
+{{GROUND_TRUTH_DIALOGUE}}
+```
+
+2. Role guidance (who is Agent / Client, confidence, etc.):
+```
+{{ROLE_GUIDANCE}}
+```
+
+3. Current Markdown table (what was produced in previous steps):
+```
+{{GENERATED_TABLE}}
+```
+
+4. Segment timestamps extracted from diarization:
+```
+{{SEGMENT_TIMESTAMPS}}
+```
+
+## TASK
+
+Compare the `GENERATED_TABLE` with the `GROUND_TRUTH_DIALOGUE` and identify:
+
+1. **Text discrepancies**: Which replicas have different wording, punctuation, or casing compared to ground truth?
+2. **Role mismatches**: Are there any segments where the Speaker (Agent/Client) doesn't match the ground truth?
+3. **Missing or extra replicas**: Are there replicas in the table that are not in ground truth, or vice versa?
+4. **Order issues**: Are replicas in the wrong chronological order?
+
+For each discrepancy, identify which step (1-5) might need prompt improvements to fix it:
+- Step 1 (Validate Replicas): Issues with replica validation
+- Step 2 (Assign Roles): Issues with role assignment
+- Step 3 (Remove Wrong Speaker Replicas): Issues with removing wrong speaker replicas or duplicates
+- Step 4 (Format Table): Issues with table formatting
+- Step 5 (Verify Result): Issues with final verification
+
+## OUTPUT FORMAT
+
+Return a JSON object with this structure:
+```json
+{
+  "discrepancies": [
+    {
+      "type": "text_mismatch|role_mismatch|missing_replica|extra_replica|order_issue",
+      "description": "Short description of the issue",
+      "groundTruth": "Expected text/role",
+      "generated": "Actual text/role",
+      "affectedStep": 1-5,
+      "recommendation": "Short recommendation for improving the prompt"
+    }
+  ],
+  "recommendations": {
+    "step1": "Short recommendation for Step 1 prompt improvement",
+    "step2": "Short recommendation for Step 2 prompt improvement",
+    "step3": "Short recommendation for Step 3 prompt improvement",
+    "step4": "Short recommendation for Step 4 prompt improvement",
+    "step5": "Short recommendation for Step 5 prompt improvement"
+  },
+  "affectedSteps": [1, 2, 3],
+  "summary": "Brief summary of main issues found"
+}
+```
+
+Keep recommendations SHORT and ACTIONABLE. Focus on what needs to be changed in the prompts, not on fixing the current result.

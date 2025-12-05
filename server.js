@@ -32,15 +32,41 @@ const { separateSpeakers } = require('./lib/audioshake-client');
 const { validateDiarizationPayload, formatAjvErrors } = require('./lib/validators/diarizationSchema');
 const textSimilarityUtils = require('./text_similarity_utils');
 const textAnalysis = require('./lib/textAnalysis');
+const ParameterOptimizer = require('./lib/parameter-optimizer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const TUNNEL_PORT = process.env.TUNNEL_PORT || PORT; // Можна вказати окремий порт для тунелю
+// Model ID constants (with fallback defaults)
+// NOTE: These are used as defaults, but getModelId() function should be used to get current values
 const FAST_MODEL_ID = process.env.FAST_MODEL_ID || process.env.OPENROUTER_FAST_MODEL_ID || 'gpt-oss-120b';
-const SMART_MODEL_ID = process.env.SMART_MODEL_ID || process.env.OPENROUTER_SMART_MODEL_ID || 'gpt-5.1';
+const SMART_MODEL_ID = process.env.SMART_MODEL_ID || process.env.OPENROUTER_SMART_MODEL_ID || 'google/gemini-3.0-pro';
 const SMART_2_MODEL_ID = process.env.SMART_2_MODEL_ID || process.env.OPENROUTER_SMART_2_MODEL_ID || 'google/gemini-3-pro-preview';
 const TEST_MODEL_ID = process.env.TEST_MODEL_ID || process.env.OPENROUTER_TEST_MODEL_ID || 'google/gemma-3-4b';
 const TEST2_MODEL_ID = process.env.TEST2_MODEL_ID || process.env.OPENROUTER_TEST2_MODEL_ID || 'llama-3.2-1b-instruct';
+
+/**
+ * Get current model ID for a given mode, always reading from process.env
+ * This ensures cache keys use the current model, not stale constants
+ * @param {string} mode - LLM mode ('local', 'fast', 'smart', 'smart-2', 'test', 'test2')
+ * @returns {string} Model ID
+ */
+function getModelId(mode) {
+  if (mode === 'local') {
+    return process.env.LOCAL_LLM_MODEL || 'openai/gpt-oss-20b';
+  } else if (mode === 'test') {
+    return process.env.TEST_MODEL_ID || process.env.OPENROUTER_TEST_MODEL_ID || 'google/gemma-3-4b';
+  } else if (mode === 'test2') {
+    return process.env.TEST2_MODEL_ID || process.env.OPENROUTER_TEST2_MODEL_ID || 'llama-3.2-1b-instruct';
+  } else if (mode === 'fast') {
+    return process.env.FAST_MODEL_ID || process.env.OPENROUTER_FAST_MODEL_ID || 'gpt-oss-120b';
+  } else if (mode === 'smart-2') {
+    return process.env.SMART_2_MODEL_ID || process.env.OPENROUTER_SMART_2_MODEL_ID || 'google/gemini-3-pro-preview';
+  } else {
+    // Default to 'smart'
+    return process.env.SMART_MODEL_ID || process.env.OPENROUTER_SMART_MODEL_ID || 'google/gemini-3.0-pro';
+  }
+}
 const GEMINI_2_5_PRO_MODEL_ID = process.env.GEMINI_2_5_PRO_MODEL_ID || 'gemini-2.5-pro';
 const GOOGLE_GEMINI_API_KEY = process.env.GOOGLE_GEMINI_API_KEY;
 const TEXT_SERVICE_KEY = 'text-service';
@@ -140,10 +166,10 @@ const SEPARATION_CACHE_ENABLED = process.env.SEPARATION_CACHE_ENABLED !== 'false
 const SEPARATION_CACHE_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
 
 // LLM Cache functions (independent from audio cache)
-function buildLLMCacheKey(filename, prompt, model, mode, promptVariant = 'default') {
+function buildLLMCacheKey(filename, prompt, model, mode, promptVariant = 'default', demoLlmMode = null) {
   try {
     const crypto = require('crypto');
-    // Create stable key based on filename, prompt content, model, and mode
+    // Create stable key based on filename, prompt content, model, mode, and demo LLM mode
     const filenameBase = filename 
       ? path.parse(filename).name.replace(/[^a-zA-Z0-9_-]/g, '_')
       : 'unknown';
@@ -158,7 +184,17 @@ function buildLLMCacheKey(filename, prompt, model, mode, promptVariant = 'defaul
     const modeSafe = (mode || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '_');
     const variantSafe = (promptVariant || 'default').replace(/[^a-zA-Z0-9_-]/g, '_');
     
-    return `${filenameBase}_${promptHash}_${modelSafe}_${modeSafe}_${variantSafe}`;
+    // For markdown-fixes variant, include DEMO_LLM_MODE in cache key
+    // This ensures cache is invalidated when DEMO_LLM_MODE changes
+    let demoModeSuffix = '';
+    if (promptVariant === 'markdown-fixes') {
+      // Use provided demoLlmMode or read from process.env
+      const demoMode = demoLlmMode || process.env.DEMO_LLM_MODE || 'smart';
+      const demoModeSafe = demoMode.replace(/[^a-zA-Z0-9_-]/g, '_');
+      demoModeSuffix = `_demo_${demoModeSafe}`;
+    }
+    
+    return `${filenameBase}_${promptHash}_${modelSafe}_${modeSafe}_${variantSafe}${demoModeSuffix}`;
   } catch (e) {
     console.warn('⚠️ Failed to build LLM cache key:', e.message);
     return null;
@@ -197,6 +233,304 @@ function writeIntegrationState(state) {
   } catch (error) {
     console.error('❌ Failed to persist integration state:', error);
   }
+}
+
+function toNumber(value, fallback = 0) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = parseFloat(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return fallback;
+}
+
+function normalizeRole(role) {
+  if (!role) return null;
+  const normalized = role.toString().trim().toLowerCase();
+  if (['agent', 'operator', 'support'].includes(normalized)) return 'agent';
+  if (['client', 'customer', 'caller', 'user'].includes(normalized)) return 'client';
+  return normalized || null;
+}
+
+function assignRolesToVoiceTracks(voiceTracks = []) {
+  if (!Array.isArray(voiceTracks) || voiceTracks.length === 0) {
+    return [];
+  }
+
+  const initialRoles = voiceTracks.map((track) => {
+    const roleCandidate = track?.roleAnalysis?.role || track?.role || track?.metadata?.role;
+    return normalizeRole(roleCandidate) || 'unknown';
+  });
+
+  const assignedRoles = [...initialRoles];
+  const ensureRole = (roleName, preferredIndex) => {
+    if (assignedRoles.includes(roleName)) {
+      return;
+    }
+    const candidateIndex = preferredIndex ?? assignedRoles.findIndex((role, idx) => role === 'unknown' && idx !== 0);
+    const targetIndex = candidateIndex !== -1 ? candidateIndex : (roleName === 'client' ? assignedRoles.length - 1 : 0);
+    assignedRoles[targetIndex] = roleName;
+  };
+
+  // Ensure at least one agent and one client when possible
+  ensureRole('agent', 0);
+  if (voiceTracks.length > 1) {
+    ensureRole('client', voiceTracks.length - 1);
+  }
+
+  // Balance remaining unknown roles between agent/client
+  let agentCount = assignedRoles.filter(role => role === 'agent').length;
+  let clientCount = assignedRoles.filter(role => role === 'client').length;
+
+  assignedRoles.forEach((role, index) => {
+    if (role === 'unknown') {
+      if (agentCount <= clientCount) {
+        assignedRoles[index] = 'agent';
+        agentCount++;
+      } else {
+        assignedRoles[index] = 'client';
+        clientCount++;
+      }
+    }
+  });
+
+  return assignedRoles;
+}
+
+function getSegmentSpeakerLabel(segment = {}) {
+  if (segment.displayName) return segment.displayName;
+  if (segment.speakerLabel) return segment.speakerLabel;
+  if (segment.speaker_label) return segment.speaker_label;
+  if (segment.speaker) return segment.speaker;
+  if (typeof segment.speaker_id === 'number') {
+    return `SPEAKER_${segment.speaker_id.toString().padStart(2, '0')}`;
+  }
+  if (typeof segment.speaker_id === 'string') {
+    return segment.speaker_id;
+  }
+  return 'SPEAKER_00';
+}
+
+function buildSpeakerRoleMap(voiceTracks = []) {
+  return voiceTracks.reduce((map, track) => {
+    const speakerId = track?.speaker || track?.speakerId || track?.name;
+    if (!speakerId) {
+      return map;
+    }
+    const roleCandidate = track?.assignedRole || track?.roleAnalysis?.role || track?.role || track?.metadata?.role;
+    const normalizedRole = normalizeRole(roleCandidate);
+    if (normalizedRole && !map[speakerId]) {
+      map[speakerId] = normalizedRole;
+    }
+    return map;
+  }, {});
+}
+
+function extractSegmentsFromPayload(payload) {
+  if (!payload) return [];
+
+  if (Array.isArray(payload)) {
+    if (payload.length === 0) return [];
+    if (payload[0] && payload[0].text !== undefined && payload[0].start !== undefined) {
+      return payload;
+    }
+    return payload.flatMap(item => extractSegmentsFromPayload(item));
+  }
+
+  if (Array.isArray(payload.segments)) {
+    return payload.segments;
+  }
+
+  if (payload.speechmatics && Array.isArray(payload.speechmatics.segments)) {
+    return payload.speechmatics.segments;
+  }
+
+  if (payload.results) {
+    if (payload.results.speechmatics && Array.isArray(payload.results.speechmatics.segments)) {
+      return payload.results.speechmatics.segments;
+    }
+    if (payload.results['overlap-corrected'] && Array.isArray(payload.results['overlap-corrected'].segments)) {
+      return payload.results['overlap-corrected'].segments;
+    }
+    // Structured text-service responses may be nested under dynamic keys
+    const dynamicKey = Object.keys(payload.results).find(key => Array.isArray(payload.results[key]?.segments));
+    if (dynamicKey) {
+      return payload.results[dynamicKey].segments;
+    }
+  }
+
+  if (Array.isArray(payload.recordings) && payload.recordings.length > 0) {
+    const firstRecording = payload.recordings.find(Boolean);
+    if (firstRecording) {
+      return extractSegmentsFromPayload(firstRecording);
+    }
+  }
+
+  if (payload.transcription) {
+    return extractSegmentsFromPayload(payload.transcription);
+  }
+
+  return [];
+}
+
+function sortSegmentsChronologically(segments) {
+  return [...segments].sort((a, b) => toNumber(a.start) - toNumber(b.start));
+}
+
+function formatSegmentsAsDialog(segments, options = {}) {
+  const { includeTimestamps = false } = options;
+  const sorted = sortSegmentsChronologically(segments);
+
+  return sorted
+    .map(segment => {
+      const speakerLabel = getSegmentSpeakerLabel(segment);
+      const roleLabel = normalizeRole(segment.role);
+      const roleSuffix = roleLabel ? ` (${roleLabel})` : '';
+      const text = (segment.text || segment.word || '').trim();
+      const start = toNumber(segment.start).toFixed(2);
+      const end = toNumber(segment.end, segment.start).toFixed(2);
+      const timestampPrefix = includeTimestamps ? `[${start}-${end}] ` : '';
+      return `${timestampPrefix}${speakerLabel}${roleSuffix}: ${text}`;
+    })
+    .filter(Boolean)
+    .join('\n')
+    .trim();
+}
+
+function buildDialoguePromptContext({
+  primaryDiarization = null,
+  geminiDiarization = null, // LLM diarization from Gemini 2.5 Pro for transcription control
+  agentTranscript = { segments: [] },
+  clientTranscript = { segments: [] },
+  voiceTracks = [],
+  speaker0SegmentsOverride = null,
+  speaker1SegmentsOverride = null,
+  groundTruthText = null
+} = {}) {
+  const generalSegments = extractSegmentsFromPayload(primaryDiarization);
+  const speakerRoleMap = buildSpeakerRoleMap(voiceTracks);
+
+  // CRITICAL: Filter out any speakers beyond SPEAKER_00 and SPEAKER_01
+  // Only allow two speakers (Agent and Client)
+  const allowedSpeakers = new Set(['SPEAKER_00', 'SPEAKER_01']);
+  const filteredGeneralSegments = generalSegments.filter(segment => {
+    const speakerLabel = getSegmentSpeakerLabel(segment).toUpperCase();
+    return allowedSpeakers.has(speakerLabel);
+  });
+  
+  if (generalSegments.length !== filteredGeneralSegments.length) {
+    const removedCount = generalSegments.length - filteredGeneralSegments.length;
+    const removedSpeakers = [...new Set(generalSegments
+      .filter(s => !allowedSpeakers.has(getSegmentSpeakerLabel(s).toUpperCase()))
+      .map(s => getSegmentSpeakerLabel(s).toUpperCase()))];
+    console.log(`⚠️ Filtered out ${removedCount} segments from disallowed speakers: ${removedSpeakers.join(', ')}`);
+  }
+
+  const speaker0Segments = Array.isArray(speaker0SegmentsOverride)
+    ? speaker0SegmentsOverride
+    : filteredGeneralSegments.filter(segment => getSegmentSpeakerLabel(segment).toUpperCase() === 'SPEAKER_00');
+
+  const speaker1Segments = Array.isArray(speaker1SegmentsOverride)
+    ? speaker1SegmentsOverride
+    : filteredGeneralSegments.filter(segment => getSegmentSpeakerLabel(segment).toUpperCase() === 'SPEAKER_01');
+
+  const generalDialog = formatSegmentsAsDialog(filteredGeneralSegments, { includeTimestamps: true }) || '[empty]';
+  const speaker0Dialog = formatSegmentsAsDialog(speaker0Segments, { includeTimestamps: true }) || '[empty]';
+  const speaker1Dialog = formatSegmentsAsDialog(speaker1Segments, { includeTimestamps: true }) || '[empty]';
+  const agentDialog = formatSegmentsAsDialog(agentTranscript?.segments || [], { includeTimestamps: true }) || '[empty]';
+  const clientDialog = formatSegmentsAsDialog(clientTranscript?.segments || [], { includeTimestamps: true }) || '[empty]';
+
+  const roleGuidance = {
+    speakerRoleMap,
+    segments: {
+      general: filteredGeneralSegments.length,
+      speaker0: speaker0Segments.length,
+      speaker1: speaker1Segments.length,
+      agent: (agentTranscript?.segments || []).length,
+      client: (clientTranscript?.segments || []).length
+    },
+    tracks: voiceTracks.map(track => ({
+      speaker: track.speaker,
+      roleAnalysis: track.roleAnalysis || null,
+      assignedRole: track.assignedRole || track.role || track.roleAnalysis?.role || null,
+      confidence: track.roleAnalysis?.confidence ?? null
+    }))
+  };
+
+  const buildTimestampEntries = (source, segments) => {
+    return sortSegmentsChronologically(segments).map((segment, index) => ({
+      source,
+      order: index + 1,
+      speaker: getSegmentSpeakerLabel(segment),
+      role: normalizeRole(segment.role),
+      start: toNumber(segment.start),
+      end: toNumber(segment.end, segment.start),
+      text: (segment.text || segment.word || '').trim()
+    }));
+  };
+
+  // Extract Gemini diarization segments for transcription control
+  let geminiDialog = '[empty]';
+  let geminiSegments = [];
+  if (geminiDiarization) {
+    geminiSegments = extractSegmentsFromPayload(geminiDiarization);
+    geminiDialog = formatSegmentsAsDialog(geminiSegments, { includeTimestamps: true }) || '[empty]';
+  }
+
+  const segmentTimestampEntries = [
+    ...buildTimestampEntries('general', filteredGeneralSegments),
+    ...buildTimestampEntries('standard_speaker0', speaker0Segments),
+    ...buildTimestampEntries('standard_speaker1', speaker1Segments),
+    ...buildTimestampEntries('agent_track', agentTranscript?.segments || []),
+    ...buildTimestampEntries('client_track', clientTranscript?.segments || []),
+    ...buildTimestampEntries('gemini_llm', geminiSegments) // Add Gemini LLM diarization timestamps
+  ];
+  
+  return {
+    generalDialog,
+    speaker0Dialog,
+    speaker1Dialog,
+    agentDialog,
+    clientDialog,
+    geminiDialog, // LLM diarization for transcription error correction
+    roleGuidanceText: JSON.stringify(roleGuidance, null, 2),
+    segmentTimestampsText: JSON.stringify(segmentTimestampEntries, null, 2),
+    groundTruthText: groundTruthText || null,
+    primaryDiarization: primaryDiarization || null, // Include for word-level comparison
+    geminiDiarization: geminiDiarization || null // Include Gemini diarization for reference
+  };
+}
+
+async function loadGroundTruthTextForUpload(uploadedFile) {
+  if (!uploadedFile?.originalname) {
+    return null;
+  }
+  
+  const baseName = path.parse(uploadedFile.originalname).name;
+  const candidatePaths = [
+    path.join(__dirname, 'Debug', `${baseName}.txt`),
+    path.join(__dirname, 'Debug', 'demo_page', `${baseName}.txt`),
+    path.join(__dirname, 'Debug', 'ground_truth', `${baseName}.txt`)
+  ];
+  
+  for (const candidate of candidatePaths) {
+    try {
+      await fs.access(candidate);
+      const fileContents = await fs.readFile(candidate, 'utf8');
+      if (fileContents && fileContents.trim().length > 0) {
+        console.log(`🧾 Ground truth transcript detected for ${baseName}: ${candidate}`);
+        return fileContents;
+      }
+    } catch (error) {
+      // Ignore ENOENT and continue checking other paths
+    }
+  }
+  
+  return null;
 }
 
 // Middleware
@@ -287,6 +621,43 @@ const upload = multer({
   dest: path.join(__dirname, 'temp_uploads'),
   limits: {
     fileSize: 100 * 1024 * 1024 // 100MB limit
+  }
+});
+
+// Endpoint for uploading audio file for debug separation (must be after multer initialization)
+app.post('/api/upload-audio', upload.single('audio'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No audio file provided' });
+    }
+
+    const tempFilePath = req.file.path;
+    const originalName = req.file.originalname;
+    const timestamp = Date.now();
+    const filename = `${timestamp}_${originalName}`;
+    const destPath = path.join(uploadsDir, filename);
+
+    // Copy file from temp_uploads to uploads
+    await fs.copyFile(tempFilePath, destPath);
+    
+    // Clean up temp file
+    try {
+      await fs.unlink(tempFilePath);
+    } catch (e) {
+      console.warn('Failed to delete temp file:', e.message);
+    }
+
+    console.log(`[DEBUG-SEPARATION] File uploaded: ${filename}`);
+    res.json({
+      success: true,
+      filePath: filename,
+      path: filename, // Alias for compatibility
+      originalName: originalName,
+      size: req.file.size
+    });
+  } catch (error) {
+    console.error('Upload audio error:', error);
+    res.status(500).json({ error: 'Failed to upload audio', details: error.message });
   }
 });
 
@@ -388,6 +759,75 @@ app.get('/api/analyzer-payload/latest', (req, res) => {
     return res.status(404).json({ error: 'No analyzer payload stored' });
   }
   res.json(state.analyzerPayload);
+});
+
+// API endpoint to compare uploaded dialogue with existing diarization results
+app.post('/api/compare-with-dialogue', async (req, res) => {
+  try {
+    const { groundTruthText, diarizationData } = req.body;
+    
+    if (!groundTruthText || typeof groundTruthText !== 'string' || !groundTruthText.trim()) {
+      return res.status(400).json({ error: 'Ground truth text is required' });
+    }
+    
+    if (!diarizationData) {
+      return res.status(400).json({ error: 'Diarization data is required' });
+    }
+    
+    // Extract markdown table from diarization data
+    let markdownTable = null;
+    if (diarizationData.markdownTable) {
+      markdownTable = diarizationData.markdownTable;
+    } else if (diarizationData.correctedDiarization) {
+      const corrected = diarizationData.correctedDiarization;
+      if (corrected.recordings && Array.isArray(corrected.recordings) && corrected.recordings[0]) {
+        const recording = corrected.recordings[0];
+        if (recording.results && recording.results['overlap-corrected']) {
+          const rawData = recording.results['overlap-corrected'].rawData;
+          if (rawData && rawData.markdownTable) {
+            markdownTable = rawData.markdownTable;
+          }
+        }
+      } else if (corrected.rawData && corrected.rawData.markdownTable) {
+        markdownTable = corrected.rawData.markdownTable;
+      }
+    }
+    
+    if (!markdownTable) {
+      return res.status(400).json({ error: 'Markdown table not found in diarization data' });
+    }
+    
+    // Extract primaryDiarization for Speechmatics comparison
+    const primaryDiarization = diarizationData.primaryDiarization || null;
+    
+    // Calculate ground truth metrics
+    const groundTruthMetrics = calculateGroundTruthMatch(
+      markdownTable,
+      groundTruthText,
+      primaryDiarization
+    );
+    
+    // Store the uploaded dialogue
+    const state = readIntegrationState();
+    const entry = {
+      id: Date.now().toString(),
+      text: groundTruthText.trim(),
+      lines: groundTruthText.split('\n').map(line => line.trim()).filter(Boolean),
+      meta: { uploadedAt: new Date().toISOString() },
+      storedAt: new Date().toISOString()
+    };
+    state.dialogueScripts = [...(state.dialogueScripts || []), entry].slice(-25);
+    writeIntegrationState(state);
+    
+    res.json({
+      success: true,
+      groundTruthMetrics: groundTruthMetrics,
+      dialogueEntry: entry
+    });
+  } catch (error) {
+    console.error('Error comparing with dialogue:', error);
+    res.status(500).json({ error: 'Failed to compare with dialogue', details: error.message });
+  }
 });
 
 app.get('/api/tunnel-status', (req, res) => {
@@ -629,10 +1069,24 @@ function sanitizeDiarizationResponse(result) {
   // Keep markdownTable and textAnalysis for client-side rendering
   if (result.markdownTable) {
     sanitized.markdownTable = result.markdownTable;
+    console.log(`[sanitize] ✅ Preserved markdownTable (length: ${result.markdownTable.length})`);
+  } else {
+    console.log(`[sanitize] ⚠️ markdownTable is missing in result:`, {
+      resultKeys: Object.keys(result),
+      hasMarkdownTable: 'markdownTable' in result
+    });
   }
   
   if (result.textAnalysis) {
     sanitized.textAnalysis = result.textAnalysis;
+  }
+  
+  // Keep groundTruthMetrics for client-side display
+  if (result.groundTruthMetrics) {
+    sanitized.groundTruthMetrics = result.groundTruthMetrics;
+    const nextLevelPercent = result.groundTruthMetrics.nextLevel?.matchPercent || 'N/A';
+    const speechmaticsPercent = result.groundTruthMetrics.speechmatics?.matchPercent || 'N/A';
+    console.log(`[sanitize] ✅ Preserved groundTruthMetrics (NextLevel: ${nextLevelPercent}%, Speechmatics: ${speechmaticsPercent}%)`);
   }
   
   // Keep separation info if needed
@@ -640,15 +1094,10 @@ function sanitizeDiarizationResponse(result) {
     sanitized.separation = result.separation;
   }
   
-  // Keep voiceTracks if needed (but limit size)
+  // Keep voiceTracks with full data for client-side processing
   if (result.voiceTracks && Array.isArray(result.voiceTracks)) {
-    // Only keep essential info from voice tracks to reduce size
-    sanitized.voiceTracks = result.voiceTracks.map(track => ({
-      speaker: track.speaker,
-      role: track.roleAnalysis?.role,
-      hasTranscription: !!track.transcription,
-      hasError: !!track.error
-    }));
+    // Keep full voice tracks data for JSON copy functionality
+    sanitized.voiceTracks = result.voiceTracks;
   }
   
   return sanitized;
@@ -1437,7 +1886,7 @@ async function separateSpeakersWithPyAnnote(audioPath) {
   });
 }
 
-async function separateSpeakersWithSpeechBrain(audioPath, requestId = null, res = null, sendSSEUpdate = null) {
+async function separateSpeakersWithSpeechBrain(audioPath, requestId = null, res = null, sendSSEUpdate = null, collectLogsCallback = null, settings = null) {
   const logPrefix = requestId ? `[${requestId}]` : '[SpeechBrain]';
   const pythonScriptPath = path.join(__dirname, 'speechbrain_separation.py');
   if (!fsSync.existsSync(pythonScriptPath)) {
@@ -1497,21 +1946,74 @@ async function separateSpeakersWithSpeechBrain(audioPath, requestId = null, res 
   });
 
   return new Promise((resolve, reject) => {
-    const pythonArgs = [pythonScriptPath, audioPath, outputDir];
+    // Prepare environment variables from settings
+    const env = { ...process.env };
+    const settingsToUse = settings || {};
+    if (settingsToUse && typeof settingsToUse === 'object') {
+      // Basic settings
+      if (settingsToUse.chunkSeconds) {
+        env.SPEECHBRAIN_CHUNK_SECONDS = settingsToUse.chunkSeconds.toString();
+      }
+      if (settingsToUse.device && settingsToUse.device !== 'auto') {
+        env.SPEECHBRAIN_DEVICE = settingsToUse.device;
+      }
+      if (settingsToUse.sampleRate) {
+        env.SPEECHBRAIN_SAMPLE_RATE = settingsToUse.sampleRate.toString();
+      }
+      if (settingsToUse.numSpeakers) {
+        env.SPEECHBRAIN_NUM_SPEAKERS = settingsToUse.numSpeakers.toString();
+      }
+      
+      // Quality settings (critical for separation quality)
+      if (settingsToUse.segmentOverlap !== undefined) {
+        env.SPEECHBRAIN_SEGMENT_OVERLAP = settingsToUse.segmentOverlap.toString();
+      }
+      if (settingsToUse.minIntersegmentGap !== undefined) {
+        env.SPEECHBRAIN_MIN_INTERSEGMENT_GAP = settingsToUse.minIntersegmentGap.toString();
+      }
+      if (settingsToUse.strictMode !== undefined) {
+        env.SPEECHBRAIN_STRICT_MODE = settingsToUse.strictMode.toString();
+      }
+      if (settingsToUse.vadThreshold !== undefined) {
+        env.SPEECHBRAIN_VAD_THRESHOLD = settingsToUse.vadThreshold.toString();
+      }
+      if (settingsToUse.maxSpeechDuration !== undefined) {
+        env.SPEECHBRAIN_MAX_SPEECH_DURATION = settingsToUse.maxSpeechDuration.toString();
+      }
+      
+      // Advanced settings
+      if (settingsToUse.batchSize !== undefined) {
+        env.SPEECHBRAIN_BATCH_SIZE = settingsToUse.batchSize.toString();
+      }
+      if (settingsToUse.dynamicBatching !== undefined) {
+        env.SPEECHBRAIN_DYNAMIC_BATCHING = settingsToUse.dynamicBatching.toString();
+      }
+      if (settingsToUse.vadModel) {
+        env.SPEECHBRAIN_VAD_MODEL = settingsToUse.vadModel;
+      }
+      if (settingsToUse.diarizationModel) {
+        env.SPEECHBRAIN_DIARIZATION_MODEL = settingsToUse.diarizationModel;
+      }
+    }
+    
+    // Pass settings as JSON to Python script
+    const settingsJson = settingsToUse ? JSON.stringify(settingsToUse) : '{}';
+    const pythonArgs = [pythonScriptPath, audioPath, outputDir, settingsJson];
     console.log(`${logPrefix} 🔵 MODE3: Executing Python script: ${PYTHON_BIN} ${pythonArgs.join(' ')}`);
     
     sendProgress('spawning', 'Запуск Python процесу...', {
       input: {
         pythonBin: PYTHON_BIN,
         pythonArgs: pythonArgs,
-        workingDir: __dirname
+        workingDir: __dirname,
+        settings: settingsToUse
       }
     });
     
     const pythonProcess = spawn(PYTHON_BIN, pythonArgs, {
       cwd: __dirname,
       stdio: ['ignore', 'pipe', 'pipe'],
-      env: process.env
+      env: env
     });
 
     let stdout = '';
@@ -1536,44 +2038,67 @@ async function separateSpeakersWithSpeechBrain(audioPath, requestId = null, res 
       stderr += chunk;
       console.error(`${logPrefix} 📊 MODE3 stderr: ${chunk.trim()}`);
       
-      // Parse progress from stderr
-      if (chunk.includes('[SpeechBrain]')) {
-        const match = chunk.match(/\[SpeechBrain\](.+)/);
-        if (match) {
-          const message = match[1].trim();
-          if (message.includes('Using device')) {
-            const deviceMatch = message.match(/Using device:\s*(.+)/);
-            sendProgress('model_loading', message, {
-              input: {
-                device: deviceMatch ? deviceMatch[1] : 'unknown',
-                rawMessage: message
-              }
-            });
-          } else if (message.includes('Cache dir')) {
-            const cacheMatch = message.match(/Cache dir:\s*(.+)/);
-            sendProgress('model_loading', message, {
-              input: {
-                cacheDir: cacheMatch ? cacheMatch[1] : 'unknown',
-                rawMessage: message
-              }
-            });
-          } else if (message.includes('Loaded via') || message.includes('Resampling')) {
-            sendProgress('audio_processing', message, {
-              input: {
-                rawMessage: message
-              }
-            });
-          } else if (message.includes('Processing in chunks') || message.includes('Separating chunk')) {
-            const chunkMatch = message.match(/chunk\s+(\d+):(\d+)/);
-            sendProgress('separation', message, {
-              input: {
-                chunkInfo: chunkMatch ? { start: chunkMatch[1], end: chunkMatch[2] } : null,
-                rawMessage: message
-              }
-            });
+      // Збираємо логи для callback, якщо він наданий
+      if (collectLogsCallback) {
+        const lines = chunk.split('\n').filter(line => line.trim());
+        lines.forEach(line => {
+          collectLogsCallback(line.trim());
+        });
+      }
+      
+      // Parse progress from stderr - детальне логування
+      const lines = chunk.split('\n').filter(line => line.trim());
+      lines.forEach(line => {
+        // Логування всіх повідомлень з Python скрипта
+        if (line.includes('[SpeechBrain]') || line.includes('📁') || line.includes('🔀') || 
+            line.includes('📦') || line.includes('✅') || line.includes('❌') || 
+            line.includes('💾') || line.includes('📊') || line.includes('════')) {
+          sendProgress('python_log', line.trim(), {
+            input: {
+              rawMessage: line.trim()
+            }
+          });
+        }
+        
+        // Специфічна обробка для детального логування
+        if (line.includes('[SpeechBrain]')) {
+          const match = line.match(/\[SpeechBrain\](.+)/);
+          if (match) {
+            const message = match[1].trim();
+            if (message.includes('Using device')) {
+              const deviceMatch = message.match(/Using device:\s*(.+)/);
+              sendProgress('model_loading', message, {
+                input: {
+                  device: deviceMatch ? deviceMatch[1] : 'unknown',
+                  rawMessage: message
+                }
+              });
+            } else if (message.includes('Cache dir')) {
+              const cacheMatch = message.match(/Cache dir:\s*(.+)/);
+              sendProgress('model_loading', message, {
+                input: {
+                  cacheDir: cacheMatch ? cacheMatch[1] : 'unknown',
+                  rawMessage: message
+                }
+              });
+            } else if (message.includes('Loaded via') || message.includes('Resampling')) {
+              sendProgress('audio_processing', message, {
+                input: {
+                  rawMessage: message
+                }
+              });
+            } else if (message.includes('Processing in chunks') || message.includes('Separating chunk')) {
+              const chunkMatch = message.match(/chunk\s+(\d+):(\d+)/);
+              sendProgress('separation', message, {
+                input: {
+                  chunkInfo: chunkMatch ? { start: chunkMatch[1], end: chunkMatch[2] } : null,
+                  rawMessage: message
+                }
+              });
+            }
           }
         }
-      }
+      });
     });
 
     pythonProcess.on('error', (error) => {
@@ -1898,7 +2423,22 @@ app.post('/api/diarize-overlap', upload.single('audio'), async (req, res) => {
   let overlapPipelineMode = 'mode1';
   
   try {
-    const { url, language, speakerCount, mode, pipelineMode } = req.body;
+    const { url, language, speakerCount, mode, pipelineMode, textAnalysisMode } = req.body;
+    // textAnalysisMode: режим маркування фрагментів
+    // Може бути задано через параметр запиту або через змінну оточення TEXT_ANALYSIS_MODE
+    // 'script' (default) - використовує скриптову логіку
+    // 'llm' - використовує LLM для класифікації
+    const envTextAnalysisMode = process.env.TEXT_ANALYSIS_MODE || 'script';
+    const useLLMForTextAnalysis = (textAnalysisMode === 'llm' || envTextAnalysisMode === 'llm');
+    
+    console.log(`[${requestId}] 🔍 Text analysis mode configuration:`, {
+      textAnalysisModeFromRequest: textAnalysisMode,
+      envTextAnalysisMode: envTextAnalysisMode,
+      processEnvTEXT_ANALYSIS_MODE: process.env.TEXT_ANALYSIS_MODE,
+      useLLMForTextAnalysis: useLLMForTextAnalysis,
+      willUseLLM: useLLMForTextAnalysis,
+      note: useLLMForTextAnalysis ? '✅ LLM mode will be used' : '⚠️ Script mode will be used (set TEXT_ANALYSIS_MODE=llm in .env to enable LLM)'
+    });
     
     // Debug: Log received parameters
     console.log(`[${requestId}] 🔍 Received parameters:`);
@@ -2178,6 +2718,84 @@ app.post('/api/diarize-overlap', upload.single('audio'), async (req, res) => {
         segmentsCount,
         endTime: new Date().toISOString()
       });
+      
+      // Step 1.5: LLM Diarization with Gemini 2.5 Pro for transcription control
+      // This provides an independent diarization to catch transcription errors like "Acne" -> "Acme"
+      let geminiDiarization = null;
+      const step1_5StartTime = Date.now();
+      const audioFilePathForGemini = uploadedFile?.path || (url ? await downloadAudioToTemp(url) : null);
+      
+      if (audioFilePathForGemini && (GOOGLE_GEMINI_API_KEY || process.env.OPENROUTER_API_KEY)) {
+        try {
+          console.log(`[${requestId}] 🔵 STEP 1.5: Starting Gemini 2.5 Pro diarization for transcription control...`);
+          sendSSEUpdate(1.5, 'processing', `🔵 MODE3: LLM діаризація (Gemini 2.5 Pro) для контролю транскрипції...`, {
+            stage: 'gemini_diarization_starting',
+            audioPath: audioFilePathForGemini
+          });
+          
+          // Extract plain transcript from Speechmatics for context
+          const speechmaticsSegments = primaryDiarization?.recordings?.[0]?.results?.speechmatics?.segments || [];
+          const plainTranscript = speechmaticsSegments.map(s => `${s.speaker || 'UNKNOWN'}: ${s.text || ''}`).join('\n');
+          
+          geminiDiarization = await callGeminiMultimodal(audioFilePathForGemini, plainTranscript, language || 'en');
+          
+          const step1_5Duration = ((Date.now() - step1_5StartTime) / 1000).toFixed(2) + 's';
+          const geminiSegmentsCount = geminiDiarization?.recordings?.[0]?.results?.[TEXT_SERVICE_KEY]?.segments?.length || 0;
+          
+          console.log(`[${requestId}] ✅ STEP 1.5: Gemini 2.5 Pro diarization completed in ${step1_5Duration}s, found ${geminiSegmentsCount} segments`);
+          sendSSEUpdate(1.5, 'completed', `✅ MODE3: LLM діаризація завершена. Знайдено ${geminiSegmentsCount} сегментів за ${step1_5Duration}s`, {
+            stage: 'gemini_diarization_completed',
+            segmentsCount: geminiSegmentsCount,
+            duration: `${step1_5Duration}s`
+          });
+          
+          writeLog('info', `[${requestId}] STEP 1.5: Gemini 2.5 Pro diarization completed`, {
+            requestId,
+            step: 1.5,
+            duration: step1_5Duration,
+            segmentsCount: geminiSegmentsCount,
+            source: geminiDiarization?.source || 'unknown'
+          });
+          
+          steps.step1_5 = {
+            name: 'LLM Diarization (Gemini 2.5 Pro)',
+            status: 'completed',
+            duration: step1_5Duration,
+            segmentsCount: geminiSegmentsCount,
+            source: geminiDiarization?.source || 'unknown'
+          };
+        } catch (geminiError) {
+          const step1_5Duration = ((Date.now() - step1_5StartTime) / 1000).toFixed(2) + 's';
+          console.warn(`[${requestId}] ⚠️ STEP 1.5: Gemini 2.5 Pro diarization failed after ${step1_5Duration}:`, geminiError.message);
+          sendSSEUpdate(1.5, 'error', `⚠️ MODE3: LLM діаризація не вдалася (продовжуємо без неї): ${geminiError.message}`, {
+            stage: 'gemini_diarization_failed',
+            error: geminiError.message,
+            duration: step1_5Duration
+          });
+          
+          writeLog('warn', `[${requestId}] STEP 1.5: Gemini 2.5 Pro diarization failed (non-fatal)`, {
+            requestId,
+            step: 1.5,
+            error: geminiError.message,
+            duration: step1_5Duration
+          });
+          
+          steps.step1_5 = {
+            name: 'LLM Diarization (Gemini 2.5 Pro)',
+            status: 'failed',
+            duration: step1_5Duration,
+            error: geminiError.message
+          };
+          // Continue without Gemini diarization - it's optional for control
+        }
+      } else {
+        console.log(`[${requestId}] ⏭️ STEP 1.5: Skipping Gemini 2.5 Pro diarization (no audio file or API key)`);
+        steps.step1_5 = {
+          name: 'LLM Diarization (Gemini 2.5 Pro)',
+          status: 'skipped',
+          reason: !audioFilePathForGemini ? 'No audio file available' : 'No Gemini API key configured'
+        };
+      }
     } catch (step1Error) {
       const step1Duration = ((Date.now() - step1StartTime) / 1000).toFixed(2) + 's';
       console.error(`[${requestId}] ❌ STEP 1: Failed after ${step1Duration}:`, step1Error);
@@ -2494,33 +3112,33 @@ app.post('/api/diarize-overlap', upload.single('audio'), async (req, res) => {
           }
           
           if (!cachedSeparation) {
-            console.log(`[${requestId}] 🔵 STEP 2 MODE2: Starting PyAnnote speaker separation`);
-            console.log(`[${requestId}] 🔵 STEP 2 MODE2: File path: ${sourcePath}`);
-            console.log(`[${requestId}] 🔵 STEP 2 MODE2: File exists: ${fsSync.existsSync(sourcePath)}`);
-            console.log(`[${requestId}] 🔵 STEP 2 MODE2: File size: ${fsSync.existsSync(sourcePath) ? fsSync.statSync(sourcePath).size : 'N/A'} bytes`);
-            
-            writeLog('info', `[${requestId}] STEP 2 MODE2: Starting PyAnnote separation`, {
-              requestId,
-              step: 2,
-              mode: 'mode2',
-              status: 'calling_pyannote_separation',
-              filePath: sourcePath,
-              fileExists: fsSync.existsSync(sourcePath),
-              fileSize: fsSync.existsSync(sourcePath) ? fsSync.statSync(sourcePath).size : null,
-              language: language || 'auto'
-            });
-            
-            const separationPromise = separateSpeakersWithPyAnnote(sourcePath);
-            
-            const timeoutPromise = new Promise((_, reject) => {
-              setTimeout(() => {
-                reject(new Error('PyAnnote speaker separation timed out after 20 minutes. First model download may take 5-10 minutes. Please try again.'));
-              }, 20 * 60 * 1000);
-            });
-            
-            console.log(`[${requestId}] 🔵 STEP 2 MODE2: Waiting for separation to complete...`);
-            separation = await Promise.race([separationPromise, timeoutPromise]);
-            console.log(`[${requestId}] ✅ STEP 2 MODE2: Separation completed, speakers count: ${separation?.speakers?.length || 0}`);
+          console.log(`[${requestId}] 🔵 STEP 2 MODE2: Starting PyAnnote speaker separation`);
+          console.log(`[${requestId}] 🔵 STEP 2 MODE2: File path: ${sourcePath}`);
+          console.log(`[${requestId}] 🔵 STEP 2 MODE2: File exists: ${fsSync.existsSync(sourcePath)}`);
+          console.log(`[${requestId}] 🔵 STEP 2 MODE2: File size: ${fsSync.existsSync(sourcePath) ? fsSync.statSync(sourcePath).size : 'N/A'} bytes`);
+          
+          writeLog('info', `[${requestId}] STEP 2 MODE2: Starting PyAnnote separation`, {
+            requestId,
+            step: 2,
+            mode: 'mode2',
+            status: 'calling_pyannote_separation',
+            filePath: sourcePath,
+            fileExists: fsSync.existsSync(sourcePath),
+            fileSize: fsSync.existsSync(sourcePath) ? fsSync.statSync(sourcePath).size : null,
+            language: language || 'auto'
+          });
+          
+          const separationPromise = separateSpeakersWithPyAnnote(sourcePath);
+          
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => {
+              reject(new Error('PyAnnote speaker separation timed out after 20 minutes. First model download may take 5-10 minutes. Please try again.'));
+            }, 20 * 60 * 1000);
+          });
+          
+          console.log(`[${requestId}] 🔵 STEP 2 MODE2: Waiting for separation to complete...`);
+          separation = await Promise.race([separationPromise, timeoutPromise]);
+          console.log(`[${requestId}] ✅ STEP 2 MODE2: Separation completed, speakers count: ${separation?.speakers?.length || 0}`);
             
             // Save to cache
             if (separationCacheKey && separation) {
@@ -2579,49 +3197,49 @@ app.post('/api/diarize-overlap', upload.single('audio'), async (req, res) => {
           }
           
           if (!cachedSeparation) {
-            console.log(`[${requestId}] 🔵 STEP 2 MODE3: Starting SpeechBrain speaker separation`);
-            console.log(`[${requestId}] 🔵 STEP 2 MODE3: File path: ${sourcePath}`);
-            console.log(`[${requestId}] 🔵 STEP 2 MODE3: File exists: ${fsSync.existsSync(sourcePath)}`);
-            console.log(`[${requestId}] 🔵 STEP 2 MODE3: File size: ${fsSync.existsSync(sourcePath) ? fsSync.statSync(sourcePath).size : 'N/A'} bytes`);
+          console.log(`[${requestId}] 🔵 STEP 2 MODE3: Starting SpeechBrain speaker separation`);
+          console.log(`[${requestId}] 🔵 STEP 2 MODE3: File path: ${sourcePath}`);
+          console.log(`[${requestId}] 🔵 STEP 2 MODE3: File exists: ${fsSync.existsSync(sourcePath)}`);
+          console.log(`[${requestId}] 🔵 STEP 2 MODE3: File size: ${fsSync.existsSync(sourcePath) ? fsSync.statSync(sourcePath).size : 'N/A'} bytes`);
 
-            writeLog('info', `[${requestId}] STEP 2 MODE3: Starting SpeechBrain separation`, {
-              requestId,
+          writeLog('info', `[${requestId}] STEP 2 MODE3: Starting SpeechBrain separation`, {
+            requestId,
+            step: 2,
+            mode: 'mode3',
+            status: 'calling_speechbrain_separation',
+            filePath: sourcePath,
+            fileExists: fsSync.existsSync(sourcePath),
+            fileSize: fsSync.existsSync(sourcePath) ? fsSync.statSync(sourcePath).size : null,
+            language: language || 'auto'
+          });
+
+          // Send detailed progress update to client
+          if (res && !res.headersSent) {
+            res.write(`data: ${JSON.stringify({
+              type: 'step-progress',
               step: 2,
-              mode: 'mode3',
-              status: 'calling_speechbrain_separation',
-              filePath: sourcePath,
-              fileExists: fsSync.existsSync(sourcePath),
-              fileSize: fsSync.existsSync(sourcePath) ? fsSync.statSync(sourcePath).size : null,
-              language: language || 'auto'
-            });
+              status: 'processing',
+              description: `🔵 MODE3: Завантаження моделі SpeechBrain SepFormer...`,
+              details: {
+                filePath: sourcePath,
+                fileSize: fsSync.existsSync(sourcePath) ? `${(fsSync.statSync(sourcePath).size / 1024 / 1024).toFixed(2)} MB` : 'N/A',
+                stage: 'model_loading'
+              }
+            })}\n\n`);
+          }
 
-            // Send detailed progress update to client
-            if (res && !res.headersSent) {
-              res.write(`data: ${JSON.stringify({
-                type: 'step-progress',
-                step: 2,
-                status: 'processing',
-                description: `🔵 MODE3: Завантаження моделі SpeechBrain SepFormer...`,
-                details: {
-                  filePath: sourcePath,
-                  fileSize: fsSync.existsSync(sourcePath) ? `${(fsSync.statSync(sourcePath).size / 1024 / 1024).toFixed(2)} MB` : 'N/A',
-                  stage: 'model_loading'
-                }
-              })}\n\n`);
-            }
+          const speechBrainTimeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => {
+              reject(new Error('SpeechBrain speaker separation timed out after 5 minutes. The first model download may take longer.'));
+            }, 5 * 60 * 1000);
+          });
 
-            const speechBrainTimeoutPromise = new Promise((_, reject) => {
-              setTimeout(() => {
-                reject(new Error('SpeechBrain speaker separation timed out after 5 minutes. The first model download may take longer.'));
-              }, 5 * 60 * 1000);
-            });
-
-            console.log(`[${requestId}] 🔵 STEP 2 MODE3: Calling separateSpeakersWithSpeechBrain...`);
-            
-            separation = await Promise.race([
-              separateSpeakersWithSpeechBrain(sourcePath, requestId, res, sendSSEUpdate),
-              speechBrainTimeoutPromise
-            ]);
+          console.log(`[${requestId}] 🔵 STEP 2 MODE3: Calling separateSpeakersWithSpeechBrain...`);
+          
+          separation = await Promise.race([
+            separateSpeakersWithSpeechBrain(sourcePath, requestId, res, sendSSEUpdate),
+            speechBrainTimeoutPromise
+          ]);
             
             // Save to cache
             if (separationCacheKey && separation) {
@@ -2709,28 +3327,28 @@ app.post('/api/diarize-overlap', upload.single('audio'), async (req, res) => {
           }
           
           if (!cachedSeparation) {
-            console.log(`[${requestId}] 🔵 STEP 2: Starting speaker separation with URL: ${publicUrl}`);
-            writeLog('info', `[${requestId}] STEP 2: Starting AudioShake separation`, {
-              requestId,
-              step: 2,
-              status: 'calling_separation_api',
-              publicUrl: publicUrl,
-              language: language || 'auto'
-            });
-            
-            // Add timeout wrapper for the entire separation process (15 minutes max)
-            const separationPromise = separateSpeakers(publicUrl, {
-              variant: undefined,
-              language: language || undefined
-            });
-            
-            const timeoutPromise = new Promise((_, reject) => {
-              setTimeout(() => {
-                reject(new Error('Speaker separation timed out after 15 minutes'));
-              }, 15 * 60 * 1000); // 15 minutes
-            });
-            
-            separation = await Promise.race([separationPromise, timeoutPromise]);
+      console.log(`[${requestId}] 🔵 STEP 2: Starting speaker separation with URL: ${publicUrl}`);
+          writeLog('info', `[${requestId}] STEP 2: Starting AudioShake separation`, {
+        requestId,
+        step: 2,
+        status: 'calling_separation_api',
+        publicUrl: publicUrl,
+        language: language || 'auto'
+      });
+      
+        // Add timeout wrapper for the entire separation process (15 minutes max)
+        const separationPromise = separateSpeakers(publicUrl, {
+          variant: undefined,
+          language: language || undefined
+        });
+        
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => {
+            reject(new Error('Speaker separation timed out after 15 minutes'));
+          }, 15 * 60 * 1000); // 15 minutes
+        });
+        
+        separation = await Promise.race([separationPromise, timeoutPromise]);
             
             // Save to cache
             if (separationCacheKey && separation) {
@@ -3527,6 +4145,7 @@ app.post('/api/diarize-overlap', upload.single('audio'), async (req, res) => {
 
     // Step 5: Correct primary diarization using voice tracks
     const step5StartTime = Date.now();
+    let finalMarkdownTable = null;
     console.log(`[${requestId}] 🔵 STEP 5: Starting overlap correction`);
     
     // Send text analysis webhook request after role analysis
@@ -3612,7 +4231,9 @@ app.post('/api/diarize-overlap', upload.single('audio'), async (req, res) => {
                 const segmentId = index + 1;
                 const startTime = seg.start.toFixed(2);
                 const endTime = seg.end.toFixed(2);
-                markdownTable += `| ${segmentId} | ${seg.speaker} | ${seg.text} | ${startTime} | ${endTime} |\n`;
+                // Remove filler words from text
+                const cleanedText = removeFillerWords(seg.text);
+                markdownTable += `| ${segmentId} | ${seg.speaker} | ${cleanedText} | ${startTime} | ${endTime} |\n`;
               });
             }
           } catch (markdownError) {
@@ -3671,9 +4292,56 @@ app.post('/api/diarize-overlap', upload.single('audio'), async (req, res) => {
               markdown: markdownTable || null
             };
             
-            // Використовуємо локальні функції замість webhook
-            const analysisResult = textAnalysis.analyzeText(webhookPayload);
-            console.log(`[${requestId}] ✅ STEP 5: Text analysis completed (local functions):`, {
+            // Використовуємо локальні функції замість webhook або LLM для маркування
+            let analysisResult;
+            console.log(`[${requestId}] 🔍 STEP 5: Text analysis mode check:`, {
+              useLLMForTextAnalysis: useLLMForTextAnalysis,
+              hasMarkdown: !!webhookPayload.markdown,
+              markdownLength: webhookPayload.markdown?.length || 0
+            });
+            
+            if (useLLMForTextAnalysis) {
+              try {
+                console.log(`[${requestId}] 🤖 STEP 5: Using LLM mode for text analysis classification...`);
+                const useLocalLLM = mode === 'local' || mode === 'test' || mode === 'test2';
+                const llmModel = getModelId(mode);
+                const apiUrl = useLocalLLM 
+                  ? `${LOCAL_LLM_BASE_URL}/v1/chat/completions`
+                  : 'https://openrouter.ai/api/v1/chat/completions';
+                const apiKey = useLocalLLM ? LOCAL_LLM_API_KEY : process.env.OPENROUTER_API_KEY;
+                
+                console.log(`[${requestId}] 📤 STEP 5: Calling LLM for text analysis:`, {
+                  llmModel: llmModel,
+                  apiUrl: apiUrl,
+                  useLocalLLM: useLocalLLM,
+                  mode: mode
+                });
+                
+                analysisResult = await textAnalysis.analyzeTextWithLLM(
+                  webhookPayload,
+                  llmModel,
+                  apiUrl,
+                  apiKey,
+                  useLocalLLM,
+                  mode
+                );
+                console.log(`[${requestId}] ✅ STEP 5: Text analysis completed (LLM mode):`, {
+                  blueCount: analysisResult.Blue?.length || 0,
+                  greenCount: analysisResult.Green?.length || 0,
+                  redCount: analysisResult.Red?.length || 0
+                });
+              } catch (llmError) {
+                console.error(`[${requestId}] ❌ STEP 5: LLM text analysis failed, falling back to script mode:`, llmError.message);
+                console.error(`[${requestId}] ❌ STEP 5: LLM error details:`, llmError);
+                // Fallback до script режиму
+                analysisResult = textAnalysis.analyzeText(webhookPayload);
+              }
+            } else {
+              console.log(`[${requestId}] 📝 STEP 5: Using script mode for text analysis (useLLMForTextAnalysis=false)`);
+              analysisResult = textAnalysis.analyzeText(webhookPayload);
+            }
+            
+            console.log(`[${requestId}] ✅ STEP 5: Text analysis completed (${useLLMForTextAnalysis ? 'LLM' : 'script'} mode):`, {
               hasGreen: !!analysisResult.Green,
               hasBlue: !!analysisResult.Blue,
               hasRed: !!analysisResult.Red,
@@ -3816,192 +4484,494 @@ app.post('/api/diarize-overlap', upload.single('audio'), async (req, res) => {
               }
             });
             
-            // Build agent and client transcripts from voice tracks
+            // Determine main track for each primary speaker
+            const primarySegments = primaryDiarization?.recordings?.[0]?.results?.speechmatics?.segments || [];
+            const primarySpeakers = [...new Set(primarySegments.map(s => s.speaker || 'SPEAKER_00'))];
+            
+            // Group primary segments by speaker
+            const primaryBySpeaker = {};
+            primarySpeakers.forEach(speaker => {
+              primaryBySpeaker[speaker] = primarySegments.filter(s => (s.speaker || 'SPEAKER_00') === speaker);
+            });
+            
+            // For each primary speaker, find the best voice track
+            const speakerToTrackMap = {};
+            const trackScores = [];
+            
+            primarySpeakers.forEach(primarySpeaker => {
+              const primarySegs = primaryBySpeaker[primarySpeaker] || [];
+              
+              voiceTracks.forEach((track, trackIndex) => {
+                if (track.error || !track.transcription) return;
+                
+                const trackSegments = track.transcription?.recordings?.[0]?.results?.speechmatics?.segments || [];
+                if (trackSegments.length === 0) return;
+                
+                // Calculate score: overlap + completeness + segment count
+                let totalOverlap = 0;
+                let matchCount = 0;
+                let totalTextLength = 0;
+                let completeReplicas = 0;
+                
+                trackSegments.forEach(trackSeg => {
+                  const tStart = parseFloat(trackSeg.start) || 0;
+                  const tEnd = parseFloat(trackSeg.end) || tStart;
+                  const tText = (trackSeg.text || '').trim();
+                  
+                  if (tText.length > 0) {
+                    totalTextLength += tText.length;
+                    // Check if text looks complete (not truncated)
+                    const isComplete = !tText.endsWith('...') && tText.length > 10;
+                    if (isComplete) completeReplicas++;
+                  }
+                  
+                  // Find matching primary segment
+                  primarySegs.forEach(primarySeg => {
+                    const pStart = parseFloat(primarySeg.start) || 0;
+                    const pEnd = parseFloat(primarySeg.end) || pStart;
+                    
+                    const overlap = Math.max(0, Math.min(tEnd, pEnd) - Math.max(tStart, pStart));
+                    if (overlap > 0.1) {
+                      totalOverlap += overlap;
+                      matchCount++;
+                    }
+                  });
+                });
+                
+                // Score = overlap * matches * completeness_factor * text_quality
+                const completenessFactor = trackSegments.length > 0 ? (completeReplicas / trackSegments.length) : 0;
+                const avgTextLength = trackSegments.length > 0 ? (totalTextLength / trackSegments.length) : 0;
+                const textQualityFactor = Math.min(1.0, avgTextLength / 50); // Prefer longer, more complete texts
+                const score = totalOverlap * Math.sqrt(matchCount) * (1 + completenessFactor) * (1 + textQualityFactor);
+                
+                trackScores.push({
+                  primarySpeaker,
+                  trackIndex,
+                  track,
+                  score,
+                  totalOverlap,
+                  matchCount,
+                  segmentCount: trackSegments.length,
+                  completeReplicas,
+                  avgTextLength
+                });
+              });
+            });
+            
+            // For each primary speaker, select the best track
+            primarySpeakers.forEach(primarySpeaker => {
+              const scoresForSpeaker = trackScores.filter(s => s.primarySpeaker === primarySpeaker);
+              if (scoresForSpeaker.length > 0) {
+                const bestTrack = scoresForSpeaker.reduce((best, current) => 
+                  current.score > best.score ? current : best
+                );
+                speakerToTrackMap[primarySpeaker] = bestTrack.trackIndex;
+                console.log(`[${requestId}] 🎯 Main track for ${primarySpeaker}: track ${bestTrack.trackIndex} (score: ${bestTrack.score.toFixed(2)}, segments: ${bestTrack.segmentCount}, complete: ${bestTrack.completeReplicas})`);
+              }
+            });
+            
+            // Build agent and client transcripts from voice tracks using main tracks
             const agentTranscript = { segments: [] };
             const clientTranscript = { segments: [] };
+            const assignedRoles = assignRolesToVoiceTracks(voiceTracks);
             
-            for (const track of voiceTracks) {
-              if (track.error || !track.transcription) continue;
+            voiceTracks.forEach((track, index) => {
+              if (track.error || !track.transcription) {
+                return;
+              }
               
-              const role = track.roleAnalysis?.role || 'unknown';
+              const assignedRole = assignedRoles[index] || 'unknown';
               const segments = track.transcription?.recordings?.[0]?.results?.speechmatics?.segments || [];
+              track.assignedRole = assignedRole;
+              
+              // Check if this track is the main track for any primary speaker
+              const isMainTrack = Object.values(speakerToTrackMap).includes(index);
+              
+              // Only use segments from main tracks (or if no mapping found, use all)
+              if (Object.keys(speakerToTrackMap).length > 0 && !isMainTrack) {
+                console.log(`[${requestId}] ⏭️ Skipping track ${index} (${track.speaker}) - not main track for any primary speaker`);
+                return;
+              }
+              
+              // Determine which primary speaker this track belongs to
+              let targetPrimarySpeaker = null;
+              for (const [primarySpeaker, trackIndex] of Object.entries(speakerToTrackMap)) {
+                if (trackIndex === index) {
+                  targetPrimarySpeaker = primarySpeaker;
+                  break;
+                }
+              }
               
               // Add metadata to each segment
               const enrichedSegments = segments.map(seg => ({
                 ...seg,
-                speaker_id: track.speaker,
-                role: role,
+                speaker_id: targetPrimarySpeaker || track.speaker,
+                speaker: targetPrimarySpeaker || track.speaker, // Use primary speaker label
+                role: assignedRole,
                 sourceTrack: track.speaker
               }));
               
-              if (role === 'operator' || role === 'agent') {
+              if (assignedRole === 'agent') {
                 agentTranscript.segments.push(...enrichedSegments);
-              } else if (role === 'client' || role === 'customer') {
+              } else if (assignedRole === 'client') {
                 clientTranscript.segments.push(...enrichedSegments);
+              } else if (agentTranscript.segments.length <= clientTranscript.segments.length) {
+                agentTranscript.segments.push(...enrichedSegments);
               } else {
-                // If role is unknown, try to determine from context
-                // For now, assign to agent if it's the first track, otherwise client
-                if (voiceTracks.indexOf(track) === 0) {
-                  agentTranscript.segments.push(...enrichedSegments);
-                } else {
-                  clientTranscript.segments.push(...enrichedSegments);
-                }
+                clientTranscript.segments.push(...enrichedSegments);
               }
-            }
+            });
+            
+            console.log(`[${requestId}] 🎚️ Voice track role assignment:`, assignedRoles);
             
             // Validate transcripts
             if (agentTranscript.segments.length === 0 && clientTranscript.segments.length === 0) {
               throw new Error('No segments found in voice tracks');
             }
             
-            console.log(`[${requestId}] 📝 Preparing markdown request:`, {
-              agentSegments: agentTranscript.segments.length,
-              clientSegments: clientTranscript.segments.length
-            });
-            
-            // Call markdown fixes endpoint logic (same as /api/apply-markdown-fixes)
-            const useLocalLLM = mode === 'local' || mode === 'test' || mode === 'test2';
-            const llmModel = mode === 'local' ? LOCAL_LLM_MODEL : 
-                           mode === 'test' ? TEST_MODEL_ID :
-                           mode === 'test2' ? TEST2_MODEL_ID :
-                           mode === 'fast' ? FAST_MODEL_ID :
-                           mode === 'smart-2' ? SMART_2_MODEL_ID : SMART_MODEL_ID;
-            const apiUrl = useLocalLLM 
-              ? `${LOCAL_LLM_BASE_URL}/v1/chat/completions`
-              : 'https://openrouter.ai/api/v1/chat/completions';
-            
-            // Load markdown prompt template
-            let promptTemplate;
-            try {
-              promptTemplate = await fs.readFile('prompts/overlap_fixes_markdown_prompt.txt', 'utf8');
-            } catch (error) {
-              console.warn(`[${requestId}] ⚠️ Failed to load overlap_fixes_markdown_prompt.txt, using fallback prompt`);
-              // Fallback prompt will be set below
+            const groundTruthText = await loadGroundTruthTextForUpload(uploadedFile);
+            if (groundTruthText) {
+              console.log(`[${requestId}] 🧾 Ground truth validation enabled (source: ${uploadedFile?.originalname || 'unknown'})`);
             }
             
-            // Prepare JSON transcripts for LLM
-            const agentTranscriptJSON = JSON.stringify(agentTranscript, null, 2);
-            const clientTranscriptJSON = JSON.stringify(clientTranscript, null, 2);
-            const totalSegmentsCount = agentTranscript.segments.length + clientTranscript.segments.length;
+            const promptContext = buildDialoguePromptContext({
+              primaryDiarization,
+              geminiDiarization, // Pass Gemini 2.5 Pro diarization for transcription control
+              agentTranscript,
+              clientTranscript,
+              voiceTracks,
+              groundTruthText
+            });
+            
+            const useLocalLLM = mode === 'local' || mode === 'test' || mode === 'test2';
+            const llmModel = getModelId(mode);
+            const shouldUseMultiStepMarkdown = useLocalLLM || process.env.USE_MULTI_STEP_MARKDOWN === 'true';
+            let markdownTable = null;
+            let markdownSource = 'voice-tracks-markdown';
+            
+            if (shouldUseMultiStepMarkdown) {
+              try {
+                // Detect if this is an auto-test (curl/script) vs frontend request
+                const userAgent = req.headers['user-agent'] || '';
+                const isAutoTest = userAgent.includes('curl') || userAgent.includes('node') || req.body.isAutoTest === true;
+                
+                const result = await processMarkdownFixesMultiStep(
+                  promptContext,
+                  mode || 'smart',
+                  uploadedFile?.originalname || 'demo',
+                  isAutoTest
+                );
+                
+                if (result) {
+                  if (typeof result === 'string') {
+                    // Backward compatibility: if string is returned, use it as markdownTable
+                    markdownTable = result;
+                  } else if (result.markdownTable) {
+                    markdownTable = result.markdownTable;
+                    // Store ground truth metrics if available
+                    if (result.groundTruthMetrics) {
+                      if (!global.groundTruthMetrics) {
+                        global.groundTruthMetrics = {};
+                      }
+                      global.groundTruthMetrics[requestId] = result.groundTruthMetrics;
+                    }
+                  }
+                  
+                  if (markdownTable) {
+                    // Merge consecutive segments from the same speaker
+                    markdownTable = mergeConsecutiveSpeakerSegmentsInMarkdown(markdownTable, 2.0);
+                    markdownSource = 'multi-step';
+                    finalMarkdownTable = markdownTable;
+                    console.log(`[${requestId}] ✅ MODE3: Multi-step markdown generated (${markdownTable.length} chars)`);
+                    console.log(`[${requestId}] 🧾 Saved finalMarkdownTable snapshot after multi-step (length: ${finalMarkdownTable.length})`);
+                    if (result.groundTruthMetrics && result.groundTruthMetrics.nextLevel) {
+                      console.log(`[${requestId}] 📊 Ground Truth Match (NextLevel): ${result.groundTruthMetrics.nextLevel.matchPercent}%`);
+                      if (result.groundTruthMetrics.speechmatics) {
+                        console.log(`[${requestId}] 📊 Ground Truth Match (Speechmatics): ${result.groundTruthMetrics.speechmatics.matchPercent}%`);
+                      }
+                    }
+                  }
+                }
+              } catch (multiStepError) {
+                console.error(`[${requestId}] ❌ MODE3: Multi-step markdown generation failed:`, multiStepError.message);
+              }
+            }
+            
+            if (!markdownTable) {
+              console.log(`[${requestId}] 📝 Preparing markdown request:`, {
+                agentSegments: agentTranscript.segments.length,
+                clientSegments: clientTranscript.segments.length
+              });
+              
+              // Call markdown fixes endpoint logic (same as /api/apply-markdown-fixes)
+              const apiUrl = useLocalLLM 
+                ? `${LOCAL_LLM_BASE_URL}/v1/chat/completions`
+                : 'https://openrouter.ai/api/v1/chat/completions';
+              
+              // Load markdown prompt template
+              let promptTemplate;
+              try {
+                promptTemplate = await fs.readFile('prompts/overlap_fixes_markdown_prompt.txt', 'utf8');
+              } catch (error) {
+                console.warn(`[${requestId}] ⚠️ Failed to load overlap_fixes_markdown_prompt.txt, using fallback prompt`);
+                // Fallback prompt will be set below
+              }
             
             // Use template or fallback
             if (!promptTemplate) {
-              promptTemplate = `You are an expert in dialogue transcription and speaker diarization analysis.
+              promptTemplate = `You are the **NextLevel diarization controller**. You receive already-extracted dialogues (plain text, one replica per line) instead of raw JSON. Your goal is to fuse Standard diarization evidence with separated voice-track transcripts, detect the real speaker roles, and output a **clean, deduplicated Markdown table** with STRICT alternation between Agent and Client.
 
-Your task is to analyze two JSON transcripts (Agent and Client) and create a corrected, deduplicated Markdown table.
+## ABSOLUTE TRUTH POLICY
+Only the provided dialogues are trustworthy. Every sentence in the final table **must appear verbatim** in at least one dialogue block below. If a sentence is absent from **all** blocks, you MUST discard it as hallucination.
 
-CRITICAL RULES:
-1. **NO DUPLICATES**: Never create duplicate segments with identical or nearly identical text and timestamps.
-2. **AGENT/CLIENT IDENTIFICATION**: Determine which speaker is Agent and which is Client based on conversational context.
-3. **REMOVE EMPTY WORDS**: Remove empty or meaningless words/phrases (e.g., "uh", "um", "ah", excessive filler words).
-4. **USE TIMESTAMPS**: Extract start and end times from the segments in the JSON transcripts.
-5. **CHRONOLOGICAL ORDER**: Sort all segments by start time in ascending order.
+## DATA BLOCKS YOU RECEIVE
 
-INPUT DATA:
+1. **Combined Standard Diarization (General)**
+\`\`\`
+{{GENERAL_DIALOGUE}}
+\`\`\`
 
-**AGENT TRANSCRIPT (JSON):**
-{{AGENT_TRANSCRIPT}}
+2. **Standard Speaker 0 Dialogue (raw Speechmatics speaker track)**
+\`\`\`
+{{STANDARD_SPEAKER0_DIALOGUE}}
+\`\`\`
 
-**CLIENT TRANSCRIPT (JSON):**
-{{CLIENT_TRANSCRIPT}}
+3. **Standard Speaker 1 Dialogue (raw Speechmatics speaker track)**
+\`\`\`
+{{STANDARD_SPEAKER1_DIALOGUE}}
+\`\`\`
 
-**TOTAL SEGMENTS:** {{SEGMENT_COUNT}}
+4. **Separated Voice Track – Agent Candidate**
+\`\`\`
+{{AGENT_DIALOGUE}}
+\`\`\`
 
-OUTPUT: Return a Markdown table with the following columns:
-- **Segment ID** (sequential number starting from 1)
-- **Speaker** (Agent or Client - determine from context)
-- **Text** (corrected text, remove empty words)
-- **Start Time** (start time in seconds, format: X.XX)
-- **End Time** (end time in seconds, format: X.XX)
+5. **Separated Voice Track – Client Candidate**
+\`\`\`
+{{CLIENT_DIALOGUE}}
+\`\`\`
 
-Example table format:
+6. **Role & Context Guidance (output of the classifier / debug checks)**
+\`\`\`
+{{ROLE_GUIDANCE}}
+\`\`\`
+
+Each dialogue is already normalized into plain text lines like \`SPEAKER_00 (operator): text\`. Treat every line as a possible segment. Start/end timestamps for each line are also provided in the metadata block below:
+\`\`\`
+{{SEGMENT_TIMESTAMPS}}
+\`\`\`
+\`SEGMENT_TIMESTAMPS\` maps dialogue lines to their numeric \`start\`/\`end\` (seconds). Always copy these exact numbers into the final table.
+
+## CRITICAL TASKS
+1. **Role Detection**
+   - Use \`ROLE_GUIDANCE\`, conversational intent, and speaker labels to decide who is Agent vs Client.
+   - **CRITICAL**: ROLE_GUIDANCE contains \`speakerRoleMap\` which shows the exact mapping. For example, if \`speakerRoleMap\` shows \`{"SPEAKER_00": "agent", "SPEAKER_01": "client"}\`, this means ALL segments from SPEAKER_00 must be Agent, and ALL segments from SPEAKER_01 must be Client.
+   - **CRITICAL**: The voice tracks (Agent/Client candidate dialogues) contain the MAIN and MOST COMPLETE replicas for each speaker. These are the primary source - use them as the authoritative text for each role.
+   - **CRITICAL**: You MUST output only TWO roles: "Agent" and "Client". Never use "SPEAKER_00", "SPEAKER_01", "SPEAKER_02" or any other speaker labels in the final table.
+   - After generating the table, verify: are there segments from BOTH roles? If all segments have the same role, check ROLE_GUIDANCE and reassign roles correctly.
+   - If metadata contradicts the dialogue meaning, trust the meaning plus guidance.
+
+2. **Replica Validation**
+   - **PRIORITY**: Use replicas from voice-track dialogues (Agent/Client candidate) as they contain the most complete and accurate text without truncation.
+   - Keep a replica ONLY if it exists in at least one dialogue block.
+   - Prefer the voice-track (Agent/Client candidate) versions - they have the most complete replicas without truncation.
+   - If a replica appears in multiple blocks, keep the version from the voice-track that matches the intended role.
+   - If text is found only in Standard Speaker 0/1 but matches the other participant, reassign it correctly based on ROLE_GUIDANCE.
+
+3. **Duplicate & Overlap Control**
+   - Remove exact or near-duplicate sentences that describe the same moment twice.
+   - If a line appears once as Agent and once as Client, decide who truly said it; keep only that one.
+   - Merge overlapping lines from the same real speaker: earliest start, latest end, concatenated text (chronological order).
+
+4. **Strict Alternation**
+   - Final table must alternate Agent → Client → Agent → Client.
+   - Temporary double Agent/Client is allowed only if both lines undoubtedly belong to the same speaker. Try to resolve by reassignment before accepting a double turn.
+
+5. **No Hallucinations**
+   - Sentences absent from every dialogue block are forbidden. Discard them even if they appeared in the original markdown.
+   - If \`ROLE_GUIDANCE\` lists phrases flagged as “not in any source”, ensure they **never** reach the final table.
+
+6. **Timestamp Fidelity**
+   - Every row needs \`Start Time\` and \`End Time\` taken from \`SEGMENT_TIMESTAMPS\`.
+   - If you merged multiple lines, use the min start / max end for that merged row.
+
+## OUTPUT FORMAT
+Return ONLY a Markdown table:
 | Segment ID | Speaker | Text | Start Time | End Time |
 |------------|---------|------|------------|----------|
-| 1 | Agent | Hello, how can I help you? | 0.64 | 2.15 |
-| 2 | Client | Hi, I need help | 2.30 | 3.45 |
+| 1 | Agent | … | 0.64 | 2.15 |
 
-Return ONLY the Markdown table, no additional text or explanations.`;
+Where:
+- \`Segment ID\` starts at 1.
+- \`Speaker\` is either **Agent** or **Client** (NEVER use "SPEAKER_00", "SPEAKER_01", "SPEAKER_02", or any other speaker labels).
+- \`Text\` is verbatim (no paraphrasing, keep fillers). Prefer text from voice-track dialogues as they are most complete.
+- \`Start/End Time\` use numeric seconds with 2 decimal precision (e.g., \`3.45\`). Use timestamps from SEGMENT_TIMESTAMPS that match the selected text.
+
+## QUALITY CHECKLIST (do this mentally before outputting)
+1. Every row comes from the supplied dialogues.
+2. Duplicates removed; overlaps merged.
+3. Roles validated against \`ROLE_GUIDANCE\` - ensure both Agent and Client segments are present.
+4. Alternation Agent/Client preserved.
+5. No stray text or commentary outside the Markdown table.
+6. **VERIFY ROLE DISTRIBUTION**: Check that the table contains segments from BOTH Agent and Client. If all segments have the same role, you MUST review ROLE_GUIDANCE and correct the assignments.
+
+If any requirement cannot be satisfied, adjust the rows (reassign, merge, drop) until compliance is achieved. Only then output the final table.`;
             }
             
-            // Replace placeholders
-            const prompt = promptTemplate
-              .replace(/\{\{AGENT_TRANSCRIPT\}\}/g, agentTranscriptJSON)
-              .replace(/\{\{CLIENT_TRANSCRIPT\}\}/g, clientTranscriptJSON)
-              .replace(/\{\{SEGMENT_COUNT\}\}/g, totalSegmentsCount.toString());
+            const replacements = {
+              '{{GENERAL_DIALOGUE}}': promptContext.generalDialog,
+              '{{STANDARD_SPEAKER0_DIALOGUE}}': promptContext.speaker0Dialog,
+              '{{STANDARD_SPEAKER1_DIALOGUE}}': promptContext.speaker1Dialog,
+              '{{AGENT_DIALOGUE}}': promptContext.agentDialog,
+              '{{CLIENT_DIALOGUE}}': promptContext.clientDialog,
+              '{{ROLE_GUIDANCE}}': promptContext.roleGuidanceText,
+              '{{SEGMENT_TIMESTAMPS}}': promptContext.segmentTimestampsText
+            };
+            
+            let prompt = promptTemplate;
+            Object.entries(replacements).forEach(([token, value]) => {
+              const safeValue = value && value.trim().length > 0 ? value : '[empty]';
+              prompt = prompt.replace(new RegExp(token, 'g'), safeValue);
+            });
+            
+            // Log ROLE_GUIDANCE for debugging
+            try {
+              const roleGuidanceObj = JSON.parse(promptContext.roleGuidanceText || '{}');
+              console.log(`[${requestId}] 🔍 ROLE_GUIDANCE being sent to LLM:`, {
+                speakerRoleMap: roleGuidanceObj.speakerRoleMap || {},
+                tracks: roleGuidanceObj.tracks || []
+              });
+            } catch (e) {
+              console.warn(`[${requestId}] ⚠️ Failed to parse ROLE_GUIDANCE for logging:`, e.message);
+            }
             
             // Build cache key for markdown generation
+            // Get DEMO_LLM_MODE for cache key (ensures cache is invalidated when demo mode changes)
+            const demoLlmMode = process.env.DEMO_LLM_MODE || 'smart';
             const cacheKey = buildLLMCacheKey(
               uploadedFile?.originalname || 'demo',
               prompt,
               llmModel,
               mode,
-              'markdown-fixes'
+              'markdown-fixes',
+              demoLlmMode
             );
             
             // Check cache first
-            let markdownTable = null;
             if (cacheKey) {
               const cachedResult = readLLMCache(cacheKey);
-              if (cachedResult && cachedResult.markdown) {
-                console.log(`[${requestId}] ✅ Using cached markdown table result`);
-                markdownTable = cachedResult.markdown;
+              if (cachedResult && cachedResult.rawMarkdown) {
+                console.log(`[${requestId}] ✅ Using cached raw markdown from LLM`);
+                let cachedMarkdown = cachedResult.rawMarkdown;
+                // Merge consecutive segments from the same speaker
+                cachedMarkdown = mergeConsecutiveSpeakerSegmentsInMarkdown(cachedMarkdown, 2.0);
+                markdownTable = cachedMarkdown;
+                markdownSource = 'cache';
+              }
+            }
+            
+            // Якщо локальний режим і кеш не знайдено, спробувати знайти кеш для моделі fast
+            if (!markdownTable && useLocalLLM) {
+              const fastModelId = getModelId('fast');
+              const fastCacheKey = buildLLMCacheKey(
+                uploadedFile?.originalname || 'demo',
+                prompt,
+                fastModelId,
+                'fast',
+                'markdown-fixes',
+                demoLlmMode
+              );
+              
+              if (fastCacheKey) {
+                const fastCachedResult = readLLMCache(fastCacheKey);
+                if (fastCachedResult && fastCachedResult.rawMarkdown) {
+                  console.log(`[${requestId}] ✅ Using cached raw markdown from fast model for local mode`);
+                  let fastCachedMarkdown = fastCachedResult.rawMarkdown;
+                  // Merge consecutive segments from the same speaker
+                  fastCachedMarkdown = mergeConsecutiveSpeakerSegmentsInMarkdown(fastCachedMarkdown, 2.0);
+                  markdownTable = fastCachedMarkdown;
+                  markdownSource = 'cache-fast';
+                }
               }
             }
             
             // If not cached, call LLM
             if (!markdownTable) {
-              const headers = {
-                'Content-Type': 'application/json'
-              };
-              
+            const headers = {
+              'Content-Type': 'application/json'
+            };
+            
+            if (useLocalLLM) {
+              if (LOCAL_LLM_API_KEY) {
+                headers['Authorization'] = `Bearer ${LOCAL_LLM_API_KEY}`;
+              }
+              console.log(`[${requestId}] 📤 Sending request to local LLM: ${apiUrl}`);
+            } else {
+              headers['Authorization'] = `Bearer ${process.env.OPENROUTER_API_KEY}`;
+              headers['HTTP-Referer'] = process.env.APP_URL || 'http://localhost:3000';
+              headers['X-Title'] = 'Apply Markdown Fixes';
+            }
+            
+            // Build payload
+            const payload = {
+              model: llmModel,
+              messages: [
+                {
+                  role: 'system',
+                  content: 'You are a helpful assistant that fixes speaker diarization. Always return a valid Markdown table with columns: Segment ID, Speaker, Text, Start Time, End Time. Keep all text from input. **CRITICAL**: After reasoning, you MUST generate the final Markdown table in your response content. Do not leave the content field empty.'
+                },
+                {
+                  role: 'user',
+                  content: prompt
+                }
+              ],
+              temperature: 0
+            };
+            
+            // Add reasoning effort
+            if (shouldUseHighReasoningEffort(mode, llmModel)) {
               if (useLocalLLM) {
-                if (LOCAL_LLM_API_KEY) {
-                  headers['Authorization'] = `Bearer ${LOCAL_LLM_API_KEY}`;
-                }
-                console.log(`[${requestId}] 📤 Sending request to local LLM: ${apiUrl}`);
+                console.log(`[${requestId}] 🔧 Local LLM mode: reasoning_effort disabled (configure in LM Studio UI)`);
               } else {
-                headers['Authorization'] = `Bearer ${process.env.OPENROUTER_API_KEY}`;
-                headers['HTTP-Referer'] = process.env.APP_URL || 'http://localhost:3000';
-                headers['X-Title'] = 'Apply Markdown Fixes';
+                payload.reasoning = { effort: 'high' };
+                console.log(`[${requestId}] 🔧 Using reasoning effort: high for ${mode} mode (model: ${llmModel})`);
               }
-
-              // Build payload
-              const payload = {
-                model: llmModel,
-                messages: [
-                  {
-                    role: 'system',
-                    content: 'You are a helpful assistant that fixes speaker diarization. Always return a valid Markdown table with columns: Segment ID, Speaker, Text, Start Time, End Time. Keep all text from input. **CRITICAL**: After reasoning, you MUST generate the final Markdown table in your response content. Do not leave the content field empty.'
-                  },
-                  {
-                    role: 'user',
-                    content: prompt
-                  }
-                ],
-                temperature: 0
-              };
+            }
               
-              // Add reasoning effort
-              if (shouldUseHighReasoningEffort(mode, llmModel)) {
-                if (useLocalLLM) {
-                  console.log(`[${requestId}] 🔧 Local LLM mode: reasoning_effort disabled (configure in LM Studio UI)`);
-                } else {
-                  payload.reasoning = { effort: 'high' };
-                  console.log(`[${requestId}] 🔧 Using reasoning effort: high for ${mode} mode (model: ${llmModel})`);
-                }
+              // Для локальної моделі встановлюємо більший таймаут (30 хвилин), оскільки вона працює повільніше
+              const markdownTimeout = useLocalLLM ? 1800000 : 600000; // 30 хвилин для локальної, 10 хвилин для віддаленої
+              console.log(`[${requestId}] ⏱️  Using timeout: ${markdownTimeout / 1000 / 60} minutes for markdown generation (${useLocalLLM ? 'local' : 'remote'} LLM)`);
+            
+            const llmResponse = await axios.post(apiUrl, payload, {
+              headers,
+                timeout: markdownTimeout
+            });
+            
+              // Отримуємо чистий markdown від LLM
+              const rawLLMOutput = llmResponse.data.choices[0]?.message?.content || '';
+              
+              // Витягуємо markdown з code blocks якщо потрібно
+              let rawMarkdown = rawLLMOutput.trim();
+              const codeBlockMatch = rawMarkdown.match(/```(?:markdown)?\s*([\s\S]*?)\s*```/);
+              if (codeBlockMatch) {
+                rawMarkdown = codeBlockMatch[1].trim();
               }
               
-              const llmResponse = await axios.post(apiUrl, payload, {
-                headers,
-                timeout: 120000
-              });
+              // Remove filler words from markdown table
+              rawMarkdown = removeFillerWordsFromMarkdownTable(rawMarkdown);
               
-              markdownTable = llmResponse.data.choices[0]?.message?.content || '';
+              // Merge consecutive segments from the same speaker
+              rawMarkdown = mergeConsecutiveSpeakerSegmentsInMarkdown(rawMarkdown, 2.0);
               
-              // Save to cache
-              if (cacheKey && markdownTable) {
+              markdownTable = rawMarkdown;
+              markdownSource = 'voice-tracks-markdown';
+              finalMarkdownTable = markdownTable;
+              console.log(`[${requestId}] 🧾 Saved finalMarkdownTable snapshot after voice-track markdown (length: ${finalMarkdownTable.length})`);
+              
+              // Save to cache - зберігаємо чистий markdown від LLM
+              if (cacheKey && rawMarkdown) {
                 writeLLMCache(cacheKey, {
-                  markdown: markdownTable,
+                  rawMarkdown: rawMarkdown, // Чистий markdown від LLM
                   agentSegmentsCount: agentTranscript.segments.length,
                   clientSegmentsCount: clientTranscript.segments.length,
                   totalSegmentsCount: totalSegmentsCount,
@@ -4013,23 +4983,146 @@ Return ONLY the Markdown table, no additional text or explanations.`;
             }
             
             if (markdownTable) {
+              // Analyze role distribution
+              const roleDistribution = analyzeRoleDistribution(markdownTable);
+              console.log(`[${requestId}] 📊 Role distribution in markdown:`, roleDistribution);
+              
+              if (roleDistribution.total > 0) {
+                if (roleDistribution.agentCount === 0) {
+                  console.warn(`[${requestId}] ⚠️ WARNING: All ${roleDistribution.total} segments are Client!`);
+                } else if (roleDistribution.clientCount === 0) {
+                  console.warn(`[${requestId}] ⚠️ WARNING: All ${roleDistribution.total} segments are Agent!`);
+                } else {
+                  const ratio = (roleDistribution.clientCount / roleDistribution.agentCount).toFixed(2);
+                  console.log(`[${requestId}] ✅ Role distribution OK: Agent=${roleDistribution.agentCount}, Client=${roleDistribution.clientCount}, Ratio=${ratio}`);
+                }
+              }
+              
               // Store markdown table in correction result
               correctionResult.recordings[0].results['overlap-corrected'].rawData = correctionResult.recordings[0].results['overlap-corrected'].rawData || {};
               correctionResult.recordings[0].results['overlap-corrected'].rawData.markdownTable = markdownTable;
               correctionResult.recordings[0].results['overlap-corrected'].rawData.markdownGenerated = true;
+              finalMarkdownTable = finalMarkdownTable || markdownTable;
               
               sendSSEUpdate(5, 'completed', `✅ MODE3: Markdown таблицю згенеровано`, {
                 stage: 'markdown_completed',
                 output: {
                   markdownLength: markdownTable.length,
-                  source: 'voice-tracks-markdown'
+                  source: markdownSource
                 }
               });
               
-              console.log(`[${requestId}] ✅ MODE3: Markdown table generated (${markdownTable.length} chars)`);
+              console.log(`[${requestId}] ✅ MODE3: Markdown table generated (${markdownTable.length} chars) [source=${markdownSource}]`);
+              
+              // Перераховуємо textAnalysis з правильним markdown (з кешу або з LLM)
+              // Це важливо, бо textAnalysis має використовувати фінальний markdown, а не простий
+              try {
+                if (voiceTracks && voiceTracks.length >= 2) {
+                  const primaryRecording = primaryDiarization?.recordings?.[0] || null;
+                  const primarySpeechmatics = primaryRecording?.results?.speechmatics || null;
+                  const primarySegments = primarySpeechmatics?.segments || [];
+                  
+                  const track1 = voiceTracks[0];
+                  const speaker1Recording = track1?.transcription?.recordings?.[0] || null;
+                  const speaker1Speechmatics = speaker1Recording?.results?.speechmatics || null;
+                  
+                  const track2 = voiceTracks[1];
+                  const speaker2Recording = track2?.transcription?.recordings?.[0] || null;
+                  const speaker2Speechmatics = speaker2Recording?.results?.speechmatics || null;
+                  
+                  if (primarySpeechmatics && speaker1Speechmatics && speaker2Speechmatics) {
+                    const webhookPayload = {
+                      general: {
+                        speechmatics: primarySpeechmatics,
+                        segments: primarySegments,
+                        segmentsCount: primarySegments.length
+                      },
+                      speaker1: {
+                        speaker: track1?.speaker || 'SPEAKER_00',
+                        role: assignedRoles[0] || track1?.roleAnalysis?.role || null,
+                        speechmatics: speaker1Speechmatics,
+                        segments: speaker1Speechmatics?.segments || [],
+                        segmentsCount: (speaker1Speechmatics?.segments || []).length
+                      },
+                      speaker2: {
+                        speaker: track2?.speaker || 'SPEAKER_01',
+                        role: assignedRoles[1] || track2?.roleAnalysis?.role || null,
+                        speechmatics: speaker2Speechmatics,
+                        segments: speaker2Speechmatics?.segments || [],
+                        segmentsCount: (speaker2Speechmatics?.segments || []).length
+                      },
+                      markdown: markdownTable // Використовуємо фінальний markdown (з кешу або з LLM)
+                    };
+                    
+                    // Перераховуємо textAnalysis з правильним markdown (script або LLM режим)
+                    let analysisResult;
+                    console.log(`[${requestId}] 🔍 MODE3: Text analysis mode check:`, {
+                      useLLMForTextAnalysis: useLLMForTextAnalysis,
+                      hasMarkdown: !!webhookPayload.markdown,
+                      markdownLength: webhookPayload.markdown?.length || 0
+                    });
+                    
+                    if (useLLMForTextAnalysis) {
+                      try {
+                        console.log(`[${requestId}] 🤖 MODE3: Using LLM mode for text analysis classification...`);
+                        const useLocalLLM = mode === 'local' || mode === 'test' || mode === 'test2';
+                        const llmModel = getModelId(mode);
+                        const apiUrl = useLocalLLM 
+                          ? `${LOCAL_LLM_BASE_URL}/v1/chat/completions`
+                          : 'https://openrouter.ai/api/v1/chat/completions';
+                        const apiKey = useLocalLLM ? LOCAL_LLM_API_KEY : process.env.OPENROUTER_API_KEY;
+                        
+                        console.log(`[${requestId}] 📤 MODE3: Calling LLM for text analysis:`, {
+                          llmModel: llmModel,
+                          apiUrl: apiUrl,
+                          useLocalLLM: useLocalLLM,
+                          mode: mode
+                        });
+                        
+                        analysisResult = await textAnalysis.analyzeTextWithLLM(
+                          webhookPayload,
+                          llmModel,
+                          apiUrl,
+                          apiKey,
+                          useLocalLLM,
+                          mode
+                        );
+                        console.log(`[${requestId}] ✅ MODE3: Text analysis completed (LLM mode):`, {
+                          blueCount: analysisResult.Blue?.length || 0,
+                          greenCount: analysisResult.Green?.length || 0,
+                          redCount: analysisResult.Red?.length || 0
+                        });
+                      } catch (llmError) {
+                        console.error(`[${requestId}] ❌ MODE3: LLM text analysis failed, falling back to script mode:`, llmError.message);
+                        console.error(`[${requestId}] ❌ MODE3: LLM error details:`, llmError);
+                        // Fallback до script режиму
+                        analysisResult = textAnalysis.analyzeText(webhookPayload);
+                      }
+                    } else {
+                      console.log(`[${requestId}] 📝 MODE3: Using script mode for text analysis (useLLMForTextAnalysis=false)`);
+                      analysisResult = textAnalysis.analyzeText(webhookPayload);
+                    }
+                    console.log(`[${requestId}] ✅ MODE3: Text analysis recalculated with final markdown (${useLLMForTextAnalysis ? 'LLM' : 'script'} mode):`, {
+                      blueCount: analysisResult.Blue?.length || 0,
+                      greenCount: analysisResult.Green?.length || 0,
+                      redCount: analysisResult.Red?.length || 0
+                    });
+                    
+                    // Оновлюємо результат в глобальному об'єкті
+                    if (!global.webhookAnalysisResults) {
+                      global.webhookAnalysisResults = {};
+                    }
+                    global.webhookAnalysisResults[requestId] = analysisResult;
+                  }
+                }
+              } catch (recalcError) {
+                console.warn(`[${requestId}] ⚠️ MODE3: Failed to recalculate text analysis with final markdown:`, recalcError.message);
+                // Не критична помилка - продовжуємо
+              }
             } else {
               console.log(`[${requestId}] ⚠️ MODE3: Markdown generation returned empty`);
             }
+          }
           } catch (markdownError) {
             console.error(`[${requestId}] ❌ MODE3: Markdown generation failed:`, markdownError.message);
             sendSSEUpdate(5, 'completed', `⚠️ MODE3: Markdown таблицю не вдалося згенерувати`, {
@@ -4182,19 +5275,103 @@ Return ONLY the Markdown table, no additional text or explanations.`;
       };
     });
 
+    console.log(`[${requestId}] 🧮 Stored finalMarkdownTable snapshot:`, {
+      hasFinalMarkdown: !!finalMarkdownTable,
+      finalMarkdownLength: finalMarkdownTable?.length || 0
+    });
+
     // Extract markdown table from corrected diarization if available
-    let markdownTable = null;
-    if (correctedDiarization) {
-      const corrected = correctedDiarization;
-      if (corrected.recordings && Array.isArray(corrected.recordings) && corrected.recordings[0]) {
-        const recording = corrected.recordings[0];
-        if (recording.results && recording.results['overlap-corrected']) {
-          const rawData = recording.results['overlap-corrected'].rawData;
-          if (rawData && rawData.markdownTable) {
-            markdownTable = rawData.markdownTable;
+    let markdownTable = finalMarkdownTable;
+    console.log(`[${requestId}] 🔍 Before markdownTable extraction:`, {
+      hasFinalMarkdownTable: !!finalMarkdownTable,
+      finalMarkdownTableLength: finalMarkdownTable?.length || 0,
+      hasMarkdownTable: !!markdownTable,
+      markdownTableLength: markdownTable?.length || 0
+    });
+    if (!markdownTable) {
+      if (correctedDiarization) {
+        const corrected = correctedDiarization;
+        if (corrected.recordings && Array.isArray(corrected.recordings) && corrected.recordings[0]) {
+          const recording = corrected.recordings[0];
+          if (recording.results && recording.results['overlap-corrected']) {
+            const rawData = recording.results['overlap-corrected'].rawData;
+            if (rawData && rawData.markdownTable) {
+              markdownTable = rawData.markdownTable;
+              finalMarkdownTable = markdownTable;
+              console.log(`[${requestId}] ✅ Extracted markdownTable from rawData (length: ${markdownTable.length})`);
+            } else {
+              console.log(`[${requestId}] ⚠️ markdownTable not found in rawData:`, {
+                hasRawData: !!rawData,
+                rawDataKeys: rawData ? Object.keys(rawData) : []
+              });
+            }
+          } else {
+            console.log(`[${requestId}] ⚠️ overlap-corrected not found in recording.results`);
           }
+        } else {
+          console.log(`[${requestId}] ⚠️ No recordings found in correctedDiarization`);
         }
+      } else {
+        console.log(`[${requestId}] ⚠️ correctedDiarization is null/undefined`);
       }
+    }
+    
+    // Fallback: Generate markdown table from segments if still not found
+    if (!markdownTable && correctedDiarization) {
+      try {
+        const corrected = correctedDiarization;
+        let segments = [];
+        
+        if (corrected.recordings && Array.isArray(corrected.recordings) && corrected.recordings[0]) {
+          const recording = corrected.recordings[0];
+          if (recording.results && recording.results['overlap-corrected']) {
+            segments = recording.results['overlap-corrected'].segments || [];
+          }
+        } else if (corrected.segments) {
+          segments = Array.isArray(corrected.segments) ? corrected.segments : [];
+        }
+        
+          if (segments.length > 0) {
+          console.log(`[${requestId}] 🔧 Generating fallback markdown table from ${segments.length} segments`);
+          let fallbackMarkdown = '| Segment ID | Speaker | Text | Start Time | End Time |\n';
+          fallbackMarkdown += '|------------|---------|------|------------|----------|\n';
+          
+          segments.forEach((seg, index) => {
+            const segmentId = index + 1;
+            const speaker = seg.role === 'operator' || seg.role === 'agent' ? 'Agent' :
+                          seg.role === 'client' || seg.role === 'customer' ? 'Client' :
+                          seg.speaker || 'Unknown';
+            const text = (seg.text || '').trim();
+            const startTime = parseFloat(seg.start) || 0;
+            const endTime = parseFloat(seg.end) || startTime;
+            
+            if (text) {
+              fallbackMarkdown += `| ${segmentId} | ${speaker} | ${text} | ${startTime.toFixed(2)} | ${endTime.toFixed(2)} |\n`;
+            }
+          });
+          
+          // Merge consecutive segments from the same speaker
+          fallbackMarkdown = mergeConsecutiveSpeakerSegmentsInMarkdown(fallbackMarkdown, 2.0);
+          
+          markdownTable = fallbackMarkdown;
+          finalMarkdownTable = markdownTable;
+          console.log(`[${requestId}] ✅ Generated fallback markdown table (length: ${markdownTable.length})`);
+        }
+      } catch (fallbackError) {
+        console.error(`[${requestId}] ❌ Failed to generate fallback markdown table:`, fallbackError.message);
+      }
+    }
+    
+    // Final check - if still no markdown table, log warning
+    if (!markdownTable) {
+      console.warn(`[${requestId}] ⚠️ WARNING: markdownTable is still null/undefined after all attempts!`);
+      console.warn(`[${requestId}] This will cause issues on the frontend.`);
+    } else {
+      console.log(`[${requestId}] ✅ Final markdownTable status:`, {
+        hasMarkdownTable: !!markdownTable,
+        markdownTableLength: markdownTable.length,
+        markdownTablePreview: markdownTable.substring(0, 200)
+      });
     }
     
     // For mode 3 and mode 1, send final response via SSE, then close
@@ -4216,6 +5393,16 @@ Return ONLY the Markdown table, no additional text or explanations.`;
           redSamples: textAnalysisResults?.Red?.slice(0, 2).map(i => i?.text?.substring(0, 30)) || []
         });
         
+        // Get ground truth metrics if available
+        const groundTruthMetrics = global.groundTruthMetrics?.[requestId] || null;
+        
+        console.log(`[${requestId}] 🔍 Before fullResult creation:`, {
+          hasMarkdownTable: !!markdownTable,
+          markdownTableLength: markdownTable?.length || 0,
+          markdownTableType: typeof markdownTable,
+          markdownTablePreview: markdownTable ? markdownTable.substring(0, 100) : 'null'
+        });
+        
         const fullResult = {
           type: 'final-result',
           success: true,
@@ -4230,6 +5417,7 @@ Return ONLY the Markdown table, no additional text or explanations.`;
           correctedDiarization: correctedDiarization,
           markdownTable: markdownTable, // Add markdown table at top level
           textAnalysis: textAnalysisResults, // Add text analysis results (Blue, Green, Red)
+          groundTruthMetrics: groundTruthMetrics, // Add ground truth match metrics
           diagnostics: {
             combinedTranscript,
             llmDiarization: voiceTrackLLMResult,
@@ -4243,9 +5431,23 @@ Return ONLY the Markdown table, no additional text or explanations.`;
           pipelineMode: overlapPipelineMode
         };
         
+        // Діагностичне логування markdownTable перед санітизацією
+        console.log(`[${requestId}] 🔍 markdownTable before sanitize:`, {
+          hasMarkdownTable: !!fullResult.markdownTable,
+          markdownTableLength: fullResult.markdownTable?.length || 0,
+          markdownTablePreview: fullResult.markdownTable?.substring(0, 100) || 'null'
+        });
+        
         // Sanitize response to remove internal keys before sending
         const finalResult = sanitizeDiarizationResponse(fullResult);
         finalResult.type = 'final-result';
+        
+        // Діагностичне логування markdownTable після санітизації
+        console.log(`[${requestId}] 🔍 markdownTable after sanitize:`, {
+          hasMarkdownTable: !!finalResult.markdownTable,
+          markdownTableLength: finalResult.markdownTable?.length || 0,
+          markdownTablePreview: finalResult.markdownTable?.substring(0, 100) || 'null'
+        });
         
         // Try to stringify and send, with error handling for large objects
         try {
@@ -4807,11 +6009,8 @@ app.post('/api/diarize-combined', upload.single('audio'), async (req, res) => {
         });
       } else {
         const useLocalLLM = mode === 'local' || mode === 'test' || mode === 'test2';
-        const selectedModel = useLocalLLM 
-          ? (mode === 'test' ? TEST_MODEL_ID :
-             mode === 'test2' ? TEST2_MODEL_ID : LOCAL_LLM_MODEL)
-          : (mode === 'fast' ? FAST_MODEL_ID :
-             mode === 'smart-2' ? SMART_2_MODEL_ID : SMART_MODEL_ID);
+        // Use getModelId() to always get current model from process.env (for cache key accuracy)
+        const selectedModel = getModelId(mode);
         
         // Build payload with reasoning_effort if needed
         const payload = {
@@ -5289,6 +6488,237 @@ app.get('/api/audioshake-stems/:jobId/:filename', async (req, res) => {
   }
 });
 
+// Endpoint for debug separation using SpeechBrain
+app.post('/api/debug-separation', async (req, res) => {
+  const startTime = Date.now();
+  const logs = [];
+  
+  const addLog = (message, level = 'info') => {
+    const timestamp = new Date().toISOString();
+    const logEntry = { timestamp, level, message };
+    logs.push(logEntry);
+    console.log(`[DEBUG-SEPARATION] ${message}`);
+  };
+  
+  try {
+    const { audioPath, settings = {} } = req.body;
+    
+    if (!audioPath) {
+      addLog('❌ audioPath is required', 'error');
+      return res.status(400).json({ error: 'audioPath is required', logs });
+    }
+
+    const fullAudioPath = path.join(uploadsDir, path.basename(audioPath));
+    
+    // Apply settings (from UI or defaults)
+    const separationSettings = {
+      chunkSeconds: settings.chunkSeconds || parseFloat(process.env.SPEECHBRAIN_CHUNK_SECONDS) || 30,
+      sampleRate: settings.sampleRate || 8000,
+      device: settings.device === 'auto' ? null : (settings.device || process.env.SPEECHBRAIN_DEVICE || null),
+      numSpeakers: settings.numSpeakers || 2,
+      // Quality settings (оптимізовані для якості)
+      segmentOverlap: settings.segmentOverlap !== undefined ? settings.segmentOverlap : (parseFloat(process.env.SPEECHBRAIN_SEGMENT_OVERLAP) || 0.5),  // Більший overlap для кращого зшивання
+      minIntersegmentGap: settings.minIntersegmentGap !== undefined ? settings.minIntersegmentGap : (parseFloat(process.env.SPEECHBRAIN_MIN_INTERSEGMENT_GAP) || 0.1),  // Більший gap
+      strictMode: settings.strictMode !== undefined ? settings.strictMode : (process.env.SPEECHBRAIN_STRICT_MODE === 'true'),
+      vadThreshold: settings.vadThreshold !== undefined ? settings.vadThreshold : (parseFloat(process.env.SPEECHBRAIN_VAD_THRESHOLD) || 0.7),
+      maxSpeechDuration: settings.maxSpeechDuration !== undefined ? settings.maxSpeechDuration : (parseFloat(process.env.SPEECHBRAIN_MAX_SPEECH_DURATION) || 30),  // Не обмежуємо
+      // Advanced settings
+      batchSize: settings.batchSize || parseInt(process.env.SPEECHBRAIN_BATCH_SIZE) || 4,
+      dynamicBatching: settings.dynamicBatching !== undefined ? settings.dynamicBatching : (process.env.SPEECHBRAIN_DYNAMIC_BATCHING === 'true'),
+      vadModel: settings.vadModel || process.env.SPEECHBRAIN_VAD_MODEL || 'speechbrain/vad-crdnn-libriparty',
+      diarizationModel: settings.diarizationModel || process.env.SPEECHBRAIN_DIARIZATION_MODEL || 'speechbrain/diarization-mfa',
+      // Allow any additional settings from document
+      ...settings
+    };
+    
+    // 2. Перед початком розділення - логування стартової точки та параметрів
+    addLog('═══════════════════════════════════════════════════════════');
+    addLog('🚀 ПОЧАТОК РОЗДІЛЕННЯ ТРЕКІВ (СЕРВЕР)');
+    addLog('═══════════════════════════════════════════════════════════');
+    addLog(`📁 Шлях до аудіо файлу: ${fullAudioPath}`);
+    
+    if (!fsSync.existsSync(fullAudioPath)) {
+      addLog(`❌ Файл не знайдено: ${fullAudioPath}`, 'error');
+      return res.status(404).json({ error: 'Audio file not found', logs });
+    }
+    
+    const fileStats = fsSync.statSync(fullAudioPath);
+    const fileSizeMB = (fileStats.size / (1024 * 1024)).toFixed(2);
+    addLog(`📊 Розмір файлу: ${fileSizeMB} MB (${fileStats.size} байт)`);
+    addLog(`🕐 Стартова точка: ${new Date().toISOString()}`);
+    addLog('⚙️  Параметри алгоритму:');
+    addLog('   - Модель: SpeechBrain SepFormer WSJ02Mix');
+    addLog(`   - Очікувана кількість спікерів: ${separationSettings.numSpeakers}`);
+    addLog(`   - Sample rate: ${separationSettings.sampleRate} Hz`);
+    addLog(`   - Chunk size: ${separationSettings.chunkSeconds} сек`);
+    addLog(`   - Device: ${separationSettings.device || 'автоматичний вибір'}`);
+    addLog('   🎯 Критичні параметри якості:');
+    addLog(`     - Segment Overlap: ${separationSettings.segmentOverlap || 0.03} сек`);
+    addLog(`     - Min Intersegment Gap: ${separationSettings.minIntersegmentGap || 0.05} сек`);
+    addLog(`     - Strict Mode: ${separationSettings.strictMode !== false ? 'true' : 'false'}`);
+    addLog(`     - VAD Threshold: ${separationSettings.vadThreshold || 0.7}`);
+    addLog(`     - Max Speech Duration: ${separationSettings.maxSpeechDuration || 5} сек`);
+    if (separationSettings.batchSize || separationSettings.dynamicBatching !== undefined) {
+      addLog('   Додаткові параметри:');
+      if (separationSettings.batchSize) addLog(`     - Batch Size: ${separationSettings.batchSize}`);
+      if (separationSettings.dynamicBatching !== undefined) addLog(`     - Dynamic Batching: ${separationSettings.dynamicBatching}`);
+      if (separationSettings.vadModel) addLog(`     - VAD Model: ${separationSettings.vadModel}`);
+      if (separationSettings.diarizationModel) addLog(`     - Diarization Model: ${separationSettings.diarizationModel}`);
+    }
+    addLog('');
+    
+    // Use the existing separateSpeakersWithSpeechBrain function with detailed logging
+    addLog('🔀 Запуск функції розділення...');
+    const separationStartTime = Date.now();
+    
+    // Збираємо логи з Python процесу
+    const pythonLogs = [];
+    const collectPythonLog = (message) => {
+      if (message && message.trim()) {
+        pythonLogs.push(message.trim());
+        // Додаємо важливі логи до основного логу
+        if (message.includes('📁') || message.includes('🔀') || message.includes('📦') || 
+            message.includes('✅') || message.includes('❌') || message.includes('💾') || 
+            message.includes('📊') || message.includes('════') || message.includes('[SpeechBrain]')) {
+          addLog(`   [Python] ${message.trim()}`);
+        }
+      }
+    };
+    
+    const result = await separateSpeakersWithSpeechBrain(fullAudioPath, null, null, (step, status, description, details) => {
+      // 3. Під час аналізу аудіо - логування сегментів
+      if (details && details.input) {
+        if (details.input.chunkInfo) {
+          addLog(`📦 Обробка сегмента: ${details.input.chunkInfo.start} - ${details.input.chunkInfo.end} зразків`);
+        }
+        if (details.input.rawMessage) {
+          const msg = details.input.rawMessage;
+          collectPythonLog(msg);
+          // Додаємо детальні логи про сегменти
+          if (msg.includes('Обробка сегмента') || msg.includes('Separating chunk')) {
+            addLog(`   ${msg}`);
+          }
+        }
+      }
+      if (details && details.output) {
+        if (details.output.speakerIndex) {
+          addLog(`   ✅ Сегмент ${details.output.speakerIndex}/${details.output.totalSpeakers}: ${details.output.speakerName}`);
+          if (details.output.fileSize) {
+            addLog(`      Розмір файлу: ${details.output.fileSize}`);
+          }
+        }
+      }
+    }, collectPythonLog, separationSettings);
+    
+    // Додаємо всі логи з Python процесу
+    if (pythonLogs.length > 0) {
+      addLog('');
+      addLog('📋 Детальні логи з Python процесу:');
+      pythonLogs.forEach(log => {
+        if (log && log.trim()) {
+          addLog(`   ${log.trim()}`);
+        }
+      });
+      addLog('');
+    }
+    
+    const separationTime = ((Date.now() - separationStartTime) / 1000).toFixed(2);
+    
+    // 4. Після завершення розділення
+    addLog('');
+    addLog('✅ РОЗДІЛЕННЯ ЗАВЕРШЕНО');
+    addLog(`   Час обробки: ${separationTime} сек`);
+    addLog(`   Кількість отриманих фрагментів: ${result.speakers?.length || 0}`);
+    addLog(`   Статус: ${result.speakers && result.speakers.length > 0 ? 'Успішно' : 'Помилка'}`);
+    
+    if (result.speakers && result.speakers.length > 0) {
+      addLog('📋 Список фрагментів:');
+      result.speakers.forEach((speaker, index) => {
+        addLog(`   ${index + 1}. ${speaker.name}`);
+        if (speaker.local_path) {
+          addLog(`      Шлях: ${speaker.local_path}`);
+        }
+        if (speaker.url) {
+          addLog(`      URL: ${speaker.url}`);
+        }
+      });
+    }
+    addLog('');
+    
+    // 5. При збереженні результатів
+    addLog('💾 ЗБЕРЕЖЕННЯ РЕЗУЛЬТАТІВ');
+    const saveStartTime = Date.now();
+    
+    if (result.speakers && result.speakers.length > 0) {
+      for (let i = 0; i < result.speakers.length; i++) {
+        const speaker = result.speakers[i];
+        if (speaker.local_path && fsSync.existsSync(speaker.local_path)) {
+          const fileStats = fsSync.statSync(speaker.local_path);
+          const fileSizeMB = (fileStats.size / (1024 * 1024)).toFixed(2);
+          addLog(`   ${i + 1}. ${speaker.name}: ✅ Успішно`);
+          addLog(`      Шлях: ${speaker.local_path}`);
+          addLog(`      Розмір: ${fileSizeMB} MB (${fileStats.size} байт)`);
+          addLog(`      Статус запису: ✅ Файл існує`);
+        } else {
+          addLog(`   ${i + 1}. ${speaker.name}: ❌ Не вдалося`);
+          addLog(`      Шлях: ${speaker.local_path || 'N/A'}`);
+          addLog(`      Статус запису: ❌ Файл не знайдено`);
+        }
+      }
+    }
+    
+    const saveTime = ((Date.now() - saveStartTime) / 1000).toFixed(2);
+    addLog(`   Час збереження: ${saveTime} сек`);
+    addLog('');
+    
+    const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
+    addLog('═══════════════════════════════════════════════════════════');
+    addLog(`📊 Загальний час: ${totalTime} сек`);
+    addLog('═══════════════════════════════════════════════════════════');
+    
+    res.json({
+      success: true,
+      speakers: result.speakers || [],
+      timeline: result.timeline || [],
+      numSpeakers: result.speakers?.length || 0,
+      logs: logs,
+      timing: {
+        total: totalTime,
+        separation: separationTime,
+        save: saveTime
+      }
+    });
+  } catch (error) {
+    // 6. У випадку помилок
+    const errorTime = ((Date.now() - startTime) / 1000).toFixed(2);
+    addLog('');
+    addLog('═══════════════════════════════════════════════════════════');
+    addLog('❌ ПОМИЛКА ПРОЦЕСУ');
+    addLog('═══════════════════════════════════════════════════════════');
+    addLog(`   Код помилки: ${error.name || 'Unknown'}`, 'error');
+    addLog(`   Опис: ${error.message || 'Unknown error'}`, 'error');
+    addLog(`   Час до помилки: ${errorTime} сек`, 'error');
+    if (error.stack) {
+      addLog('   Стек трасування:', 'error');
+      const stackLines = error.stack.split('\n').slice(0, 10);
+      stackLines.forEach(line => {
+        addLog(`      ${line.trim()}`, 'error');
+      });
+    }
+    addLog('═══════════════════════════════════════════════════════════');
+    
+    console.error('[DEBUG-SEPARATION] Error:', error);
+    res.status(500).json({ 
+      error: 'Separation failed', 
+      details: error.message,
+      logs: logs,
+      timing: {
+        total: errorTime
+      }
+    });
+  }
+});
+
 function getPromptTemplateConfig(variant = 'default') {
   if (variant === 'voice-tracks') {
     return {
@@ -5315,27 +6745,13 @@ async function handleDiarizationRequest(body) {
   console.log(`   useLocalLLM: ${useLocalLLM}`);
 
   // Select model based on mode
-  let model;
+  // Use getModelId() to always get current model from process.env (for cache key accuracy)
+  let model = getModelId(mode);
   if (useLocalLLM) {
-    if (mode === 'test') {
-      model = TEST_MODEL_ID;
-      console.log(`   Using local test model: ${model}`);
-    } else if (mode === 'test2') {
-      model = TEST2_MODEL_ID;
-      console.log(`   Using local test2 model: ${model}`);
-    } else {
-      model = LOCAL_LLM_MODEL;
       console.log(`   Using local model: ${model}`);
-    }
     console.log(`   Local LLM Base URL: ${LOCAL_LLM_BASE_URL}`);
   } else {
-    if (mode === 'fast') {
-      model = FAST_MODEL_ID;
-    } else if (mode === 'smart-2') {
-      model = SMART_2_MODEL_ID;
-    } else {
-      model = SMART_MODEL_ID;
-    }
+    console.log(`   Using OpenRouter model: ${model}`);
   }
   
   const normalizedTranscript = (transcript || '').trim();
@@ -5386,13 +6802,13 @@ async function handleDiarizationRequest(body) {
       if (!filename) {
         console.warn(`⚠️ LLM cache check skipped for ${title}: filename is missing`);
       } else {
-        const cacheKey = buildLLMCacheKey(filename, fullPrompt, modelId, mode, promptVariant);
-        if (cacheKey) {
+      const cacheKey = buildLLMCacheKey(filename, fullPrompt, modelId, mode, promptVariant);
+      if (cacheKey) {
           console.log(`🔍 Checking LLM cache for ${title}:`, { filename, cacheKey, modelId, mode, promptVariant });
-          const cachedResponse = readLLMCache(cacheKey);
-          if (cachedResponse) {
+        const cachedResponse = readLLMCache(cacheKey);
+        if (cachedResponse) {
             console.log(`✅ Using cached LLM response for ${title} (filename: ${filename}, cacheKey: ${cacheKey})`);
-            return cachedResponse.llmOutput;
+          return cachedResponse.llmOutput;
           } else {
             console.log(`📝 LLM cache miss for ${title} (filename: ${filename}, cacheKey: ${cacheKey})`);
           }
@@ -5434,10 +6850,10 @@ async function handleDiarizationRequest(body) {
       if (!filename) {
         console.warn(`⚠️ LLM cache save skipped for ${title}: filename is missing`);
       } else {
-        const cacheKey = buildLLMCacheKey(filename, fullPrompt, modelId, mode, promptVariant);
-        if (cacheKey) {
+      const cacheKey = buildLLMCacheKey(filename, fullPrompt, modelId, mode, promptVariant);
+      if (cacheKey) {
           console.log(`💾 Saving LLM response to cache for ${title}:`, { filename, cacheKey, modelId, mode, promptVariant });
-          writeLLMCache(cacheKey, { llmOutput, model: modelId, mode, promptVariant, timestamp: new Date().toISOString() });
+        writeLLMCache(cacheKey, { llmOutput, model: modelId, mode, promptVariant, timestamp: new Date().toISOString() });
         } else {
           console.warn(`⚠️ Failed to build LLM cache key for saving ${title} (filename: ${filename})`);
         }
@@ -7692,16 +9108,9 @@ async function sendSegmentsToLLMForFixes(segmentsForLLM, options = {}) {
   
   if (mode === 'local' || mode === 'test' || mode === 'test2') {
     useLocalLLM = true;
-    if (mode === 'test') {
-      model = TEST_MODEL_ID;
-      console.log(`${logPrefix} 🔵 Using local test LLM: ${LOCAL_LLM_BASE_URL}, model: ${model}`);
-    } else if (mode === 'test2') {
-      model = TEST2_MODEL_ID;
-      console.log(`${logPrefix} 🔵 Using local test2 LLM: ${LOCAL_LLM_BASE_URL}, model: ${model}`);
-    } else {
-      model = LOCAL_LLM_MODEL;
+    // Use getModelId() to always get current model from process.env (for cache key accuracy)
+    model = getModelId(mode);
       console.log(`${logPrefix} 🔵 Using local LLM: ${LOCAL_LLM_BASE_URL}, model: ${model}`);
-    }
   } else {
     // For non-local models, check OpenRouter API key
     if (!process.env.OPENROUTER_API_KEY) {
@@ -7709,13 +9118,8 @@ async function sendSegmentsToLLMForFixes(segmentsForLLM, options = {}) {
       throw new Error('OpenRouter API key is not configured');
     }
     
-    if (mode === 'fast') {
-      model = FAST_MODEL_ID;
-    } else if (mode === 'smart-2') {
-      model = SMART_2_MODEL_ID;
-    } else {
-      model = SMART_MODEL_ID;
-    }
+    // Use getModelId() to always get current model from process.env (for cache key accuracy)
+    model = getModelId(mode);
     console.log(`${logPrefix} 🔵 Using OpenRouter model: ${model}`);
   }
 
@@ -7942,21 +9346,21 @@ Return ONLY the JSON array, no additional text or markdown.`;
     if (!filename) {
       console.warn(`${logPrefix} ⚠️ LLM cache check skipped for overlap fixes: filename is missing`);
     } else {
-      const fullPrompt = `system: ${systemPrompt}\n\nuser: ${userPrompt}`;
-      const cacheKey = buildLLMCacheKey(filename, fullPrompt, model, mode, 'overlap-fixes');
-      if (cacheKey) {
+    const fullPrompt = `system: ${systemPrompt}\n\nuser: ${userPrompt}`;
+    const cacheKey = buildLLMCacheKey(filename, fullPrompt, model, mode, 'overlap-fixes');
+    if (cacheKey) {
         console.log(`${logPrefix} 🔍 Checking LLM cache for overlap fixes:`, { filename, cacheKey, model, mode });
-        const cachedResponse = readLLMCache(cacheKey);
-        if (cachedResponse) {
+      const cachedResponse = readLLMCache(cacheKey);
+      if (cachedResponse) {
           console.log(`${logPrefix} ✅ Using cached LLM response for overlap fixes (filename: ${filename}, cacheKey: ${cacheKey})`);
-          try {
-            const parsed = JSON.parse(cachedResponse.llmOutput);
-            if (Array.isArray(parsed)) {
-              return parsed;
-            }
-          } catch (parseError) {
-            console.warn(`${logPrefix} ⚠️ Failed to parse cached LLM response, fetching fresh...`);
+        try {
+          const parsed = JSON.parse(cachedResponse.llmOutput);
+          if (Array.isArray(parsed)) {
+            return parsed;
           }
+        } catch (parseError) {
+          console.warn(`${logPrefix} ⚠️ Failed to parse cached LLM response, fetching fresh...`);
+        }
         } else {
           console.log(`${logPrefix} 📝 LLM cache miss for overlap fixes (filename: ${filename}, cacheKey: ${cacheKey})`);
         }
@@ -8000,11 +9404,11 @@ Return ONLY the JSON array, no additional text or markdown.`;
     if (!filename) {
       console.warn(`${logPrefix} ⚠️ LLM cache save skipped for overlap fixes: filename is missing`);
     } else {
-      const fullPrompt = `system: ${systemPrompt}\n\nuser: ${userPrompt}`;
-      const cacheKey = buildLLMCacheKey(filename, fullPrompt, model, mode, 'overlap-fixes');
-      if (cacheKey) {
+    const fullPrompt = `system: ${systemPrompt}\n\nuser: ${userPrompt}`;
+    const cacheKey = buildLLMCacheKey(filename, fullPrompt, model, mode, 'overlap-fixes');
+    if (cacheKey) {
         console.log(`${logPrefix} 💾 Saving LLM response to cache for overlap fixes:`, { filename, cacheKey, model, mode });
-        writeLLMCache(cacheKey, { llmOutput, model, mode, promptVariant: 'overlap-fixes', timestamp: new Date().toISOString() });
+      writeLLMCache(cacheKey, { llmOutput, model, mode, promptVariant: 'overlap-fixes', timestamp: new Date().toISOString() });
       } else {
         console.warn(`${logPrefix} ⚠️ Failed to build LLM cache key for saving overlap fixes (filename: ${filename})`);
       }
@@ -8390,6 +9794,82 @@ function removeDuplicatesAndEmptyWords(segments, logPrefix = '') {
 }
 
 /**
+ * Remove filler words like "Uh", "Um", "Ah" from text
+ * @param {string} text - Text to clean
+ * @returns {string} Cleaned text without filler words
+ */
+function removeFillerWords(text) {
+  if (!text || typeof text !== 'string') {
+    return text;
+  }
+  
+  // List of filler words to remove (case-insensitive)
+  const fillerWords = ['uh', 'um', 'ah', 'er', 'eh', 'hmm', 'hm'];
+  
+  // Split text into words, preserving spaces
+  let cleaned = text;
+  
+  // Remove standalone filler words (with word boundaries)
+  fillerWords.forEach(word => {
+    // Match whole words only (case-insensitive)
+    const regex = new RegExp(`\\b${word}\\b`, 'gi');
+    cleaned = cleaned.replace(regex, '').trim();
+  });
+  
+  // Clean up multiple spaces
+  cleaned = cleaned.replace(/\s+/g, ' ').trim();
+  
+  return cleaned;
+}
+
+/**
+ * Remove filler words from markdown table text cells
+ * @param {string} markdown - Markdown table string
+ * @returns {string} Markdown table with filler words removed from text cells
+ */
+function removeFillerWordsFromMarkdownTable(markdown) {
+  if (!markdown || typeof markdown !== 'string') {
+    return markdown;
+  }
+  
+  const lines = markdown.split('\n');
+  const cleanedLines = [];
+  
+  for (const line of lines) {
+    // Check if it's a table row (starts and ends with |)
+    if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
+      // Check if it's a separator row (|---|---|)
+      if (line.match(/^\|[\s\-:]*\|$/)) {
+        cleanedLines.push(line);
+        continue;
+      }
+      
+      // Parse table row
+      const cells = line.split('|').map(c => c.trim()).filter(c => c);
+      if (cells.length >= 5) {
+        // Expected: Segment ID | Speaker | Text | Start Time | End Time
+        const segmentId = cells[0];
+        const speaker = cells[1];
+        const text = removeFillerWords(cells[2]); // Remove filler words from text
+        const startTime = cells[3];
+        const endTime = cells[4];
+        
+        // Reconstruct row with cleaned text
+        cleanedLines.push(`| ${segmentId} | ${speaker} | ${text} | ${startTime} | ${endTime} |`);
+      } else {
+        // Keep header or other rows as is
+        cleanedLines.push(line);
+      }
+    } else {
+      // Keep non-table lines as is
+      cleanedLines.push(line);
+    }
+  }
+  
+  return cleanedLines.join('\n');
+}
+
+/**
  * Remove duplicate rows from a Markdown table
  * @param {string} markdown - Markdown table string
  * @returns {string} Cleaned markdown table without duplicates
@@ -8433,7 +9913,7 @@ function removeDuplicatesFromMarkdownTable(markdown) {
           // Expected: Segment ID | Speaker | Text | Start Time | End Time
           const segmentId = cells[0];
           const speaker = cells[1];
-          const text = cells[2];
+          const text = removeFillerWords(cells[2]); // Remove filler words from text
           const startTime = parseFloat(cells[3]) || 0;
           const endTime = parseFloat(cells[4]) || 0;
           
@@ -8530,6 +10010,183 @@ function removeDuplicatesFromMarkdownTable(markdown) {
   console.log(`📋 removeDuplicatesFromMarkdownTable: input ${markdown.length} chars, output ${result.length} chars`);
   console.log(`📋 removeDuplicatesFromMarkdownTable: input ${tableRows.length} rows, output ${uniqueRows.length} rows`);
 
+  return result.trim();
+}
+
+/**
+ * Analyze role distribution in a markdown table
+ * @param {string} markdownTable - Markdown table string
+ * @returns {Object} Object with agentCount, clientCount, and total
+ */
+function analyzeRoleDistribution(markdownTable) {
+  if (!markdownTable) return { agentCount: 0, clientCount: 0, total: 0 };
+  
+  const tableLines = markdownTable.split('\n').filter(line => line.trim() && line.includes('|'));
+  let agentCount = 0;
+  let clientCount = 0;
+  
+  // Skip header and separator rows
+  for (let i = 2; i < tableLines.length; i++) {
+    const cells = tableLines[i].split('|').map(c => c.trim()).filter(c => c);
+    if (cells.length >= 2) {
+      const speaker = cells[1].toLowerCase();
+      if (speaker === 'agent') agentCount++;
+      else if (speaker === 'client') clientCount++;
+    }
+  }
+  
+  return { agentCount, clientCount, total: agentCount + clientCount };
+}
+
+/**
+ * Merge consecutive segments from the same speaker in a markdown table
+ * Ensures speakers alternate (Agent, Client, Agent, Client...)
+ * @param {string} markdownTable - Markdown table string
+ * @param {number} maxGapSeconds - Maximum gap between segments to merge (default: 2.0)
+ * @returns {string} Markdown table with merged consecutive segments and alternating speakers
+ */
+function mergeConsecutiveSpeakerSegmentsInMarkdown(markdownTable, maxGapSeconds = 2.0) {
+  if (!markdownTable) return markdownTable;
+  
+  const lines = markdownTable.split('\n');
+  const headerLines = [];
+  const dataRows = [];
+  let foundSeparator = false;
+  
+  // Parse markdown table
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    
+    if (!line || !line.includes('|')) {
+      continue;
+    }
+    
+    // Check if it's a separator row
+    if (line.match(/^\|[\s\-:]*\|$/)) {
+      if (!foundSeparator) {
+        headerLines.push(lines[i]);
+        foundSeparator = true;
+      }
+      continue;
+    }
+    
+    if (!foundSeparator) {
+      headerLines.push(lines[i]);
+    } else {
+      const cells = line.split('|').map(c => c.trim()).filter(c => c);
+      if (cells.length >= 5) {
+        // Expected: Segment ID | Speaker | Text | Start Time | End Time
+        const speaker = cells[1].trim();
+        // Normalize speaker name (Agent/Client)
+        const normalizedSpeaker = speaker.toLowerCase() === 'agent' ? 'Agent' : 
+                                 speaker.toLowerCase() === 'client' ? 'Client' : speaker;
+        
+        // CRITICAL: Filter out any speakers that are not Agent or Client
+        // This prevents SPEAKER_02, SPEAKER_03, etc. from appearing in the table
+        if (normalizedSpeaker !== 'Agent' && normalizedSpeaker !== 'Client') {
+          console.log(`⚠️ Filtering out segment with disallowed speaker: ${speaker} (normalized: ${normalizedSpeaker})`);
+          continue; // Skip this row
+        }
+        
+        dataRows.push({
+          segmentId: cells[0],
+          speaker: normalizedSpeaker,
+          text: cells[2],
+          startTime: parseFloat(cells[3]) || 0,
+          endTime: parseFloat(cells[4]) || 0,
+          originalLine: lines[i]
+        });
+      }
+    }
+  }
+  
+  if (dataRows.length === 0) {
+    return markdownTable;
+  }
+  
+  // Step 1: Merge consecutive segments from the same speaker
+  const mergedRows = [];
+  
+  for (let i = 0; i < dataRows.length; i++) {
+    const current = dataRows[i];
+    
+    if (mergedRows.length === 0) {
+      // First row
+      mergedRows.push({
+        ...current,
+        startTime: current.startTime,
+        endTime: current.endTime
+      });
+      continue;
+    }
+    
+    const last = mergedRows[mergedRows.length - 1];
+    const lastEnd = last.endTime;
+    const currentStart = current.startTime;
+    const gap = currentStart - lastEnd;
+    
+    // Check if we should merge: same speaker and gap is small or overlapping
+    if (last.speaker === current.speaker && gap <= maxGapSeconds) {
+      // Merge: extend end time and combine text
+      last.endTime = Math.max(last.endTime, current.endTime);
+      last.text = (last.text + ' ' + current.text).trim().replace(/\s+/g, ' ');
+      // Update start time to the earliest
+      last.startTime = Math.min(last.startTime, current.startTime);
+    } else {
+      // New segment
+      mergedRows.push({
+        ...current,
+        startTime: current.startTime,
+        endTime: current.endTime
+      });
+    }
+  }
+  
+  // Step 2: Ensure speakers alternate (Agent, Client, Agent, Client...)
+  // If we have consecutive segments from the same speaker, merge them
+  const alternatingRows = [];
+  let segmentId = 1;
+  
+  for (let i = 0; i < mergedRows.length; i++) {
+    const current = mergedRows[i];
+    
+    if (alternatingRows.length === 0) {
+      // First row
+      alternatingRows.push({
+        ...current,
+        segmentId: segmentId++
+      });
+      continue;
+    }
+    
+    const last = alternatingRows[alternatingRows.length - 1];
+    
+    // If same speaker as previous, merge them
+    if (last.speaker === current.speaker) {
+      // Merge: extend end time and combine text
+      last.endTime = Math.max(last.endTime, current.endTime);
+      last.text = (last.text + ' ' + current.text).trim().replace(/\s+/g, ' ');
+      // Update start time to the earliest
+      last.startTime = Math.min(last.startTime, current.startTime);
+    } else {
+      // Different speaker - add as new row
+      alternatingRows.push({
+        ...current,
+        segmentId: segmentId++
+      });
+    }
+  }
+  
+  // Reconstruct markdown table
+  let result = headerLines.join('\n') + '\n';
+  alternatingRows.forEach(row => {
+    result += `| ${row.segmentId} | ${row.speaker} | ${row.text} | ${row.startTime.toFixed(2)} | ${row.endTime.toFixed(2)} |\n`;
+  });
+  
+  if (alternatingRows.length !== dataRows.length) {
+    console.log(`🔗 Merged ${dataRows.length - alternatingRows.length} consecutive segments from same speaker in markdown table (ensured alternation)`);
+  }
+  
   return result.trim();
 }
 
@@ -8635,17 +10292,28 @@ async function correctPrimaryDiarizationWithTracks(primaryDiarization, voiceTrac
     }
     
     // Step 2: Send segments to LLM for speaker mixing fixes
+    // DISABLED FOR MODE3: New client-side approach (runDebugActionNew + testPostProcessing) handles this
+    // The old server-side LLM overlap correction is no longer needed for MODE3
     let llmCorrectedSegments = null;
-    try {
-      console.log(`${logPrefix} 📤 Sending ${segmentsForLLM.length} segments to LLM (voice tracks: ${voiceTracks.length})...`);
-      llmCorrectedSegments = await sendSegmentsToLLMForFixes(segmentsForLLM, {
-        mode: mode || 'smart',
-        language: language,
-        requestId: requestId,
-        sendUpdate: sendUpdate,
-        voiceTracks: voiceTracks, // Pass voice tracks for context
-        filename: filename // Pass filename for LLM cache
+    if (isMode3) {
+      console.log(`${logPrefix} ⏭️ MODE3: Skipping server-side LLM overlap correction (using new client-side approach instead)`);
+      sendUpdate(5, 'processing', `⏭️ MODE3: Пропуск серверної LLM корекції overlap (використовується новий клієнтський підхід)`, {
+        stage: 'skipping_llm_correction',
+        reason: 'New client-side approach handles overlap correction via runDebugActionNew + testPostProcessing'
       });
+      // Use programmatic merge result directly without LLM correction
+      llmCorrectedSegments = null;
+    } else {
+      try {
+        console.log(`${logPrefix} 📤 Sending ${segmentsForLLM.length} segments to LLM (voice tracks: ${voiceTracks.length})...`);
+        llmCorrectedSegments = await sendSegmentsToLLMForFixes(segmentsForLLM, {
+          mode: mode || 'smart',
+          language: language,
+          requestId: requestId,
+          sendUpdate: sendUpdate,
+          voiceTracks: voiceTracks, // Pass voice tracks for context
+          filename: filename // Pass filename for LLM cache
+        });
       
       console.log(`${logPrefix} 📥 LLM returned ${llmCorrectedSegments?.length || 0} segments`);
       
@@ -8748,14 +10416,15 @@ async function correctPrimaryDiarizationWithTracks(primaryDiarization, voiceTrac
       } else {
         console.warn(`${logPrefix} ⚠️ LLM returned empty or invalid segments, using programmatic result`);
       }
-    } catch (llmError) {
-      console.error(`${logPrefix} ⚠️ LLM fixes failed, continuing with programmatic result:`, llmError.message);
-      // Continue with programmatic result if LLM fails
-      if (sendUpdate) {
-        sendUpdate(5, 'warning', `⚠️ MODE3: LLM фікси не вдалося застосувати, використано програмний результат`, {
-          stage: 'llm_fixes_failed',
-          error: llmError.message
-        });
+      } catch (llmError) {
+        console.error(`${logPrefix} ⚠️ LLM fixes failed, continuing with programmatic result:`, llmError.message);
+        // Continue with programmatic result if LLM fails
+        if (sendUpdate) {
+          sendUpdate(5, 'warning', `⚠️ MODE3: LLM фікси не вдалося застосувати, використано програмний результат`, {
+            stage: 'llm_fixes_failed',
+            error: llmError.message
+          });
+        }
       }
     }
     
@@ -8945,9 +10614,10 @@ function adaptPromptForLanguage(template, languageDisplayName) {
 async function callGeminiMultimodal(audioPath, transcript, languageHint = 'ar') {
   try {
     // Load diarization prompt
-  const promptConfig = getPromptTemplateConfig(promptVariant);
-  const promptTemplate = await fs.readFile(promptConfig.templatePath, 'utf8');
-  const systemPrompt = (await fs.readFile('prompts/system_diarization.txt', 'utf8')).trim();
+    const promptVariant = 'default'; // Use default prompt variant for Gemini diarization
+    const promptConfig = getPromptTemplateConfig(promptVariant);
+    const promptTemplate = await fs.readFile(promptConfig.templatePath, 'utf8');
+    const systemPrompt = (await fs.readFile('prompts/system_diarization.txt', 'utf8')).trim();
     
     const languageDisplayName = getLanguageDisplayName(languageHint);
     const adaptedPromptTemplate = adaptPromptForLanguage(promptTemplate, languageDisplayName);
@@ -9014,7 +10684,10 @@ async function callGeminiMultimodal(audioPath, transcript, languageHint = 'ar') 
               parts: parts
             }],
             generationConfig: {
-              temperature: 0
+              temperature: 0,  // Minimum temperature for maximum determinism
+              topP: 0.95,      // Nucleus sampling - focus on most likely tokens
+              topK: 40,        // Limit to top K tokens for more deterministic output
+              maxOutputTokens: 8192  // Ensure enough tokens for full response
             }
           },
           {
@@ -9377,7 +11050,7 @@ Return ONLY the JSON array, no markdown code blocks, no explanations, no other t
       });
     }
 
-    console.log('🔄 Calling OpenRouter API...');
+    console.log('🔄 Calling OpenRouter API for markdown generation...');
     
     let response;
     try {
@@ -11923,8 +13596,9 @@ Include ALL text from input. Use voice track text when available.`;
     }
 
     // Increased timeout for reasoning models (especially gpt-oss-20b which may take longer)
-    const timeout = 300000; // 5 minutes (300 seconds) for all models
-    console.log(`⏱️  Using timeout: ${timeout / 1000}s (5 minutes) for ${useLocalLLM ? 'local' : 'OpenRouter'} LLM`);
+    // Для локальної моделі встановлюємо більший таймаут (30 хвилин), оскільки вона працює повільніше
+    const timeout = useLocalLLM ? 1800000 : 600000; // 30 хвилин для локальної, 10 хвилин для віддаленої
+    console.log(`⏱️  Using timeout: ${timeout / 1000 / 60} minutes (${timeout / 1000}s) for ${useLocalLLM ? 'local' : 'OpenRouter'} LLM`);
     
     const response = await axios.post(
       apiUrl,
@@ -12028,10 +13702,935 @@ Include ALL text from input. Use voice track text when available.`;
   }
 });
 
+// Clear LLM cache endpoint
+app.post('/api/clear-llm-cache', async (req, res) => {
+  try {
+    if (!llmCacheDir || !fsSync.existsSync(llmCacheDir)) {
+      return res.json({
+        success: true,
+        deletedCount: 0,
+        message: 'Cache directory does not exist'
+      });
+    }
+
+    // Read all files in cache directory
+    const files = fsSync.readdirSync(llmCacheDir);
+    const jsonFiles = files.filter(file => file.endsWith('.json'));
+    
+    let deletedCount = 0;
+    let errors = [];
+
+    // Delete each cache file
+    for (const file of jsonFiles) {
+      try {
+        const filePath = path.join(llmCacheDir, file);
+        fsSync.unlinkSync(filePath);
+        deletedCount++;
+      } catch (error) {
+        errors.push({ file, error: error.message });
+        console.error(`⚠️ Failed to delete cache file ${file}:`, error.message);
+      }
+    }
+
+    console.log(`🗑️ LLM cache cleared: ${deletedCount} files deleted`);
+
+    res.json({
+      success: true,
+      deletedCount,
+      totalFiles: jsonFiles.length,
+      errors: errors.length > 0 ? errors : undefined,
+      message: `Successfully cleared ${deletedCount} cache file(s)`
+    });
+  } catch (error) {
+    console.error('❌ Clear LLM cache error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to clear LLM cache',
+      details: error.message
+    });
+  }
+});
+
+// Save LLM cache endpoint (export cache as JSON file)
+app.post('/api/save-llm-cache', async (req, res) => {
+  try {
+    if (!llmCacheDir || !fsSync.existsSync(llmCacheDir)) {
+      return res.status(404).json({
+        success: false,
+        error: 'Cache directory does not exist'
+      });
+    }
+
+    // Read all files in cache directory
+    const files = fsSync.readdirSync(llmCacheDir);
+    const jsonFiles = files.filter(file => file.endsWith('.json'));
+    
+    const cacheData = {
+      exportedAt: new Date().toISOString(),
+      totalFiles: jsonFiles.length,
+      cacheDir: llmCacheDir,
+      files: []
+    };
+
+    // Read each cache file and add to export
+    for (const file of jsonFiles) {
+      try {
+        const filePath = path.join(llmCacheDir, file);
+        const fileContent = fsSync.readFileSync(filePath, 'utf8');
+        const parsed = JSON.parse(fileContent);
+        
+        cacheData.files.push({
+          filename: file,
+          cacheKey: file.replace('.json', ''),
+          data: parsed,
+          size: fileContent.length,
+          modified: fsSync.statSync(filePath).mtime.toISOString()
+        });
+      } catch (error) {
+        console.error(`⚠️ Failed to read cache file ${file}:`, error.message);
+        cacheData.files.push({
+          filename: file,
+          error: error.message
+        });
+      }
+    }
+
+    console.log(`💾 LLM cache export: ${cacheData.files.length} files exported`);
+
+    // Send as JSON file download
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="llm-cache-backup-${new Date().toISOString().split('T')[0]}.json"`);
+    res.json(cacheData);
+  } catch (error) {
+    console.error('❌ Save LLM cache error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to save LLM cache',
+      details: error.message
+    });
+  }
+});
+
+// Analyze text for highlighting (Blue/Green/Red) - receives payload with general, speaker1, speaker2, markdown
+app.post('/api/analyze-text', async (req, res) => {
+  try {
+    const payload = req.body;
+    
+    if (!payload) {
+      return res.status(400).json({ 
+        error: 'Payload is required',
+        Blue: [],
+        Green: [],
+        Red: []
+      });
+    }
+    
+    // Отримуємо режим з environment variable
+    const textAnalysisMode = process.env.TEXT_ANALYSIS_MODE || 'script';
+    const useLLM = textAnalysisMode === 'llm';
+    
+    // Перевіряємо, чи використовувати 3-tier систему з complexity routing
+    const useComplexityRouting = process.env.USE_COMPLEXITY_ROUTING === 'true';
+    
+    console.log('🔍 [/api/analyze-text] ============================================');
+    console.log('🔍 [/api/analyze-text] Text analysis request received');
+    console.log('🔍 [/api/analyze-text] Configuration:', {
+      useLLM: useLLM,
+      textAnalysisMode: textAnalysisMode,
+      useComplexityRouting: useComplexityRouting,
+      processEnvTEXT_ANALYSIS_MODE: process.env.TEXT_ANALYSIS_MODE,
+      processEnvUSE_COMPLEXITY_ROUTING: process.env.USE_COMPLEXITY_ROUTING,
+      willUseLLM: useLLM
+    });
+    console.log('🔍 [/api/analyze-text] Payload structure:', {
+      hasMarkdown: !!payload.markdown,
+      markdownLength: payload.markdown?.length || 0,
+      markdownType: typeof payload.markdown,
+      hasGeneral: !!payload.general,
+      hasSpeaker1: !!payload.speaker1,
+      hasSpeaker2: !!payload.speaker2,
+      generalSegmentsCount: payload.general?.segments?.length || payload.general?.speechmatics?.segments?.length || 0,
+      speaker1SegmentsCount: payload.speaker1?.segments?.length || payload.speaker1?.speechmatics?.segments?.length || 0,
+      speaker2SegmentsCount: payload.speaker2?.segments?.length || payload.speaker2?.speechmatics?.segments?.length || 0
+    });
+    console.log('🔍 [/api/analyze-text] ============================================');
+    
+    let analysisResult;
+    
+    // Використовуємо HybridAnalyzer, якщо увімкнено complexity routing
+    if (useComplexityRouting && useLLM) {
+      try {
+        const HybridAnalyzer = require('./lib/hybrid-analyzer');
+        
+        console.log('🎯 [/api/analyze-text] Using 3-tier Hybrid Analyzer with complexity routing...');
+        
+        // Визначаємо режим LLM з payload або використовуємо smart за замовчуванням
+        const requestedMode = payload.mode || 'smart';
+        const useLocalLLM = requestedMode === 'local' || requestedMode === 'test' || requestedMode === 'test2';
+        const llmModel = getModelId(requestedMode);
+        const apiUrl = useLocalLLM 
+          ? `${LOCAL_LLM_BASE_URL}/v1/chat/completions`
+          : 'https://openrouter.ai/api/v1/chat/completions';
+        const apiKey = useLocalLLM ? LOCAL_LLM_API_KEY : process.env.OPENROUTER_API_KEY;
+        
+        // Визначаємо провайдера для classifier (за замовчуванням ollama, але можна lmstudio)
+        const classifierProvider = process.env.CLASSIFIER_PROVIDER || 'ollama';
+        const classifierBaseURL = classifierProvider === 'ollama' 
+          ? (process.env.OLLAMA_BASE_URL || 'http://localhost:11434')
+          : (process.env.LM_STUDIO_BASE_URL || 'http://127.0.0.1:3001');
+        const classifierModel = process.env.CLASSIFIER_MODEL || (classifierProvider === 'ollama' ? 'phi:3.5' : 'microsoft/phi-3.5-mini-instruct');
+        
+        const analyzer = new HybridAnalyzer({
+          enableLLM: true,
+          useComplexityRouting: true,
+          provider: classifierProvider,
+          llmModel: llmModel,
+          apiUrl: apiUrl,
+          apiKey: apiKey,
+          useLocalLLM: useLocalLLM,
+          mode: requestedMode,
+          baseURL: classifierBaseURL,
+          classifier: {
+            provider: classifierProvider,
+            baseURL: classifierBaseURL,
+            model: classifierModel,
+            timeout: parseInt(process.env.CLASSIFIER_TIMEOUT || '5000')
+          },
+          simpleThreshold: parseFloat(process.env.SIMPLE_THRESHOLD || '0.9'),
+          mediumThreshold: parseFloat(process.env.MEDIUM_THRESHOLD || '0.6')
+        });
+        
+        console.log('🎯 [/api/analyze-text] Hybrid Analyzer configuration:', {
+          useComplexityRouting: true,
+          classifierProvider: classifierProvider,
+          classifierModel: classifierModel,
+          classifierBaseURL: classifierBaseURL,
+          llmModel: llmModel,
+          apiUrl: apiUrl,
+          useLocalLLM: useLocalLLM
+        });
+        
+        analysisResult = await analyzer.analyze(payload);
+        
+        console.log('✅ [/api/analyze-text] Hybrid Analyzer completed:', {
+          blueCount: analysisResult.Blue?.length || 0,
+          greenCount: analysisResult.Green?.length || 0,
+          redCount: analysisResult.Red?.length || 0,
+          hasBlue: !!analysisResult.Blue,
+          hasGreen: !!analysisResult.Green,
+          hasRed: !!analysisResult.Red
+        });
+      } catch (hybridError) {
+        console.error('❌ [/api/analyze-text] Hybrid Analyzer failed:', hybridError.message);
+        console.error('❌ [/api/analyze-text] Error details:', hybridError);
+        // Fallback до стандартного режиму
+        throw hybridError;
+      }
+    } else if (useLLM) {
+      // Стандартний 2-tier режим (без complexity routing)
+      try {
+        console.log('🤖 [/api/analyze-text] ============================================');
+        console.log('🤖 [/api/analyze-text] Using LLM mode for text analysis (2-tier)...');
+        
+        // Визначаємо режим LLM з payload або використовуємо smart за замовчуванням
+        const requestedMode = payload.mode || 'smart';
+        const useLocalLLM = requestedMode === 'local' || requestedMode === 'test' || requestedMode === 'test2';
+        const llmModel = getModelId(requestedMode);
+        const apiUrl = useLocalLLM 
+          ? `${LOCAL_LLM_BASE_URL}/v1/chat/completions`
+          : 'https://openrouter.ai/api/v1/chat/completions';
+        const apiKey = useLocalLLM ? LOCAL_LLM_API_KEY : process.env.OPENROUTER_API_KEY;
+        
+        console.log('🤖 [/api/analyze-text] LLM configuration:', {
+          llmModel: llmModel,
+          apiUrl: apiUrl,
+          useLocalLLM: useLocalLLM,
+          mode: requestedMode,
+          hasApiKey: !!apiKey
+        });
+        
+        if (!apiKey && !useLocalLLM) {
+          throw new Error('OPENROUTER_API_KEY is not configured');
+        }
+        
+        console.log('🤖 [/api/analyze-text] Calling analyzeTextWithLLM...');
+        analysisResult = await textAnalysis.analyzeTextWithLLM(
+          payload,
+          llmModel,
+          apiUrl,
+          apiKey,
+          useLocalLLM,
+          requestedMode
+        );
+        
+        console.log('✅ [/api/analyze-text] LLM analysis completed:', {
+          blueCount: analysisResult.Blue?.length || 0,
+          greenCount: analysisResult.Green?.length || 0,
+          redCount: analysisResult.Red?.length || 0,
+          hasBlue: !!analysisResult.Blue,
+          hasGreen: !!analysisResult.Green,
+          hasRed: !!analysisResult.Red
+        });
+        console.log('🤖 [/api/analyze-text] ============================================');
+      } catch (llmError) {
+        console.error('❌ [/api/analyze-text] ============================================');
+        console.error('❌ [/api/analyze-text] LLM analysis failed:', llmError.message);
+        console.error('❌ [/api/analyze-text] Error details:', llmError);
+        console.error('❌ [/api/analyze-text] Stack:', llmError.stack);
+        console.error('❌ [/api/analyze-text] ============================================');
+        
+        // НЕ використовуємо fallback до script режиму, якщо користувач явно вибрав LLM режим
+        // Повертаємо помилку, щоб користувач знав, що LLM не спрацював
+        throw new Error(`LLM analysis failed: ${llmError.message}. Please check LLM configuration and try again.`);
+      }
+    } else {
+      console.log('📝 [/api/analyze-text] Using script mode for text analysis');
+      analysisResult = textAnalysis.analyzeText(payload);
+    }
+    
+    console.log('📤 [/api/analyze-text] Sending response:', {
+      blueCount: analysisResult.Blue?.length || 0,
+      greenCount: analysisResult.Green?.length || 0,
+      redCount: analysisResult.Red?.length || 0,
+      hasError: !!analysisResult.error
+    });
+    
+    res.json(analysisResult);
+    
+  } catch (error) {
+    console.error('❌ [/api/analyze-text] ============================================');
+    console.error('❌ [/api/analyze-text] Fatal error:', error.message);
+    console.error('❌ [/api/analyze-text] Error details:', error);
+    console.error('❌ [/api/analyze-text] Stack:', error.stack);
+    console.error('❌ [/api/analyze-text] ============================================');
+    
+    res.status(500).json({
+      error: 'Text analysis failed',
+      details: error.message,
+      Blue: [],
+      Green: [],
+      Red: []
+    });
+  }
+});
+
 // Apply markdown fixes with LLM - receives JSON transcripts from Agent and Client
+// Multi-step LLM processing for markdown fixes (optimized for local models)
+// Helper function to normalize text and extract words (ignore punctuation)
+function normalizeTextToWords(text) {
+  if (!text) return [];
+  return text.toLowerCase()
+    .replace(/[^\w\s]/g, ' ')  // Replace punctuation with spaces
+    .replace(/\s+/g, ' ')      // Normalize whitespace
+    .trim()
+    .split(/\s+/)
+    .filter(w => w.length > 0); // Filter out empty strings
+}
+
+// Function to calculate word-level match with ground truth
+function calculateWordLevelMatch(diarizationText, groundTruthText) {
+  if (!diarizationText || !groundTruthText) {
+    return null;
+  }
+
+  try {
+    // Extract all words from ground truth (normalized, no punctuation)
+    const gtWords = normalizeTextToWords(groundTruthText);
+    const totalGtWords = gtWords.length;
+    
+    if (totalGtWords === 0) {
+      return {
+        matchPercent: 0,
+        matchedWords: 0,
+        unmatchedWords: 0,
+        totalWords: 0,
+        extraWords: 0
+      };
+    }
+
+    // Extract all words from diarization result (normalized, no punctuation)
+    const diarizationWords = normalizeTextToWords(diarizationText);
+    
+    // Count word matches (case-insensitive, ignoring punctuation)
+    const gtWordCounts = {};
+    gtWords.forEach(word => {
+      gtWordCounts[word] = (gtWordCounts[word] || 0) + 1;
+    });
+    
+    const diarizationWordCounts = {};
+    diarizationWords.forEach(word => {
+      diarizationWordCounts[word] = (diarizationWordCounts[word] || 0) + 1;
+    });
+    
+    // Count matched words (words that appear in both)
+    let matchedWords = 0;
+    Object.keys(gtWordCounts).forEach(word => {
+      const gtCount = gtWordCounts[word];
+      const diarizationCount = diarizationWordCounts[word] || 0;
+      matchedWords += Math.min(gtCount, diarizationCount);
+    });
+    
+    // Count unmatched words (words in GT but not in diarization)
+    const unmatchedWords = totalGtWords - matchedWords;
+    
+    // Count extra words (words in diarization but not in GT)
+    let extraWords = 0;
+    Object.keys(diarizationWordCounts).forEach(word => {
+      if (!gtWordCounts[word]) {
+        extraWords += diarizationWordCounts[word];
+      }
+    });
+    
+    // Calculate match percentage
+    const matchPercent = totalGtWords > 0 ? (matchedWords / totalGtWords) * 100 : 0;
+
+    return {
+      matchPercent: Math.round(matchPercent * 10) / 10,
+      matchedWords: matchedWords,
+      unmatchedWords: unmatchedWords,
+      totalWords: totalGtWords,
+      extraWords: extraWords,
+      diarizationWordCount: diarizationWords.length
+    };
+  } catch (error) {
+    console.error('Error calculating word-level match:', error);
+    return null;
+  }
+}
+
+// Function to extract all text from diarization segments
+function extractAllTextFromSegments(segments) {
+  if (!Array.isArray(segments) || segments.length === 0) {
+    return '';
+  }
+  
+  return segments
+    .map(seg => (seg.text || '').trim())
+    .filter(text => text.length > 0)
+    .join(' ');
+}
+
+// Function to calculate ground truth match metrics (word-level comparison)
+function calculateGroundTruthMatch(markdownTable, groundTruthText, primaryDiarization = null) {
+  if (!markdownTable || !groundTruthText) {
+    return null;
+  }
+
+  try {
+    // Extract all text from ground truth
+    const gtLines = groundTruthText.split('\n').filter(line => line.trim());
+    const gtText = gtLines
+      .map(line => {
+        const match = line.match(/^(?:Speaker\s+)?(?:\d+|Agent|Client)[:\s]+(.+)$/i);
+        return match ? match[1].trim() : '';
+      })
+      .filter(text => text.length > 0)
+      .join(' ');
+
+    // Extract all text from NextLevel markdown table
+    // IMPORTANT: This is the LLM-processed result, NOT the original Speechmatics
+    const tableLines = markdownTable.split('\n').filter(line => line.trim() && line.includes('|'));
+    const nextLevelText = [];
+    
+    // Skip header and separator rows (usually first 2 lines)
+    let headerSkipped = 0;
+    for (let i = 0; i < tableLines.length; i++) {
+      const line = tableLines[i].trim();
+      // Skip header row (contains "Segment ID", "Speaker", "Text", etc.)
+      if (line.toLowerCase().includes('segment') || line.toLowerCase().includes('speaker') || line.toLowerCase().includes('text')) {
+        headerSkipped++;
+        continue;
+      }
+      // Skip separator row (contains only dashes and pipes)
+      if (line.match(/^[\|\s\-:]+$/)) {
+        headerSkipped++;
+        continue;
+      }
+      
+      // Process data rows
+      const cells = line.split('|').map(c => c.trim()).filter(c => c);
+      // Typically: Segment ID | Speaker | Text | Start Time | End Time
+      // Text is usually in column 2 (index 2)
+      if (cells.length >= 3 && cells[2]) {
+        const text = cells[2].trim();
+        if (text && text.length > 0) {
+          nextLevelText.push(text);
+        }
+      }
+    }
+    const nextLevelFullText = nextLevelText.join(' ');
+    console.log(`[calculateGroundTruthMatch] NextLevel (LLM-PROCESSED) segments: ${nextLevelText.length}, text length: ${nextLevelFullText.length}`);
+    console.log(`[calculateGroundTruthMatch] NextLevel text preview: ${nextLevelFullText.substring(0, 200)}...`);
+    console.log(`[calculateGroundTruthMatch] Markdown table lines: ${tableLines.length}, header rows skipped: ${headerSkipped}`);
+
+    // Calculate word-level match for NextLevel
+    const nextLevelMatch = calculateWordLevelMatch(nextLevelFullText, gtText);
+
+    // Calculate word-level match for Speechmatics (if available)
+    // IMPORTANT: Extract ONLY from original Speechmatics segments, NOT from overlap-corrected
+    let speechmaticsMatch = null;
+    if (primaryDiarization) {
+      // Extract ONLY from speechmatics results, not from overlap-corrected
+      let speechmaticsSegments = [];
+      const recording = primaryDiarization?.recordings?.[0];
+      if (recording?.results?.speechmatics?.segments) {
+        speechmaticsSegments = recording.results.speechmatics.segments;
+      } else if (primaryDiarization?.speechmatics?.segments) {
+        speechmaticsSegments = primaryDiarization.speechmatics.segments;
+      } else if (Array.isArray(primaryDiarization.segments)) {
+        // Fallback: if segments are at top level, use them
+        speechmaticsSegments = primaryDiarization.segments;
+      }
+      
+      if (speechmaticsSegments && speechmaticsSegments.length > 0) {
+        const speechmaticsText = extractAllTextFromSegments(speechmaticsSegments);
+        console.log(`[calculateGroundTruthMatch] Speechmatics (ORIGINAL) segments: ${speechmaticsSegments.length}, text length: ${speechmaticsText.length}`);
+        console.log(`[calculateGroundTruthMatch] Speechmatics text preview: ${speechmaticsText.substring(0, 100)}...`);
+        speechmaticsMatch = calculateWordLevelMatch(speechmaticsText, gtText);
+      } else {
+        console.log(`[calculateGroundTruthMatch] No Speechmatics segments found in primaryDiarization`);
+      }
+    } else {
+      console.log(`[calculateGroundTruthMatch] primaryDiarization is null`);
+    }
+
+    const comparison = speechmaticsMatch ? {
+      nextLevelBetter: (nextLevelMatch?.matchPercent || 0) > (speechmaticsMatch?.matchPercent || 0),
+      improvement: (nextLevelMatch?.matchPercent || 0) - (speechmaticsMatch?.matchPercent || 0),
+      nextLevelPercent: nextLevelMatch?.matchPercent || 0,
+      speechmaticsPercent: speechmaticsMatch?.matchPercent || 0
+    } : null;
+    
+    // Log comparison results
+    if (comparison) {
+      const status = comparison.nextLevelBetter ? '✅ BETTER' : '❌ WORSE';
+      console.log(`[calculateGroundTruthMatch] Comparison: NextLevel is ${status}`);
+      console.log(`[calculateGroundTruthMatch]   NextLevel: ${comparison.nextLevelPercent}%`);
+      console.log(`[calculateGroundTruthMatch]   Speechmatics: ${comparison.speechmaticsPercent}%`);
+      console.log(`[calculateGroundTruthMatch]   Improvement: ${comparison.improvement > 0 ? '+' : ''}${comparison.improvement.toFixed(1)}%`);
+      
+      if (!comparison.nextLevelBetter) {
+        console.warn(`[calculateGroundTruthMatch] ⚠️ WARNING: NextLevel is WORSE than Speechmatics!`);
+        console.warn(`[calculateGroundTruthMatch]   This should not happen - NextLevel should always be better.`);
+        console.warn(`[calculateGroundTruthMatch]   NextLevel text length: ${nextLevelFullText.length}`);
+        console.warn(`[calculateGroundTruthMatch]   Speechmatics text length: ${speechmaticsMatch ? 'N/A' : 'N/A'}`);
+      }
+    }
+    
+    return {
+      nextLevel: nextLevelMatch,
+      speechmatics: speechmaticsMatch,
+      comparison: comparison
+    };
+  } catch (error) {
+    console.error('Error calculating ground truth match:', error);
+    return null;
+  }
+}
+
+async function processMarkdownFixesMultiStep(promptContext, mode = 'smart', recordingId = null, isAutoTest = false) {
+  const useLocalLLM = mode === 'local' || mode === 'test' || mode === 'test2';
+  const model = getModelId(mode);
+  const apiUrl = useLocalLLM 
+    ? `${LOCAL_LLM_BASE_URL}/v1/chat/completions`
+    : 'https://openrouter.ai/api/v1/chat/completions';
+  
+  const headers = {
+    'Content-Type': 'application/json'
+  };
+  
+  if (useLocalLLM) {
+    if (LOCAL_LLM_API_KEY) {
+      headers['Authorization'] = `Bearer ${LOCAL_LLM_API_KEY}`;
+    }
+  } else {
+    headers['Authorization'] = `Bearer ${process.env.OPENROUTER_API_KEY}`;
+    headers['HTTP-Referer'] = process.env.APP_URL || 'http://localhost:3000';
+    headers['X-Title'] = 'Apply Markdown Fixes';
+  }
+
+  const timeout = useLocalLLM ? 1800000 : 600000;
+  
+  // Helper function to call LLM with a prompt
+  async function callLLMStep(stepNumber, stepName, promptTemplate, replacements, outputFormat = 'json') {
+    let prompt = promptTemplate;
+    Object.entries(replacements).forEach(([token, value]) => {
+      const safeValue = value && value.trim().length > 0 ? value : '[empty]';
+      prompt = prompt.replace(new RegExp(token, 'g'), safeValue);
+    });
+
+    // Log input for this step
+    console.log(`\n${'='.repeat(80)}`);
+    console.log(`📥 STEP ${stepNumber}: ${stepName} - INPUT`);
+    console.log(`${'='.repeat(80)}`);
+    console.log(`📋 Prompt template length: ${promptTemplate.length} chars`);
+    console.log(`📋 Final prompt length: ${prompt.length} chars`);
+    console.log(`📋 Replacements used:`);
+    Object.entries(replacements).forEach(([token, value]) => {
+      const valueLength = value ? value.length : 0;
+      const preview = value && value.length > 0 ? value.substring(0, 100).replace(/\n/g, ' ') : '[empty]';
+      console.log(`   ${token}: ${valueLength} chars - "${preview}${valueLength > 100 ? '...' : ''}"`);
+    });
+    console.log(`\n📝 Full prompt (first 500 chars):`);
+    console.log(prompt.substring(0, 500) + (prompt.length > 500 ? '...' : ''));
+
+    const payload = {
+      model: model,
+      messages: [
+        {
+          role: 'system',
+          content: `You are a helpful assistant. Follow instructions carefully and return ${outputFormat === 'json' ? 'valid JSON' : 'a Markdown table'}.`
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      temperature: 0
+    };
+
+    if (shouldUseHighReasoningEffort(mode, model) && !useLocalLLM) {
+      payload.reasoning = { effort: 'high' };
+    }
+
+    console.log(`\n🔄 Step ${stepNumber}: Calling LLM (${model})...`);
+    const startTime = Date.now();
+    
+    let response;
+    try {
+      response = await axios.post(apiUrl, payload, { headers, timeout });
+    } catch (error) {
+      console.error(`\n❌ STEP ${stepNumber}: ${stepName} - LLM REQUEST FAILED`);
+      console.error(`Error: ${error.message}`);
+      if (error.response) {
+        console.error(`Status: ${error.response.status}`);
+        console.error(`Response: ${JSON.stringify(error.response.data).substring(0, 500)}`);
+      }
+      throw error;
+    }
+    
+    const duration = Date.now() - startTime;
+    const message = response.data.choices[0]?.message || {};
+    const llmOutput = message.content || message.reasoning || '';
+    
+    // Log output for this step
+    console.log(`\n${'='.repeat(80)}`);
+    console.log(`📤 STEP ${stepNumber}: ${stepName} - OUTPUT`);
+    console.log(`${'='.repeat(80)}`);
+    console.log(`⏱️  Duration: ${duration}ms (${(duration / 1000).toFixed(2)}s)`);
+    console.log(`📏 Output length: ${llmOutput.length} chars`);
+    console.log(`📋 Output preview (first 500 chars):`);
+    console.log(llmOutput.substring(0, 500) + (llmOutput.length > 500 ? '...' : ''));
+    if (outputFormat === 'json') {
+      try {
+        const jsonMatch = llmOutput.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          console.log(`✅ Valid JSON detected: ${Array.isArray(parsed) ? parsed.length : 'N/A'} items`);
+        }
+      } catch (e) {
+        console.warn(`⚠️  JSON parsing failed: ${e.message}`);
+      }
+    }
+    console.log(`\n📝 Full output:`);
+    console.log(llmOutput);
+    console.log(`${'='.repeat(80)}\n`);
+    
+    return llmOutput;
+  }
+
+  try {
+    // Step 1: Validate replicas
+    console.log('\n🚀 Starting multi-step markdown fixes processing...');
+    console.log(`📊 Mode: ${mode}, Model: ${model}, UseLocalLLM: ${useLocalLLM}`);
+    console.log(`📊 Recording ID: ${recordingId || 'N/A'}`);
+    
+    let step1Template = '';
+    try {
+      step1Template = await fs.readFile('prompts/step1_validate_replicas.txt', 'utf8');
+    } catch (error) {
+      console.warn('⚠️ Step 1 template not found:', error.message);
+    }
+    if (!step1Template) {
+      throw new Error('Step 1 prompt template not found');
+    }
+    
+    const step1Replacements = {
+      '{{GENERAL_DIALOGUE}}': promptContext.generalDialog || '[empty]',
+      '{{STANDARD_SPEAKER0_DIALOGUE}}': promptContext.speaker0Dialog || '[empty]',
+      '{{STANDARD_SPEAKER1_DIALOGUE}}': promptContext.speaker1Dialog || '[empty]',
+      '{{AGENT_DIALOGUE}}': promptContext.agentDialog || '[empty]',
+      '{{CLIENT_DIALOGUE}}': promptContext.clientDialog || '[empty]',
+      '{{SEGMENT_TIMESTAMPS}}': promptContext.segmentTimestampsText || '[empty]'
+    };
+    
+    const step1Output = await callLLMStep(1, 'Validate Replicas', step1Template, step1Replacements, 'json');
+    let validatedReplicas = [];
+    try {
+      const jsonMatch = step1Output.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        validatedReplicas = JSON.parse(jsonMatch[0]);
+      }
+    } catch (e) {
+      console.warn('⚠️ Step 1: Failed to parse JSON, using all replicas');
+    }
+
+    // Step 2: Assign roles
+    let step2Template = '';
+    try {
+      step2Template = await fs.readFile('prompts/step2_assign_roles.txt', 'utf8');
+    } catch (error) {
+      console.warn('⚠️ Step 2 template not found:', error.message);
+    }
+    if (!step2Template) {
+      throw new Error('Step 2 prompt template not found');
+    }
+    
+    const step2Replacements = {
+      '{{VALIDATED_REPLICAS}}': JSON.stringify(validatedReplicas, null, 2),
+      '{{ROLE_GUIDANCE}}': promptContext.roleGuidanceText || '[empty]'
+    };
+    
+    const step2Output = await callLLMStep(2, 'Assign Roles', step2Template, step2Replacements, 'json');
+    let roledReplicas = [];
+    try {
+      const jsonMatch = step2Output.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        roledReplicas = JSON.parse(jsonMatch[0]);
+      }
+    } catch (e) {
+      console.warn('⚠️ Step 2: Failed to parse JSON, using validated replicas');
+      roledReplicas = validatedReplicas;
+    }
+
+    // Step 3: Remove wrong speaker replicas and duplicates
+    let step3Template = '';
+    try {
+      step3Template = await fs.readFile('prompts/step3_remove_duplicates.txt', 'utf8');
+    } catch (error) {
+      console.warn('⚠️ Step 3 template not found:', error.message);
+    }
+    if (!step3Template) {
+      throw new Error('Step 3 prompt template not found');
+    }
+    
+    const step3Replacements = {
+      '{{ROLED_REPLICAS}}': JSON.stringify(roledReplicas, null, 2),
+      '{{GENERAL_DIALOGUE}}': promptContext.generalDialog || '[empty]',
+      '{{STANDARD_SPEAKER0_DIALOGUE}}': promptContext.speaker0Dialog || '[empty]',
+      '{{STANDARD_SPEAKER1_DIALOGUE}}': promptContext.speaker1Dialog || '[empty]',
+      '{{ROLE_GUIDANCE}}': promptContext.roleGuidanceText || '[empty]'
+    };
+    
+    const step3Output = await callLLMStep(3, 'Remove Wrong Speaker Replicas', step3Template, step3Replacements, 'json');
+    let cleanedReplicas = [];
+    try {
+      const jsonMatch = step3Output.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        cleanedReplicas = JSON.parse(jsonMatch[0]);
+      }
+    } catch (e) {
+      console.warn('⚠️ Step 3: Failed to parse JSON, using roled replicas');
+      cleanedReplicas = roledReplicas;
+    }
+
+    // Step 4: Format table
+    let step4Template = '';
+    try {
+      step4Template = await fs.readFile('prompts/step4_format_table.txt', 'utf8');
+    } catch (error) {
+      console.warn('⚠️ Step 4 template not found:', error.message);
+    }
+    if (!step4Template) {
+      throw new Error('Step 4 prompt template not found');
+    }
+    
+    const step4Replacements = {
+      '{{CLEANED_REPLICAS}}': JSON.stringify(cleanedReplicas, null, 2)
+    };
+    
+    let markdownTable = await callLLMStep(4, 'Format Table', step4Template, step4Replacements, 'markdown');
+    
+    // Step 5: Verify result
+    let step5Template = '';
+    try {
+      step5Template = await fs.readFile('prompts/step5_verify_result.txt', 'utf8');
+    } catch (error) {
+      console.warn('⚠️ Step 5 template not found (optional step):', error.message);
+    }
+    
+    if (step5Template) {
+      const step5Replacements = {
+        '{{GENERAL_DIALOGUE}}': promptContext.generalDialog || '[empty]',
+        '{{STANDARD_SPEAKER0_DIALOGUE}}': promptContext.speaker0Dialog || '[empty]',
+        '{{STANDARD_SPEAKER1_DIALOGUE}}': promptContext.speaker1Dialog || '[empty]',
+        '{{AGENT_DIALOGUE}}': promptContext.agentDialog || '[empty]',
+        '{{CLIENT_DIALOGUE}}': promptContext.clientDialog || '[empty]',
+        '{{ROLE_GUIDANCE}}': promptContext.roleGuidanceText || '[empty]',
+        '{{GENERATED_TABLE}}': markdownTable
+      };
+      
+      const verifiedTable = await callLLMStep(5, 'Verify Result', step5Template, step5Replacements, 'markdown');
+      if (verifiedTable && verifiedTable.trim().length > 0) {
+        console.log(`\n✅ Step 5: Verification completed. Table updated.`);
+        markdownTable = verifiedTable;
+      } else {
+        console.log(`\n⚠️  Step 5: Verification returned empty, keeping Step 4 result.`);
+      }
+    } else {
+      console.log(`\n⏭️  Step 5: Skipped (template not found)`);
+    }
+    
+    // Optional Step 6: analyze discrepancies or calculate diff metrics
+    let groundTruthMetrics = null;
+    if (promptContext.groundTruthText) {
+      if (isAutoTest) {
+        // Auto-test mode: analyze discrepancies and provide recommendations
+        let step6Template = '';
+        try {
+          step6Template = await fs.readFile('prompts/step6_ground_truth_alignment.txt', 'utf8');
+        } catch (error) {
+          console.warn('⚠️ Step 6 template not found (ground truth analysis skipped):', error.message);
+        }
+        
+        if (step6Template) {
+          const step6Replacements = {
+            '{{GROUND_TRUTH_DIALOGUE}}': promptContext.groundTruthText || '[empty]',
+            '{{ROLE_GUIDANCE}}': promptContext.roleGuidanceText || '[empty]',
+            '{{GENERATED_TABLE}}': markdownTable || '[empty]',
+            '{{SEGMENT_TIMESTAMPS}}': promptContext.segmentTimestampsText || '[empty]'
+          };
+          
+          const analysisOutput = await callLLMStep(6, 'Ground Truth Analysis', step6Template, step6Replacements, 'json');
+          
+          // Parse analysis output
+          try {
+            const jsonMatch = analysisOutput.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              const analysis = JSON.parse(jsonMatch[0]);
+              
+              console.log(`\n${'='.repeat(80)}`);
+              console.log(`📊 STEP 6: GROUND TRUTH ANALYSIS RESULTS`);
+              console.log(`${'='.repeat(80)}`);
+              console.log(`📋 Summary: ${analysis.summary || 'N/A'}`);
+              console.log(`📋 Affected Steps: ${(analysis.affectedSteps || []).join(', ') || 'None'}`);
+              console.log(`📋 Discrepancies found: ${(analysis.discrepancies || []).length}`);
+              
+              if (analysis.recommendations) {
+                console.log(`\n💡 RECOMMENDATIONS:`);
+                Object.entries(analysis.recommendations).forEach(([step, rec]) => {
+                  if (rec && rec.trim()) {
+                    console.log(`   Step ${step}: ${rec}`);
+                  }
+                });
+              }
+              
+              if (analysis.discrepancies && analysis.discrepancies.length > 0) {
+                console.log(`\n🔍 DISCREPANCIES:`);
+                analysis.discrepancies.slice(0, 10).forEach((disc, idx) => {
+                  console.log(`   ${idx + 1}. [${disc.type}] ${disc.description}`);
+                  console.log(`      Expected: ${disc.groundTruth}`);
+                  console.log(`      Got: ${disc.generated}`);
+                  console.log(`      Step ${disc.affectedStep}: ${disc.recommendation || 'N/A'}`);
+                });
+                if (analysis.discrepancies.length > 10) {
+                  console.log(`   ... and ${analysis.discrepancies.length - 10} more`);
+                }
+              }
+              console.log(`${'='.repeat(80)}\n`);
+            }
+          } catch (parseError) {
+            console.warn('⚠️ Step 6: Failed to parse analysis JSON:', parseError.message);
+            console.log('Raw output:', analysisOutput.substring(0, 500));
+          }
+          
+          // Don't modify markdownTable in auto-test mode
+          console.log(`\n✅ Step 6: Ground truth analysis completed (markdown table unchanged)`);
+          
+          // Also calculate metrics for information (even in auto-test mode)
+          groundTruthMetrics = calculateGroundTruthMatch(
+            markdownTable, 
+            promptContext.groundTruthText,
+            promptContext.primaryDiarization || null
+          );
+          if (groundTruthMetrics) {
+            console.log(`\n📊 WORD-LEVEL METRICS (for reference):`);
+            if (groundTruthMetrics.nextLevel) {
+              console.log(`   NextLevel: ${groundTruthMetrics.nextLevel.matchPercent}% (matched: ${groundTruthMetrics.nextLevel.matchedWords}/${groundTruthMetrics.nextLevel.totalWords}, unmatched: ${groundTruthMetrics.nextLevel.unmatchedWords}, extra: ${groundTruthMetrics.nextLevel.extraWords})`);
+            }
+            if (groundTruthMetrics.speechmatics) {
+              console.log(`   Speechmatics: ${groundTruthMetrics.speechmatics.matchPercent}% (matched: ${groundTruthMetrics.speechmatics.matchedWords}/${groundTruthMetrics.speechmatics.totalWords}, unmatched: ${groundTruthMetrics.speechmatics.unmatchedWords}, extra: ${groundTruthMetrics.speechmatics.extraWords})`);
+            }
+            if (groundTruthMetrics.comparison) {
+              const improvement = groundTruthMetrics.comparison.improvement;
+              const status = groundTruthMetrics.comparison.nextLevelBetter ? '✅ BETTER' : '❌ WORSE';
+              console.log(`   Comparison: NextLevel is ${status} by ${Math.abs(improvement).toFixed(1)}%`);
+            }
+          }
+        }
+      } else {
+        // Production mode: calculate diff metrics only
+        // Pass primaryDiarization for Speechmatics comparison
+        groundTruthMetrics = calculateGroundTruthMatch(
+          markdownTable, 
+          promptContext.groundTruthText,
+          promptContext.primaryDiarization || null
+        );
+        
+        if (groundTruthMetrics) {
+          console.log(`\n${'='.repeat(80)}`);
+          console.log(`📊 STEP 6: GROUND TRUTH METRICS (WORD-LEVEL)`);
+          console.log(`${'='.repeat(80)}`);
+          if (groundTruthMetrics.nextLevel) {
+            console.log(`📈 NextLevel Match: ${groundTruthMetrics.nextLevel.matchPercent}%`);
+            console.log(`   Matched words: ${groundTruthMetrics.nextLevel.matchedWords}/${groundTruthMetrics.nextLevel.totalWords}`);
+            console.log(`   Unmatched words: ${groundTruthMetrics.nextLevel.unmatchedWords}`);
+            console.log(`   Extra words: ${groundTruthMetrics.nextLevel.extraWords}`);
+          }
+          if (groundTruthMetrics.speechmatics) {
+            console.log(`📈 Speechmatics Match: ${groundTruthMetrics.speechmatics.matchPercent}%`);
+            console.log(`   Matched words: ${groundTruthMetrics.speechmatics.matchedWords}/${groundTruthMetrics.speechmatics.totalWords}`);
+            console.log(`   Unmatched words: ${groundTruthMetrics.speechmatics.unmatchedWords}`);
+            console.log(`   Extra words: ${groundTruthMetrics.speechmatics.extraWords}`);
+          }
+          if (groundTruthMetrics.comparison) {
+            const improvement = groundTruthMetrics.comparison.improvement;
+            const status = groundTruthMetrics.comparison.nextLevelBetter ? '✅ BETTER' : '❌ WORSE';
+            console.log(`📊 Comparison: NextLevel is ${status} by ${Math.abs(improvement).toFixed(1)}%`);
+          }
+          console.log(`${'='.repeat(80)}\n`);
+        }
+      }
+    }
+
+    console.log(`\n${'='.repeat(80)}`);
+    console.log(`✅ MULTI-STEP PROCESSING COMPLETED`);
+    console.log(`${'='.repeat(80)}`);
+    console.log(`📊 Final markdown table length: ${markdownTable.length} chars`);
+    console.log(`📊 Final markdown preview (first 300 chars):`);
+    console.log(markdownTable.substring(0, 300) + (markdownTable.length > 300 ? '...' : ''));
+    if (groundTruthMetrics && groundTruthMetrics.nextLevel) {
+      console.log(`📊 Ground Truth Match (NextLevel): ${groundTruthMetrics.nextLevel.matchPercent}%`);
+      if (groundTruthMetrics.speechmatics) {
+        console.log(`📊 Ground Truth Match (Speechmatics): ${groundTruthMetrics.speechmatics.matchPercent}%`);
+      }
+    }
+    console.log(`${'='.repeat(80)}\n`);
+
+    // Return both markdown and metrics
+    return {
+      markdownTable,
+      groundTruthMetrics
+    };
+  } catch (error) {
+    console.error('❌ Multi-step processing error:', error);
+    throw error;
+  }
+}
+
 app.post('/api/apply-markdown-fixes', async (req, res) => {
   try {
-    const { agentTranscript, clientTranscript, mode = 'smart', recordingId } = req.body;
+    const { agentTranscript, clientTranscript, mode = 'smart', recordingId, useMultiStep = false } = req.body;
 
     if (!agentTranscript || !clientTranscript) {
       return res.status(400).json({ 
@@ -12058,44 +14657,33 @@ app.post('/api/apply-markdown-fixes', async (req, res) => {
     });
 
     // Select model based on mode (same as apply-overlap-fixes)
-    let model;
+    // Use getModelId() to always get current model from process.env (for cache key accuracy)
+    let model = getModelId(mode);
     let useLocalLLM = false;
     
-    if (mode === 'local') {
+    if (mode === 'local' || mode === 'test' || mode === 'test2') {
       useLocalLLM = true;
-      model = LOCAL_LLM_MODEL;
       console.log(`🔵 Using local LLM: ${LOCAL_LLM_BASE_URL}, model: ${model}`);
       } else {
       if (!process.env.OPENROUTER_API_KEY) {
         return res.status(500).json({ error: 'OpenRouter API key is not configured' });
       }
-      
-      if (mode === 'fast') {
-        model = FAST_MODEL_ID;
-      } else if (mode === 'smart-2') {
-        model = SMART_2_MODEL_ID;
-      } else if (mode === 'test') {
-        model = TEST_MODEL_ID;
-      } else {
-        model = SMART_MODEL_ID;
-      }
       console.log(`🔵 Using OpenRouter model: ${model}`);
     }
 
-    // Prepare JSON transcripts for LLM
-    // Convert to JSON strings for prompt (with formatting for readability)
-    const agentTranscriptJSON = JSON.stringify(agentTranscript, null, 2);
-    const clientTranscriptJSON = JSON.stringify(clientTranscript, null, 2);
-    
-    // Calculate total segments count
-    const totalSegmentsCount = agentSegments.length + clientSegments.length;
+    const promptContext = buildDialoguePromptContext({
+      primaryDiarization: req.body.primaryDiarization || null,
+      agentTranscript,
+      clientTranscript,
+      voiceTracks: Array.isArray(req.body.voiceTracks) ? req.body.voiceTracks : [],
+      speaker0SegmentsOverride: Array.isArray(req.body.standardSpeaker0Segments) ? req.body.standardSpeaker0Segments : null,
+      speaker1SegmentsOverride: Array.isArray(req.body.standardSpeaker1Segments) ? req.body.standardSpeaker1Segments : null,
+      groundTruthText: req.body.groundTruthText || null
+    });
     
     console.log('📋 Preparing transcripts for LLM:', {
       agentSegments: agentSegments.length,
-      clientSegments: clientSegments.length,
-      totalSegments: totalSegmentsCount,
-      agentJSONLength: agentTranscriptJSON.length,
-      clientJSONLength: clientTranscriptJSON.length
+      clientSegments: clientSegments.length
     });
     
     // Load prompt template from file
@@ -12105,69 +14693,218 @@ app.post('/api/apply-markdown-fixes', async (req, res) => {
     } catch (error) {
       console.warn('⚠️ Failed to load overlap_fixes_markdown_prompt.txt, using fallback prompt');
       // Fallback to hardcoded prompt if file not found
-      promptTemplate = `You are an expert in dialogue transcription and speaker diarization analysis.
+      promptTemplate = `You are the **NextLevel diarization controller**. You receive already-extracted dialogues (plain text, one replica per line) instead of raw JSON. Your goal is to fuse Standard diarization evidence with separated voice-track transcripts, detect the real speaker roles, and output a **clean, deduplicated Markdown table** with STRICT alternation between Agent and Client.
 
-Your task is to analyze two JSON transcripts (Agent and Client) and create a corrected, deduplicated Markdown table.
+## ABSOLUTE TRUTH POLICY
+Only the provided dialogues are trustworthy. Every sentence in the final table **must appear verbatim** in at least one dialogue block below. If a sentence is absent from **all** blocks, you MUST discard it as hallucination.
 
-CRITICAL RULES:
-1. **NO DUPLICATES**: Never create duplicate segments with identical or nearly identical text and timestamps.
-2. **AGENT/CLIENT IDENTIFICATION**: Determine which speaker is Agent and which is Client based on conversational context.
-3. **REMOVE EMPTY WORDS**: Remove empty or meaningless words/phrases (e.g., "uh", "um", "ah", excessive filler words).
-4. **USE TIMESTAMPS**: Extract start and end times from the segments in the JSON transcripts.
-5. **CHRONOLOGICAL ORDER**: Sort all segments by start time in ascending order.
+## DATA BLOCKS YOU RECEIVE
 
-INPUT DATA:
+1. **Combined Standard Diarization (General)**
+\`\`\`
+{{GENERAL_DIALOGUE}}
+\`\`\`
 
-**AGENT TRANSCRIPT (JSON):**
-{{AGENT_TRANSCRIPT}}
+2. **Standard Speaker 0 Dialogue (raw Speechmatics speaker track)**
+\`\`\`
+{{STANDARD_SPEAKER0_DIALOGUE}}
+\`\`\`
 
-**CLIENT TRANSCRIPT (JSON):**
-{{CLIENT_TRANSCRIPT}}
+3. **Standard Speaker 1 Dialogue (raw Speechmatics speaker track)**
+\`\`\`
+{{STANDARD_SPEAKER1_DIALOGUE}}
+\`\`\`
 
-**TOTAL SEGMENTS:** {{SEGMENT_COUNT}}
+4. **Separated Voice Track – Agent Candidate**
+\`\`\`
+{{AGENT_DIALOGUE}}
+\`\`\`
 
-OUTPUT: Return a Markdown table with the following columns:
-- **Segment ID** (sequential number starting from 1)
-- **Speaker** (Agent or Client - determine from context)
-- **Text** (corrected text, remove empty words)
-- **Start Time** (start time in seconds, format: X.XX)
-- **End Time** (end time in seconds, format: X.XX)
+5. **Separated Voice Track – Client Candidate**
+\`\`\`
+{{CLIENT_DIALOGUE}}
+\`\`\`
 
-Example table format:
+6. **Role & Context Guidance (output of the classifier / debug checks)**
+\`\`\`
+{{ROLE_GUIDANCE}}
+\`\`\`
+
+Each dialogue is already normalized into plain text lines like \`SPEAKER_00 (operator): text\`. Treat every line as a possible segment. Start/end timestamps for each line are also provided in the metadata block below:
+\`\`\`
+{{SEGMENT_TIMESTAMPS}}
+\`\`\`
+\`SEGMENT_TIMESTAMPS\` maps dialogue lines to their numeric \`start\`/\`end\` (seconds). Always copy these exact numbers into the final table.
+
+## CRITICAL TASKS
+1. **Role Detection**
+   - Use \`ROLE_GUIDANCE\`, conversational intent, and speaker labels to decide who is Agent vs Client.
+   - **CRITICAL**: ROLE_GUIDANCE contains \`speakerRoleMap\` which shows the exact mapping. For example, if \`speakerRoleMap\` shows \`{"SPEAKER_00": "agent", "SPEAKER_01": "client"}\`, this means ALL segments from SPEAKER_00 must be Agent, and ALL segments from SPEAKER_01 must be Client.
+   - **CRITICAL**: The voice tracks (Agent/Client candidate dialogues) contain the MAIN and MOST COMPLETE replicas for each speaker. These are the primary source - use them as the authoritative text for each role.
+   - **CRITICAL**: You MUST output only TWO roles: "Agent" and "Client". Never use "SPEAKER_00", "SPEAKER_01", "SPEAKER_02" or any other speaker labels in the final table.
+   - After generating the table, verify: are there segments from BOTH roles? If all segments have the same role, check ROLE_GUIDANCE and reassign roles correctly.
+   - If metadata contradicts the dialogue meaning, trust the meaning plus guidance.
+
+2. **Replica Validation**
+   - **PRIORITY**: Use replicas from voice-track dialogues (Agent/Client candidate) as they contain the most complete and accurate text without truncation.
+   - Keep a replica ONLY if it exists in at least one dialogue block.
+   - Prefer the voice-track (Agent/Client candidate) versions - they have the most complete replicas without truncation.
+   - If a replica appears in multiple blocks, keep the version from the voice-track that matches the intended role.
+   - If text is found only in Standard Speaker 0/1 but matches the other participant, reassign it correctly based on ROLE_GUIDANCE.
+
+3. **Duplicate & Overlap Control**
+   - Remove exact or near-duplicate sentences that describe the same moment twice.
+   - If a line appears once as Agent and once as Client, decide who truly said it; keep only that one.
+   - Merge overlapping lines from the same real speaker: earliest start, latest end, concatenated text (chronological order).
+
+4. **Strict Alternation**
+   - Final table must alternate Agent → Client → Agent → Client.
+   - Temporary double Agent/Client is allowed only if both lines undoubtedly belong to the same speaker. Try to resolve by reassignment before accepting a double turn.
+
+5. **No Hallucinations**
+   - Sentences absent from every dialogue block are forbidden. Discard them even if they appeared in the original markdown.
+   - If \`ROLE_GUIDANCE\` lists phrases flagged as “not in any source”, ensure they **never** reach the final table.
+
+6. **Timestamp Fidelity**
+   - Every row needs \`Start Time\` and \`End Time\` taken from \`SEGMENT_TIMESTAMPS\`.
+   - If you merged multiple lines, use the min start / max end for that merged row.
+
+## OUTPUT FORMAT
+Return ONLY a Markdown table:
 | Segment ID | Speaker | Text | Start Time | End Time |
 |------------|---------|------|------------|----------|
-| 1 | Agent | Hello, how can I help you? | 0.64 | 2.15 |
-| 2 | Client | Hi, I need help | 2.30 | 3.45 |
+| 1 | Agent | … | 0.64 | 2.15 |
 
-Return ONLY the Markdown table, no additional text or explanations.`;
+Where:
+- \`Segment ID\` starts at 1.
+- \`Speaker\` is either **Agent** or **Client** (NEVER use "SPEAKER_00", "SPEAKER_01", "SPEAKER_02", or any other speaker labels).
+- \`Text\` is verbatim (no paraphrasing, keep fillers). Prefer text from voice-track dialogues as they are most complete.
+- \`Start/End Time\` use numeric seconds with 2 decimal precision (e.g., \`3.45\`). Use timestamps from SEGMENT_TIMESTAMPS that match the selected text.
+
+## QUALITY CHECKLIST (do this mentally before outputting)
+1. Every row comes from the supplied dialogues.
+2. Duplicates removed; overlaps merged.
+3. Roles validated against \`ROLE_GUIDANCE\` - ensure both Agent and Client segments are present.
+4. Alternation Agent/Client preserved.
+5. No stray text or commentary outside the Markdown table.
+6. **VERIFY ROLE DISTRIBUTION**: Check that the table contains segments from BOTH Agent and Client. If all segments have the same role, you MUST review ROLE_GUIDANCE and correct the assignments.
+
+If any requirement cannot be satisfied, adjust the rows (reassign, merge, drop) until compliance is achieved. Only then output the final table.`;
     }
     
-    // Replace placeholders in template
-    const prompt = promptTemplate
-      .replace(/\{\{AGENT_TRANSCRIPT\}\}/g, agentTranscriptJSON)
-      .replace(/\{\{CLIENT_TRANSCRIPT\}\}/g, clientTranscriptJSON)
-      .replace(/\{\{SEGMENT_COUNT\}\}/g, totalSegmentsCount.toString());
+    const replacements = {
+      '{{GENERAL_DIALOGUE}}': promptContext.generalDialog,
+      '{{STANDARD_SPEAKER0_DIALOGUE}}': promptContext.speaker0Dialog,
+      '{{STANDARD_SPEAKER1_DIALOGUE}}': promptContext.speaker1Dialog,
+      '{{AGENT_DIALOGUE}}': promptContext.agentDialog,
+      '{{CLIENT_DIALOGUE}}': promptContext.clientDialog,
+      '{{ROLE_GUIDANCE}}': promptContext.roleGuidanceText,
+      '{{SEGMENT_TIMESTAMPS}}': promptContext.segmentTimestampsText
+    };
+
+    let prompt = promptTemplate;
+    Object.entries(replacements).forEach(([token, value]) => {
+      const safeValue = value && value.trim().length > 0 ? value : '[empty]';
+      prompt = prompt.replace(new RegExp(token, 'g'), safeValue);
+    });
+
+    // Decide whether to use multi-step processing
+    // Use multi-step for local models or if explicitly requested
+    const shouldUseMultiStep = useMultiStep || useLocalLLM || process.env.USE_MULTI_STEP_MARKDOWN === 'true';
+    
+    if (shouldUseMultiStep) {
+      console.log('🔄 Using multi-step processing for markdown fixes');
+      try {
+        // Detect if this is an auto-test (curl/script) vs frontend request
+        const userAgent = req.headers['user-agent'] || '';
+        const isAutoTest = userAgent.includes('curl') || userAgent.includes('node') || req.body.isAutoTest === true;
+        
+        const result = await processMarkdownFixesMultiStep(promptContext, mode, recordingId, isAutoTest);
+        
+        let markdownTable = null;
+        let groundTruthMetrics = null;
+        
+        if (result) {
+          if (typeof result === 'string') {
+            // Backward compatibility: if string is returned, use it as markdownTable
+            markdownTable = result;
+          } else if (result.markdownTable) {
+            markdownTable = result.markdownTable;
+            groundTruthMetrics = result.groundTruthMetrics || null;
+          }
+        }
+        
+        // Merge consecutive segments from the same speaker
+        if (markdownTable) {
+          markdownTable = mergeConsecutiveSpeakerSegmentsInMarkdown(markdownTable, 2.0);
+        }
+        
+        return res.json({
+          success: true,
+          markdown: markdownTable,
+          groundTruthMetrics: groundTruthMetrics,
+          cached: false,
+          multiStep: true
+        });
+      } catch (error) {
+        console.error('❌ Multi-step processing failed, falling back to single-step:', error.message);
+        // Fall through to single-step processing
+      }
+    }
 
     // Build cache key for markdown fixes
+    // Include DEMO_LLM_MODE to ensure cache is invalidated when demo mode changes
+    const demoLlmMode = process.env.DEMO_LLM_MODE || 'smart';
     const cacheKey = buildLLMCacheKey(
       recordingId || 'demo',
       prompt,
       model,
       mode,
-      'markdown-fixes'
+      'markdown-fixes',
+      demoLlmMode
     );
     
     // Check cache first
     let cachedResult = null;
     if (cacheKey) {
       cachedResult = readLLMCache(cacheKey);
-      if (cachedResult && cachedResult.markdown) {
-        console.log('✅ Using cached markdown table result');
+      if (cachedResult && cachedResult.rawMarkdown) {
+        console.log('✅ Using cached raw markdown from LLM');
+        // Merge consecutive segments from the same speaker
+        const mergedMarkdown = mergeConsecutiveSpeakerSegmentsInMarkdown(cachedResult.rawMarkdown, 2.0);
         return res.json({
           success: true,
-          markdown: cachedResult.markdown,
+          markdown: mergedMarkdown,
           cached: true
         });
+      }
+    }
+    
+    // Якщо локальний режим і кеш не знайдено, спробувати знайти кеш для моделі fast
+    if (!cachedResult && useLocalLLM) {
+      const fastModelId = getModelId('fast');
+      const fastCacheKey = buildLLMCacheKey(
+        recordingId || 'demo',
+        prompt,
+        fastModelId,
+        'fast',
+        'markdown-fixes',
+        demoLlmMode
+      );
+      
+      if (fastCacheKey) {
+        const fastCachedResult = readLLMCache(fastCacheKey);
+        if (fastCachedResult && fastCachedResult.rawMarkdown) {
+          console.log('✅ Using cached raw markdown from fast model for local mode');
+          // Merge consecutive segments from the same speaker
+          const mergedMarkdown = mergeConsecutiveSpeakerSegmentsInMarkdown(fastCachedResult.rawMarkdown, 2.0);
+          return res.json({
+            success: true,
+            markdown: mergedMarkdown,
+            cached: true,
+            sourceModel: 'fast'
+          });
+        }
       }
     }
 
@@ -12221,8 +14958,9 @@ Return ONLY the Markdown table, no additional text or explanations.`;
     }
 
     // Increased timeout for reasoning models (especially gpt-oss-20b which may take longer)
-    const timeout = 300000; // 5 minutes (300 seconds) for all models
-    console.log(`⏱️  Using timeout: ${timeout / 1000}s (5 minutes) for ${useLocalLLM ? 'local' : 'OpenRouter'} LLM`);
+    // Для локальної моделі встановлюємо більший таймаут (30 хвилин), оскільки вона працює повільніше
+    const timeout = useLocalLLM ? 1800000 : 600000; // 30 хвилин для локальної, 10 хвилин для віддаленої
+    console.log(`⏱️  Using timeout: ${timeout / 1000 / 60} minutes (${timeout / 1000}s) for ${useLocalLLM ? 'local' : 'OpenRouter'} LLM`);
     
     const response = await axios.post(
       apiUrl,
@@ -12297,29 +15035,30 @@ Return ONLY the Markdown table, no additional text or explanations.`;
     }
 
     // Extract markdown table from response
-    let markdown = llmOutput.trim();
+    // Зберігаємо чистий markdown від LLM для кешування
+    let rawMarkdownFromLLM = llmOutput.trim();
     
     console.log('📋 Raw LLM output length:', llmOutput.length);
     console.log('📋 Raw LLM output first 500 chars:', llmOutput.substring(0, 500));
     console.log('📋 Raw LLM output last 500 chars:', llmOutput.substring(Math.max(0, llmOutput.length - 500)));
     
     // Try to extract table if wrapped in code blocks
-    const codeBlockMatch = markdown.match(/```(?:markdown)?\s*([\s\S]*?)\s*```/);
+    const codeBlockMatch = rawMarkdownFromLLM.match(/```(?:markdown)?\s*([\s\S]*?)\s*```/);
     if (codeBlockMatch) {
       console.log('📋 Found code block, extracting...');
-      markdown = codeBlockMatch[1].trim();
-      console.log('📋 Extracted from code block, length:', markdown.length);
+      rawMarkdownFromLLM = codeBlockMatch[1].trim();
+      console.log('📋 Extracted from code block, length:', rawMarkdownFromLLM.length);
     }
 
-    console.log('📋 Markdown after processing, length:', markdown.length);
-    console.log('📋 Markdown first 500 chars:', markdown.substring(0, 500));
-    console.log('📋 Markdown last 500 chars:', markdown.substring(Math.max(0, markdown.length - 500)));
+    console.log('📋 Markdown after code block extraction, length:', rawMarkdownFromLLM.length);
+    console.log('📋 Markdown first 500 chars:', rawMarkdownFromLLM.substring(0, 500));
+    console.log('📋 Markdown last 500 chars:', rawMarkdownFromLLM.substring(Math.max(0, rawMarkdownFromLLM.length - 500)));
 
     // Validate that we have a markdown table
-    if (!markdown.includes('|') || !markdown.includes('---')) {
+    if (!rawMarkdownFromLLM.includes('|') || !rawMarkdownFromLLM.includes('---')) {
       console.warn('⚠️ LLM response does not appear to be a Markdown table');
       // Try to find any table-like structure
-      if (markdown.includes('|')) {
+      if (rawMarkdownFromLLM.includes('|')) {
         // At least has some table structure, continue
         console.log('✅ Found some table structure, continuing...');
       } else {
@@ -12327,14 +15066,18 @@ Return ONLY the Markdown table, no additional text or explanations.`;
         console.error('❌ No markdown table structure found in LLM response');
         return res.status(500).json({
           error: 'LLM did not return a valid Markdown table',
-          details: 'The model response does not contain a markdown table. Response preview: ' + markdown.substring(0, 200),
-          responsePreview: markdown.substring(0, 500)
+          details: 'The model response does not contain a markdown table. Response preview: ' + rawMarkdownFromLLM.substring(0, 200),
+          responsePreview: rawMarkdownFromLLM.substring(0, 500)
         });
       }
     }
 
     // Use markdown directly from LLM - no programmatic processing
-    let cleanedMarkdown = markdown;
+    // Це буде оброблено валідацією далі, але для кешу зберігаємо чистий markdown
+    // Remove filler words from markdown table
+    let cleanedMarkdown = removeFillerWordsFromMarkdownTable(rawMarkdownFromLLM);
+    // Merge consecutive segments from the same speaker
+    cleanedMarkdown = mergeConsecutiveSpeakerSegmentsInMarkdown(cleanedMarkdown, 2.0);
     
     console.log('📋 First LLM response, length:', cleanedMarkdown.length);
     console.log('📋 First LLM response first 500 chars:', cleanedMarkdown.substring(0, 500));
@@ -12475,10 +15218,12 @@ Return ONLY the Markdown table, no additional text or explanations.`;
     console.log('📋 Final markdown last 500 chars:', cleanedMarkdown.substring(Math.max(0, cleanedMarkdown.length - 500)));
     console.log('📋 Final markdown line count:', cleanedMarkdown.split('\n').length);
 
-    // Save to cache
-    if (cacheKey && cleanedMarkdown) {
+    // Save to cache - зберігаємо чистий markdown від LLM (до валідації)
+    // rawMarkdownFromLLM - це чистий markdown після витягнення з code blocks, але до валідації
+    
+    if (cacheKey && rawMarkdownFromLLM) {
       writeLLMCache(cacheKey, {
-        markdown: cleanedMarkdown,
+        rawMarkdown: rawMarkdownFromLLM, // Чистий markdown від LLM (після витягнення з code blocks, але до валідації)
         agentSegmentsCount: agentSegments.length,
         clientSegmentsCount: clientSegments.length,
         totalSegmentsCount: totalSegmentsCount,
@@ -12512,6 +15257,417 @@ Return ONLY the Markdown table, no additional text or explanations.`;
       error: 'Failed to apply markdown fixes',
       message: error.message,
       details: error.response?.data || error.stack
+    });
+  }
+});
+
+// Debug LLM query endpoint for testing speaker role identification
+app.post('/api/debug-llm-query', async (req, res) => {
+  try {
+    const { prompt } = req.body;
+    
+    if (!prompt) {
+      return res.status(400).json({
+        success: false,
+        error: 'Prompt is required'
+      });
+    }
+
+    // Визначаємо режим LLM на основі змінних оточення (та сама логіка, що в інших endpoints)
+    // Перевіряємо DEMO_LLM_MODE або DEMO_LOCAL_LLM_MODE для визначення локального/хмарного режиму
+    const demoMode = process.env.DEMO_LLM_MODE || process.env.DEMO_LOCAL_LLM_MODE;
+    const useLocalLLM = demoMode === 'local' || demoMode === 'test' || demoMode === 'test2';
+    
+    // Якщо не встановлено через DEMO_*, перевіряємо USE_LOCAL_LLM
+    const finalUseLocalLLM = useLocalLLM || process.env.USE_LOCAL_LLM === 'true';
+    
+    // Визначаємо модель (та сама логіка, що в інших endpoints)
+    const mode = demoMode || 'smart'; // За замовчуванням 'smart'
+    const model = getModelId(mode);
+    
+    // Перевіряємо кеш перед відправкою на LLM
+    let cacheKey = null;
+    if (LLM_CACHE_ENABLED) {
+      // Для debug-llm-query використовуємо 'debug' як filename та 'debug-query' як promptVariant
+      cacheKey = buildLLMCacheKey('debug', prompt, model, mode, 'debug-query');
+      if (cacheKey) {
+        console.log('🔍 [DEBUG LLM] Checking cache:', { cacheKey, model, mode });
+        const cachedResponse = readLLMCache(cacheKey);
+        if (cachedResponse && cachedResponse.llmOutput) {
+          console.log('✅ [DEBUG LLM] Using cached response:', { cacheKey });
+          return res.json({
+            success: true,
+            result: cachedResponse.llmOutput,
+            cached: true
+          });
+        } else {
+          console.log('📝 [DEBUG LLM] Cache miss:', { cacheKey });
+        }
+      } else {
+        console.warn('⚠️ [DEBUG LLM] Failed to build cache key');
+      }
+    }
+    
+    // Визначаємо URL API (та сама логіка, що в інших endpoints)
+    const apiUrl = finalUseLocalLLM 
+      ? `${LOCAL_LLM_BASE_URL}/v1/chat/completions`
+      : 'https://openrouter.ai/api/v1/chat/completions';
+    
+    // Детальне логування для діагностики
+    console.log('🔍 [DEBUG LLM] Configuration check:', {
+      DEMO_LLM_MODE: process.env.DEMO_LLM_MODE,
+      DEMO_LOCAL_LLM_MODE: process.env.DEMO_LOCAL_LLM_MODE,
+      USE_LOCAL_LLM: process.env.USE_LOCAL_LLM,
+      demoMode: demoMode,
+      useLocalLLM: useLocalLLM,
+      finalUseLocalLLM: finalUseLocalLLM,
+      mode: mode,
+      model: model,
+      apiUrl: apiUrl,
+      LOCAL_LLM_BASE_URL: LOCAL_LLM_BASE_URL,
+      hasLocalApiKey: !!LOCAL_LLM_API_KEY,
+      hasOpenRouterApiKey: !!process.env.OPENROUTER_API_KEY,
+      cacheKey: cacheKey
+    });
+    
+    // Формуємо headers (та сама логіка, що в інших endpoints)
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+    
+    if (finalUseLocalLLM) {
+      if (LOCAL_LLM_API_KEY) {
+        headers['Authorization'] = `Bearer ${LOCAL_LLM_API_KEY}`;
+      }
+      console.log('🔍 [DEBUG LLM] Using LOCAL LLM:', { 
+        model, 
+        apiUrl, 
+        baseUrl: LOCAL_LLM_BASE_URL,
+        hasApiKey: !!LOCAL_LLM_API_KEY
+      });
+    } else {
+      if (!process.env.OPENROUTER_API_KEY) {
+        throw new Error('OPENROUTER_API_KEY is not configured');
+      }
+      headers['Authorization'] = `Bearer ${process.env.OPENROUTER_API_KEY}`;
+      headers['HTTP-Referer'] = process.env.APP_URL || 'http://localhost:3000';
+      headers['X-Title'] = 'Debug LLM Query';
+      console.log('🔍 [DEBUG LLM] Using OPENROUTER:', { 
+        model, 
+        apiUrl,
+        hasApiKey: !!process.env.OPENROUTER_API_KEY
+      });
+    }
+    
+    const payload = {
+      model: model,
+      messages: [
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      temperature: 0
+    };
+    
+    // Add reasoning effort if needed (та сама логіка, що в інших endpoints)
+    if (shouldUseHighReasoningEffort(mode, model)) {
+      if (finalUseLocalLLM) {
+        console.log('🔧 [DEBUG LLM] Local LLM mode: reasoning_effort disabled (configure in LM Studio UI)');
+      } else {
+        payload.reasoning = { effort: 'high' };
+        console.log('🔧 [DEBUG LLM] Using reasoning effort: high for', mode, 'mode (model:', model + ')');
+      }
+    }
+    
+    console.log('🔍 [DEBUG LLM] Sending query to LLM:', { 
+      model, 
+      useLocalLLM: finalUseLocalLLM, 
+      mode,
+      apiUrl,
+      promptLength: prompt.length 
+    });
+    
+    const axios = require('axios');
+    const timeout = finalUseLocalLLM ? 1800000 : 60000; // 30 хв для локальної, 1 хв для віддаленої
+    
+    const response = await axios.post(apiUrl, payload, { headers, timeout });
+    
+    if (response.data && response.data.choices && response.data.choices.length > 0) {
+      const result = response.data.choices[0].message.content.trim();
+      console.log('✅ [DEBUG LLM] Response received:', result.substring(0, 100) + '...');
+      
+      // Зберігаємо результат в кеш
+      if (LLM_CACHE_ENABLED && cacheKey) {
+        writeLLMCache(cacheKey, {
+          llmOutput: result,
+          model: model,
+          mode: mode,
+          promptVariant: 'debug-query',
+          timestamp: new Date().toISOString()
+        });
+        console.log('💾 [DEBUG LLM] Response saved to cache:', { cacheKey });
+      }
+      
+      return res.json({
+        success: true,
+        result: result,
+        cached: false
+      });
+    } else {
+      console.error('❌ [DEBUG LLM] Invalid response format:', JSON.stringify(response.data, null, 2));
+      throw new Error('Invalid response format from LLM');
+    }
+  } catch (error) {
+    console.error('❌ [DEBUG LLM] Error:', error.message);
+    if (error.response) {
+      console.error('❌ [DEBUG LLM] Response status:', error.response.status);
+      console.error('❌ [DEBUG LLM] Response data:', error.response.data);
+    }
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ============================================================================
+// Parameter Optimization API
+// ============================================================================
+
+const optimizer = new ParameterOptimizer();
+
+// Почати нову сесію оптимізації
+app.post('/api/optimization/start', (req, res) => {
+  try {
+    const { audioFile } = req.body;
+    const session = optimizer.startNewSession(audioFile);
+    
+    res.json({
+      success: true,
+      sessionId: session.sessionId,
+      config: session.config,
+      iteration: session.iteration
+    });
+  } catch (error) {
+    console.error('❌ [OPTIMIZATION] Error starting session:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Отримати поточну конфігурацію для тестування
+app.get('/api/optimization/current', (req, res) => {
+  try {
+    const current = optimizer.getCurrentConfig();
+    
+    if (!current) {
+      return res.json({
+        success: false,
+        message: 'No active session. Start a new session first.',
+        action: 'start'
+      });
+    }
+    
+    res.json({
+      success: true,
+      ...current
+    });
+  } catch (error) {
+    console.error('❌ [OPTIMIZATION] Error getting current config:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Відправити фідбек (краще/гірше)
+app.post('/api/optimization/feedback', async (req, res) => {
+  try {
+    // Визначаємо режим LLM: з запиту, або з env змінних, або за замовчуванням
+    const defaultMode = process.env.DEMO_LLM_MODE || process.env.DEMO_LOCAL_LLM_MODE || 'smart';
+    const { feedback, notes, useLLM = true, llmMode = defaultMode } = req.body;
+    
+    if (!feedback || !['better', 'worse', 'same'].includes(feedback)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid feedback. Must be "better", "worse", or "same"'
+      });
+    }
+    
+    let result;
+    
+    if (useLLM) {
+      // Налаштування LLM - використовуємо ТУ САМУ логіку, що для діаризації
+      const useLocalLLM = llmMode === 'local' || llmMode === 'test' || llmMode === 'test2';
+      const llmModel = getModelId(llmMode); // Отримуємо модель з env змінних
+      
+      // Використовуємо ті самі константи та функції, що для діаризації
+      const llmApiUrl = useLocalLLM 
+        ? `${LOCAL_LLM_BASE_URL}/v1/chat/completions`
+        : 'https://openrouter.ai/api/v1/chat/completions';
+      
+      // Використовуємо ті самі функції для заголовків
+      const llmHeaders = useLocalLLM 
+        ? getLocalLLMHeaders()
+        : getOpenRouterHeaders('Parameter Optimization');
+      
+      const llmApiKey = useLocalLLM 
+        ? LOCAL_LLM_API_KEY
+        : process.env.OPENROUTER_API_KEY;
+      
+      console.log('🤖 [OPTIMIZATION] LLM Configuration (same as diarization):', {
+        mode: llmMode,
+        model: llmModel,
+        apiUrl: llmApiUrl,
+        useLocalLLM: useLocalLLM,
+        hasApiKey: !!llmApiKey,
+        defaultModeFromEnv: defaultMode,
+        envDEMO_LLM_MODE: process.env.DEMO_LLM_MODE,
+        envDEMO_LOCAL_LLM_MODE: process.env.DEMO_LOCAL_LLM_MODE,
+        envLOCAL_LLM_BASE_URL: LOCAL_LLM_BASE_URL,
+        envLOCAL_LLM_MODEL: LOCAL_LLM_MODEL,
+        headers: Object.keys(llmHeaders)
+      });
+      
+      if (!llmApiKey && !useLocalLLM) {
+        console.warn('⚠️ [OPTIMIZATION] LLM API key not found, falling back to hill climbing');
+        result = await optimizer.processFeedback(feedback, notes || '', false);
+      } else {
+        try {
+          console.log('🤖 [OPTIMIZATION] Calling LLM for parameter generation...');
+          // Передаємо заголовки замість API ключа окремо
+          result = await optimizer.processFeedback(
+            feedback, 
+            notes || '', 
+            true, 
+            llmApiKey, 
+            llmApiUrl, 
+            llmModel,
+            llmHeaders,  // Передаємо готові заголовки
+            useLocalLLM  // Передаємо флаг локальної LLM
+          );
+          console.log('✅ [OPTIMIZATION] LLM generation completed successfully');
+        } catch (llmError) {
+          console.error('❌ [OPTIMIZATION] LLM generation error:', llmError.message);
+          if (llmError.response) {
+            console.error('❌ [OPTIMIZATION] API Error Response:', {
+              status: llmError.response.status,
+              statusText: llmError.response.statusText,
+              data: llmError.response.data
+            });
+          }
+          console.error('❌ [OPTIMIZATION] Stack:', llmError.stack);
+          // Fallback до hill climbing при помилці LLM
+          console.log('🔄 [OPTIMIZATION] Falling back to hill climbing due to LLM error');
+          result = await optimizer.processFeedback(feedback, notes || '', false);
+        }
+      }
+    } else {
+      result = await optimizer.processFeedback(feedback, notes || '', false);
+    }
+    
+    res.json({
+      success: true,
+      nextConfig: result.nextConfig,
+      iteration: result.iteration,
+      bestConfig: result.bestConfig,
+      recentHistory: result.history,
+      usedLLM: useLLM,
+      message: feedback === 'better' 
+        ? '✅ Відмінно! Генерую покращену конфігурацію...' 
+        : feedback === 'same'
+        ? '⚖️ Зрозуміло. Роблю мікро-налаштування для пошуку кращого варіанту...'
+        : '🔄 Розумію. Спробую інші параметри...'
+    });
+  } catch (error) {
+    console.error('❌ [OPTIMIZATION] Error processing feedback:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Отримати статистику оптимізації
+app.get('/api/optimization/stats', (req, res) => {
+  try {
+    const stats = optimizer.getStatistics();
+    res.json({
+      success: true,
+      ...stats
+    });
+  } catch (error) {
+    console.error('❌ [OPTIMIZATION] Error getting stats:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Отримати історію тестів
+app.get('/api/optimization/history', (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 50;
+    const history = optimizer.getRecentHistory(limit);
+    
+    res.json({
+      success: true,
+      history: history,
+      total: history.length
+    });
+  } catch (error) {
+    console.error('❌ [OPTIMIZATION] Error getting history:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Експортувати найкращу конфігурацію
+app.get('/api/optimization/export', (req, res) => {
+  try {
+    const bestConfig = optimizer.exportBestConfig();
+    
+    if (!bestConfig) {
+      return res.json({
+        success: false,
+        message: 'No best configuration found yet. Run some tests first.'
+      });
+    }
+    
+    res.json({
+      success: true,
+      config: bestConfig,
+      format: 'json'
+    });
+  } catch (error) {
+    console.error('❌ [OPTIMIZATION] Error exporting config:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Скинути поточну сесію
+app.post('/api/optimization/reset', (req, res) => {
+  try {
+    optimizer.resetSession();
+    res.json({
+      success: true,
+      message: 'Session reset successfully'
+    });
+  } catch (error) {
+    console.error('❌ [OPTIMIZATION] Error resetting session:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
     });
   }
 });

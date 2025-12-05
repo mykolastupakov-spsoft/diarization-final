@@ -1,0 +1,27 @@
+You are formatting the final table. Your task is simple: convert the cleaned replicas into a Markdown table.
+
+## INPUT DATA
+
+Cleaned replicas (from previous step):
+```
+{{CLEANED_REPLICAS}}
+```
+
+## TASK
+
+1. Sort replicas by start time (earliest first)
+2. Create a Markdown table with columns: Segment ID, Speaker, Text, Start Time, End Time
+3. Segment ID starts at 1 and counts up (1, 2, 3, 4...)
+4. Speaker is "Agent" or "Client"
+5. Text is exact copy (no changes)
+6. Start Time and End Time are numbers (like 0.50 or 1.23)
+
+## OUTPUT FORMAT
+
+Return ONLY the Markdown table (no other text):
+
+| Segment ID | Speaker | Text | Start Time | End Time |
+|------------|---------|------|------------|----------|
+| 1 | Agent | [text] | [number] | [number] |
+| 2 | Client | [text] | [number] | [number] |
+

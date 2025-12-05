@@ -11449,7 +11449,7 @@ ${JSON.stringify({ services }, null, 2)}
               <span>${this.formatTime(seg1.start)} - ${this.formatTime(seg1.end)}</span>
               <span style="display: flex; gap: 4px;">${addedBadge1}${llmBadge1}</span>
             </div>
-            <div class="replica-text">${this.highlightTextWithColors(seg1.text || '', textAnalysis, seg1.start, seg1.end)}</div>
+            <div class="replica-text">${this.highlightTextWithColors(seg1.text || '', textAnalysis, seg1.start, seg1.end, speaker1Role === 'operator' ? 'Agent' : speaker1Role === 'client' ? 'Client' : speaker1)}</div>
           </td>
         `;
       } else {
@@ -11485,7 +11485,7 @@ ${JSON.stringify({ services }, null, 2)}
               <span>${this.formatTime(seg2.start)} - ${this.formatTime(seg2.end)}</span>
               <span style="display: flex; gap: 4px;">${addedBadge2}${llmBadge2}</span>
             </div>
-            <div class="replica-text">${this.highlightTextWithColors(seg2.text || '', textAnalysis, seg2.start, seg2.end)}</div>
+            <div class="replica-text">${this.highlightTextWithColors(seg2.text || '', textAnalysis, seg2.start, seg2.end, speaker2Role === 'operator' ? 'Agent' : speaker2Role === 'client' ? 'Client' : speaker2)}</div>
           </td>
         `;
       } else {
@@ -11518,8 +11518,14 @@ ${JSON.stringify({ services }, null, 2)}
    * Blue: повторювані фрази (звичайний діаризатор)
    * Green: overlaps (наша унікальна технологія)
    * Red: розбіжності (галюцинації)
+   * 
+   * @param {string} text - текст для виділення
+   * @param {object} textAnalysis - об'єкт з Blue, Green, Red масивами
+   * @param {number} segmentStart - час початку сегмента
+   * @param {number} segmentEnd - час кінця сегмента
+   * @param {string} segmentSpeaker - спікер поточного сегмента (Agent/Client)
    */
-  highlightTextWithColors(text, textAnalysis, segmentStart = null, segmentEnd = null) {
+  highlightTextWithColors(text, textAnalysis, segmentStart = null, segmentEnd = null, segmentSpeaker = null) {
     // Діагностичне логування (видалити після виправлення)
     if (!textAnalysis) {
       console.warn('🔴 highlightTextWithColors: textAnalysis is null/undefined', { text: text?.substring(0, 50) });
@@ -11571,8 +11577,8 @@ ${JSON.stringify({ services }, null, 2)}
       // Крок 2: Пошук з ігноруванням пунктуації та множинних пробілів
       // Розбиваємо фразу на слова
       const phraseWords = phraseLower.split(/\s+/).filter(w => w.length > 0);
-      if (phraseWords.length === 0) return null;
-      
+        if (phraseWords.length === 0) return null;
+        
       // Якщо фраза - одне слово
       if (phraseWords.length === 1) {
         const word = phraseWords[0];
@@ -11632,13 +11638,136 @@ ${JSON.stringify({ services }, null, 2)}
       return null;
     };
 
-    // Збираємо всі фрази для виділення з позиціями
+    // Збираємо всі слова для виділення з позиціями
+    // Розбиваємо фрази на окремі слова для точного виділення
     const highlights = [];
 
     // Tolerance для перевірки часу (секунди) - дозволяє невеликі розбіжності
     const timeTolerance = 0.5;
 
-    // Blue: повторювані фрази
+    // Set для відстеження вже оброблених позицій у поточному тексті (щоб уникнути дублювання)
+    const processedPositions = new Set();
+    
+    // Функція для розбиття тексту на слова з позиціями - покращена версія
+    const findWordsInText = (text, phrase) => {
+      if (!text || !phrase || typeof text !== 'string' || typeof phrase !== 'string') {
+        return [];
+      }
+      
+      phrase = phrase.trim();
+      if (phrase.length < 1) return [];
+      
+      // Розбиваємо фразу на слова (з урахуванням пунктуації)
+      const phraseWords = phrase.split(/\s+/).filter(w => w.length > 0);
+      if (phraseWords.length === 0) return [];
+      
+      const wordPositions = [];
+      const textLower = text.toLowerCase();
+      
+      // Шукаємо кожне слово окремо
+      phraseWords.forEach(word => {
+        const wordLower = word.toLowerCase();
+        const cleanWord = word.replace(/[^\w]/g, '');
+        
+        if (cleanWord.length < 1) return;
+        
+        let wordFound = false;
+        
+        // Крок 1: Шукаємо з word boundary (найточніший пошук)
+        const regex = new RegExp(`\\b${cleanWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
+        let match;
+        regex.lastIndex = 0;
+        
+        while ((match = regex.exec(text)) !== null) {
+          const posKey = `${match.index}-${match.index + match[0].length}`;
+          if (!processedPositions.has(posKey)) {
+            wordPositions.push({
+              start: match.index,
+              end: match.index + match[0].length,
+              word: match[0]
+            });
+            processedPositions.add(posKey);
+            wordFound = true;
+            break; // Знайшли - виходимо
+          }
+        }
+        
+        // Крок 2: Якщо не знайдено з word boundary, шукаємо точне слово з перевіркою boundary
+        if (!wordFound) {
+          let searchIndex = 0;
+          while (true) {
+            const simpleIndex = textLower.indexOf(wordLower, searchIndex);
+            if (simpleIndex === -1) break;
+            
+            const posKey = `${simpleIndex}-${simpleIndex + word.length}`;
+            if (!processedPositions.has(posKey)) {
+              const beforeChar = simpleIndex > 0 ? text[simpleIndex - 1] : ' ';
+              const afterChar = simpleIndex + word.length < text.length ? text[simpleIndex + word.length] : ' ';
+              const isWordBoundary = !/\w/.test(beforeChar) && !/\w/.test(afterChar);
+              
+              // Для слів довжиною >= 2 приймаємо, якщо є word boundary або слово довше 3 символів
+              if (isWordBoundary || (word.length >= 3 && word.length >= 2)) {
+                wordPositions.push({
+                  start: simpleIndex,
+                  end: simpleIndex + word.length,
+                  word: text.substring(simpleIndex, simpleIndex + word.length)
+                });
+                processedPositions.add(posKey);
+                wordFound = true;
+                break; // Знайшли - виходимо
+              }
+            }
+            searchIndex = simpleIndex + 1;
+          }
+        }
+        
+        // Крок 3: Якщо слово має пунктуацію і не знайдено, шукаємо cleanWord
+        if (!wordFound && cleanWord !== word && cleanWord.length > 0) {
+          const cleanWordLower = cleanWord.toLowerCase();
+          let searchIndex = 0;
+          while (true) {
+            const cleanIndex = textLower.indexOf(cleanWordLower, searchIndex);
+            if (cleanIndex === -1) break;
+            
+            const posKey = `${cleanIndex}-${cleanIndex + cleanWord.length}`;
+            if (!processedPositions.has(posKey)) {
+              // Перевіряємо word boundary для cleanWord
+              const beforeChar = cleanIndex > 0 ? text[cleanIndex - 1] : ' ';
+              const afterChar = cleanIndex + cleanWord.length < text.length ? text[cleanIndex + cleanWord.length] : ' ';
+              const isWordBoundary = !/\w/.test(beforeChar) && !/\w/.test(afterChar);
+              
+              if (isWordBoundary || cleanWord.length >= 3) {
+                wordPositions.push({
+                  start: cleanIndex,
+                  end: cleanIndex + cleanWord.length,
+                  word: text.substring(cleanIndex, cleanIndex + cleanWord.length)
+                });
+                processedPositions.add(posKey);
+                wordFound = true;
+                break; // Знайшли - виходимо
+              }
+            }
+            searchIndex = cleanIndex + 1;
+          }
+        }
+      });
+      
+      return wordPositions;
+    };
+
+    // Функція для нормалізації імені спікера для порівняння
+    const normalizeSpeaker = (speaker) => {
+      if (!speaker) return null;
+      const normalized = speaker.trim().toLowerCase();
+      // Нормалізуємо різні варіанти назв спікерів
+      if (normalized === 'agent' || normalized === 'operator') return 'agent';
+      if (normalized === 'client' || normalized === 'customer') return 'client';
+      return normalized;
+    };
+    
+    const normalizedSegmentSpeaker = normalizeSpeaker(segmentSpeaker);
+    
+    // Blue: повторювані фрази - розбиваємо на слова, тільки якщо належать до правильного спікера
     if (textAnalysis.Blue && Array.isArray(textAnalysis.Blue)) {
       textAnalysis.Blue.forEach(item => {
         if (segmentStart !== null && segmentEnd !== null) {
@@ -11647,22 +11776,41 @@ ${JSON.stringify({ services }, null, 2)}
           // Додаємо tolerance для більш гнучкої перевірки
           if (!(itemStart < segmentEnd + timeTolerance && itemEnd > segmentStart - timeTolerance)) return;
         }
+        
+        // Перевіряємо спікера: якщо вказано segmentSpeaker, фільтруємо за спікером
+        if (segmentSpeaker && item.speaker) {
+          const normalizedItemSpeaker = normalizeSpeaker(item.speaker);
+          // Якщо фраза належить іншому спікеру, вона має бути в Red, а не в Blue
+          if (normalizedSegmentSpeaker && normalizedItemSpeaker && normalizedSegmentSpeaker !== normalizedItemSpeaker) {
+            // Ця фраза належить іншому спікеру - не додаємо в Blue, вона буде в Red
+            return;
+          }
+        }
+        
+        // Розбиваємо фразу на слова і виділяємо кожне слово окремо
+        const wordPositions = findWordsInText(text, item.text);
+        wordPositions.forEach(pos => {
+          highlights.push({ ...pos, color: 'blue', type: 'repeated' });
+        });
+        
+        // Якщо не знайшли слова окремо, спробуємо знайти всю фразу
+        if (wordPositions.length === 0) {
         const pos = findPhraseInText(text, item.text);
         if (pos) {
           highlights.push({ ...pos, color: 'blue', type: 'repeated' });
-        } else {
-          // Діагностичне логування для незнайдених фраз
-          console.debug('🔵 Blue phrase not found in text', {
-            phrase: item.text?.substring(0, 50),
-            textSample: text.substring(0, 100),
-            segmentStart,
-            segmentEnd
-          });
+          } else {
+            console.debug('🔵 Blue phrase not found in text', {
+              phrase: item.text?.substring(0, 50),
+              textSample: text.substring(0, 100),
+              segmentStart,
+              segmentEnd
+            });
+          }
         }
       });
     }
 
-    // Green: overlaps
+    // Green: overlaps - розбиваємо на слова, тільки якщо належать до правильного спікера
     if (textAnalysis.Green && Array.isArray(textAnalysis.Green)) {
       textAnalysis.Green.forEach(item => {
         if (segmentStart !== null && segmentEnd !== null) {
@@ -11671,26 +11819,46 @@ ${JSON.stringify({ services }, null, 2)}
           // Додаємо tolerance для більш гнучкої перевірки
           if (!(itemStart < segmentEnd + timeTolerance && itemEnd > segmentStart - timeTolerance)) return;
         }
+        
+        // Перевіряємо спікера: якщо вказано segmentSpeaker, фільтруємо за спікером
+        if (segmentSpeaker && item.speaker) {
+          const normalizedItemSpeaker = normalizeSpeaker(item.speaker);
+          // Якщо фраза належить іншому спікеру, вона має бути в Red, а не в Green
+          if (normalizedSegmentSpeaker && normalizedItemSpeaker && normalizedSegmentSpeaker !== normalizedItemSpeaker) {
+            // Ця фраза належить іншому спікеру - не додаємо в Green, вона буде в Red
+            return;
+          }
+        }
+        
         // Green містить "text1 | text2"
         const parts = item.text.split('|').map(p => p.trim()).filter(p => p.length > 0);
         parts.forEach(part => {
+          // Розбиваємо частину на слова і виділяємо кожне слово окремо
+          const wordPositions = findWordsInText(text, part);
+          wordPositions.forEach(pos => {
+            highlights.push({ ...pos, color: 'green', type: 'overlap' });
+          });
+          
+          // Якщо не знайшли слова окремо, спробуємо знайти всю частину
+          if (wordPositions.length === 0) {
           const pos = findPhraseInText(text, part);
           if (pos) {
             highlights.push({ ...pos, color: 'green', type: 'overlap' });
-          } else {
-            // Діагностичне логування для незнайдених фраз
-            console.debug('🟢 Green phrase not found in text', {
-              phrase: part?.substring(0, 50),
-              textSample: text.substring(0, 100),
-              segmentStart,
-              segmentEnd
-            });
+            } else {
+              console.debug('🟢 Green phrase not found in text', {
+                phrase: part?.substring(0, 50),
+                textSample: text.substring(0, 100),
+                segmentStart,
+                segmentEnd
+              });
+            }
           }
         });
       });
     }
 
-    // Red: розбіжності
+    // Red: розбіжності - розбиваємо на слова
+    // Спочатку додаємо фрази з Red
     if (textAnalysis.Red && Array.isArray(textAnalysis.Red)) {
       textAnalysis.Red.forEach(item => {
         if (segmentStart !== null && segmentEnd !== null) {
@@ -11699,16 +11867,86 @@ ${JSON.stringify({ services }, null, 2)}
           // Додаємо tolerance для більш гнучкої перевірки
           if (!(itemStart < segmentEnd + timeTolerance && itemEnd > segmentStart - timeTolerance)) return;
         }
+        
+        // Розбиваємо фразу на слова і виділяємо кожне слово окремо
+        const wordPositions = findWordsInText(text, item.text);
+        wordPositions.forEach(pos => {
+          highlights.push({ ...pos, color: 'red', type: 'discrepancy' });
+        });
+        
+        // Якщо не знайшли слова окремо, спробуємо знайти всю фразу
+        if (wordPositions.length === 0) {
         const pos = findPhraseInText(text, item.text);
         if (pos) {
           highlights.push({ ...pos, color: 'red', type: 'discrepancy' });
-        } else {
-          // Діагностичне логування для незнайдених фраз
-          console.debug('🔴 Red phrase not found in text', {
-            phrase: item.text?.substring(0, 50),
-            textSample: text.substring(0, 100),
-            segmentStart,
-            segmentEnd
+          } else {
+            console.debug('🔴 Red phrase not found in text', {
+              phrase: item.text?.substring(0, 50),
+              textSample: text.substring(0, 100),
+              segmentStart,
+              segmentEnd
+            });
+          }
+        }
+      });
+    }
+    
+    // Додаємо фрази з Blue, які належать іншому спікеру - вони мають бути в Red
+    if (segmentSpeaker && textAnalysis.Blue && Array.isArray(textAnalysis.Blue)) {
+      textAnalysis.Blue.forEach(item => {
+        if (!item.speaker) return;
+        
+        if (segmentStart !== null && segmentEnd !== null) {
+          const itemStart = parseFloat(item.start) || 0;
+          const itemEnd = parseFloat(item.end) || itemStart;
+          if (!(itemStart < segmentEnd + timeTolerance && itemEnd > segmentStart - timeTolerance)) return;
+        }
+        
+        const normalizedItemSpeaker = normalizeSpeaker(item.speaker);
+        // Якщо фраза належить іншому спікеру, вона має бути в Red
+        if (normalizedSegmentSpeaker && normalizedItemSpeaker && normalizedSegmentSpeaker !== normalizedItemSpeaker) {
+          const wordPositions = findWordsInText(text, item.text);
+          wordPositions.forEach(pos => {
+            highlights.push({ ...pos, color: 'red', type: 'wrong-speaker' });
+          });
+          
+          if (wordPositions.length === 0) {
+            const pos = findPhraseInText(text, item.text);
+            if (pos) {
+              highlights.push({ ...pos, color: 'red', type: 'wrong-speaker' });
+            }
+          }
+        }
+      });
+    }
+    
+    // Додаємо фрази з Green, які належать іншому спікеру - вони мають бути в Red
+    if (segmentSpeaker && textAnalysis.Green && Array.isArray(textAnalysis.Green)) {
+      textAnalysis.Green.forEach(item => {
+        if (!item.speaker) return;
+        
+        if (segmentStart !== null && segmentEnd !== null) {
+          const itemStart = parseFloat(item.start) || 0;
+          const itemEnd = parseFloat(item.end) || itemStart;
+          if (!(itemStart < segmentEnd + timeTolerance && itemEnd > segmentStart - timeTolerance)) return;
+        }
+        
+        const normalizedItemSpeaker = normalizeSpeaker(item.speaker);
+        // Якщо фраза належить іншому спікеру, вона має бути в Red
+        if (normalizedSegmentSpeaker && normalizedItemSpeaker && normalizedSegmentSpeaker !== normalizedItemSpeaker) {
+          const parts = item.text.split('|').map(p => p.trim()).filter(p => p.length > 0);
+          parts.forEach(part => {
+            const wordPositions = findWordsInText(text, part);
+            wordPositions.forEach(pos => {
+              highlights.push({ ...pos, color: 'red', type: 'wrong-speaker' });
+            });
+            
+            if (wordPositions.length === 0) {
+              const pos = findPhraseInText(text, part);
+              if (pos) {
+                highlights.push({ ...pos, color: 'red', type: 'wrong-speaker' });
+              }
+            }
           });
         }
       });

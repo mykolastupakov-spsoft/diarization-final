@@ -1,0 +1,60 @@
+You are validating dialogue replicas. Your task is simple: check if each replica exists in the provided dialogues.
+
+## INPUT DATA
+
+You will receive dialogue blocks:
+
+1. General:
+```
+{{GENERAL_DIALOGUE}}
+```
+
+2. Standard Speaker 0:
+```
+{{STANDARD_SPEAKER0_DIALOGUE}}
+```
+
+3. Standard Speaker 1:
+```
+{{STANDARD_SPEAKER1_DIALOGUE}}
+```
+
+4. Agent track:
+```
+{{AGENT_DIALOGUE}}
+```
+
+5. Client track:
+```
+{{CLIENT_DIALOGUE}}
+```
+
+6. Timestamps:
+```
+{{SEGMENT_TIMESTAMPS}}
+```
+
+## TASK
+
+For each replica in the dialogues, check:
+- Does this text appear in at least one of the dialogue blocks above?
+- If YES: keep it
+- If NO: mark it for removal
+
+## OUTPUT FORMAT
+
+Return a JSON array with validated replicas. Each item should have:
+- "text": the replica text (exact copy from dialogues)
+- "speaker": original speaker label (SPEAKER_00 or SPEAKER_01)
+- "start": start time (number)
+- "end": end time (number)
+- "valid": true (if text exists in dialogues) or false (if not found)
+
+Example:
+[
+  {"text": "Hello", "speaker": "SPEAKER_00", "start": 0.5, "end": 1.0, "valid": true},
+  {"text": "Hi there", "speaker": "SPEAKER_01", "start": 1.2, "end": 1.8, "valid": true}
+]
+
+Only include replicas where "valid": true in your final output.
+

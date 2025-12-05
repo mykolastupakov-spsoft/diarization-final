@@ -1,0 +1,46 @@
+You are verifying the final result. Your task is simple: check if the table is correct.
+
+## INPUT DATA
+
+1. Original dialogues:
+```
+{{GENERAL_DIALOGUE}}
+{{STANDARD_SPEAKER0_DIALOGUE}}
+{{STANDARD_SPEAKER1_DIALOGUE}}
+{{AGENT_DIALOGUE}}
+{{CLIENT_DIALOGUE}}
+```
+
+2. Role guidance:
+```
+{{ROLE_GUIDANCE}}
+```
+
+3. Generated table:
+```
+{{GENERATED_TABLE}}
+```
+
+## TASK
+
+Check the table for errors:
+
+1. **Text validation**: Every text in the table must exist in at least one dialogue block above. If not, mark it as error.
+
+2. **Role validation**: Every "Agent" should match ROLE_GUIDANCE. Every "Client" should match ROLE_GUIDANCE.
+
+3. **Format validation**: 
+   - Table should have correct Markdown format
+   - Segment ID should be numbers (1, 2, 3...)
+   - Start Time and End Time should be numbers
+
+4. **No duplicates**: Same text should not appear twice.
+
+## OUTPUT FORMAT
+
+If table is correct, return it unchanged.
+
+If there are errors, return a corrected table with fixes applied.
+
+Return ONLY the Markdown table (no explanations, no other text).
+

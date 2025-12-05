@@ -520,6 +520,9 @@
                 <button class="btn btn-secondary" id="saveSettingsBtn">
                     💾 Save Settings
                 </button>
+                <button class="btn btn-secondary" id="downloadTextBtn">
+                    📄 Download Text
+                </button>
                 <button class="btn btn-primary" id="diarizeBtn" style="background: var(--color-success);">
                     🚀 Start Diarization Flow
                 </button>
@@ -544,6 +547,7 @@
         const audioControls = document.getElementById('audioControls');
         const downloadBtn = document.getElementById('downloadBtn');
         const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+        const downloadTextBtn = document.getElementById('downloadTextBtn');
         const diarizeBtn = document.getElementById('diarizeBtn');
         const savedResults = document.getElementById('savedResults');
         const savedResultsList = document.getElementById('savedResultsList');
@@ -1464,13 +1468,15 @@
                     saveDialogueToCache(numSpeakersVal, dialogueLengthVal, scenarioVal, numOverlapsVal, dialogue, customPrompt);
                 }
 
-                // Display dialogue preview
-                dialogueText.innerHTML = dialogue.map((item, i) => 
-                    `<div style="margin-bottom: var(--space-8);">
+                // Display dialogue preview with overlap markers
+                dialogueText.innerHTML = dialogue.map((item, i) => {
+                    const overlapMarker = item.hasOverlap ? 
+                        `<span style="background: #ffeb3b; color: #000; padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: bold; margin-left: 8px;">[OVERLAP]</span>` : '';
+                    return `<div style="margin-bottom: var(--space-8);">
                         <strong style="color: var(--color-primary);">Speaker ${item.speaker}:</strong> 
-                        <span>${item.text}</span>
-                    </div>`
-                ).join('');
+                        <span>${item.text}</span>${overlapMarker}
+                    </div>`;
+                }).join('');
                 dialoguePreview.classList.remove('hidden');
                 generatedDialogueScript = dialogue;
                 persistOriginalDialogue(dialogue, {
@@ -1507,6 +1513,22 @@
                 );
 
                 if (generatedDialogueBuffer) {
+                    // Update dialogue display with overlap markers after synthesis
+                    // (overlaps are marked during mixing inside synthesizeDialogueWithElevenLabs)
+                    const dialogueTextEl = document.getElementById('dialogueText');
+                    if (generatedDialogueScript && generatedDialogueScript.length > 0 && dialogueTextEl) {
+                        const overlapsCount = generatedDialogueScript.filter(item => item.hasOverlap).length;
+                        console.log('After synthesis - updating display with overlaps:', overlapsCount, 'out of', generatedDialogueScript.length);
+                        dialogueTextEl.innerHTML = generatedDialogueScript.map((item, i) => {
+                            const overlapMarker = item.hasOverlap ? 
+                                `<span style="background: #ffeb3b; color: #000; padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: bold; margin-left: 8px;">[OVERLAP]</span>` : '';
+                            return `<div style="margin-bottom: var(--space-8);">
+                                <strong style="color: var(--color-primary);">Speaker ${item.speaker}:</strong> 
+                                <span>${item.text}</span>${overlapMarker}
+                            </div>`;
+                        }).join('');
+                    }
+                    
                     // Set as source buffer
                     sourceBuffer = generatedDialogueBuffer;
                     voiceReady = true;
@@ -1583,6 +1605,10 @@
 
         // Synthesize dialogue with ElevenLabs TTS and create overlapping audio
         async function synthesizeDialogueWithElevenLabs(dialogue, numOverlaps, rate, apiKey) {
+            // Store dialogue in generatedDialogueScript immediately so it's available during mixing
+            generatedDialogueScript = dialogue;
+            console.log('synthesizeDialogueWithElevenLabs: Set generatedDialogueScript to', dialogue.length, 'items');
+            
             if (!audioContext) {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
             }
@@ -1641,7 +1667,8 @@
                         speakerBuffers[part.speakerId].push({
                             buffer,
                             startTime: part.startTime,
-                            text: part.text
+                            text: part.text,
+                            speakerId: part.speakerId
                         });
                         
                         completedLines++;
@@ -1657,9 +1684,90 @@
 
             await Promise.all(synthesisPromises);
             
+            // Recalculate startTime for segments based on dialogue sequence and actual buffer durations
+            // This ensures overlaps are calculated correctly even if dialogue was loaded from cache
+            // Create a flat list of all segments in dialogue order
+            const allSegmentsInOrder = [];
+            dialogue.forEach((item, index) => {
+                const speakerId = item.speaker;
+                const seg = speakerBuffers[speakerId]?.find(s => s.text === item.text);
+                if (seg) {
+                    allSegmentsInOrder.push({
+                        ...seg,
+                        dialogueIndex: index,
+                        originalStartTime: item.startTime || 0
+                    });
+                }
+            });
+            
+            // Recalculate startTime based on sequence and durations
+            let currentTime = 0;
+            allSegmentsInOrder.forEach((seg, index) => {
+                if (index > 0) {
+                    const prevSeg = allSegmentsInOrder[index - 1];
+                    const prevDuration = prevSeg.buffer ? prevSeg.buffer.duration : 0;
+                    const prevEndTime = prevSeg.startTime + prevDuration;
+                    
+                    // Calculate gap based on whether speakers are different
+                    const isDifferentSpeaker = seg.speakerId !== prevSeg.speakerId;
+                    if (isDifferentSpeaker) {
+                        // Different speaker: small gap (0.1-0.3s) to allow for overlap detection
+                        currentTime = prevEndTime + 0.1 + Math.random() * 0.2;
+                    } else {
+                        // Same speaker: minimal gap (0.05-0.15s)
+                        currentTime = prevEndTime + 0.05 + Math.random() * 0.1;
+                    }
+                }
+                seg.startTime = currentTime;
+                
+                // Update the original segment in speakerBuffers
+                const originalSeg = speakerBuffers[seg.speakerId]?.find(s => s.text === seg.text);
+                if (originalSeg) {
+                    originalSeg.startTime = currentTime;
+                }
+            });
+            
+            console.log('Recalculated startTime for segments:', allSegmentsInOrder.map(s => ({
+                speaker: s.speakerId,
+                text: s.text.substring(0, 30),
+                startTime: s.startTime.toFixed(2),
+                duration: (s.buffer?.duration || 0).toFixed(2)
+            })));
+            
             // Mix all speaker buffers with overlaps
             showDialogueStatus('Mixing audio with overlaps...', 'info');
-            const mixedBuffer = mixDialogueWithOverlaps(speakerBuffers, numOverlaps);
+            const mixedBuffer = mixDialogueWithOverlaps(speakerBuffers, numOverlaps, generatedDialogueScript);
+            
+            // Update dialogue display with overlap markers after mixing
+            setTimeout(() => {
+                const dialogueTextEl = document.getElementById('dialogueText');
+                if (generatedDialogueScript && generatedDialogueScript.length > 0 && dialogueTextEl) {
+                    const overlapsCount = generatedDialogueScript.filter(item => item.hasOverlap).length;
+                    console.log('Updating dialogue display with overlaps:', overlapsCount, 'out of', generatedDialogueScript.length);
+                    if (overlapsCount > 0) {
+                        console.log('Items with overlaps:', generatedDialogueScript.filter(item => item.hasOverlap).map(item => ({
+                            speaker: item.speaker,
+                            text: item.text.substring(0, 50)
+                        })));
+                    }
+                    dialogueTextEl.innerHTML = generatedDialogueScript.map((item, i) => {
+                        const overlapMarker = item.hasOverlap ? 
+                            `<span style="background: #ffeb3b; color: #000; padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: bold; margin-left: 8px;">[OVERLAP]</span>` : '';
+                        return `<div style="margin-bottom: var(--space-8);">
+                            <strong style="color: var(--color-primary);">Speaker ${item.speaker}:</strong> 
+                            <span>${item.text}</span>${overlapMarker}
+                        </div>`;
+                    }).join('');
+                    console.log('✓ Dialogue display updated');
+                } else {
+                    console.warn('✗ Cannot update dialogue display:', {
+                        hasScript: !!generatedDialogueScript,
+                        scriptLength: generatedDialogueScript?.length || 0,
+                        hasElement: !!dialogueTextEl
+                    });
+                }
+            }, 200);
+            
             return mixedBuffer;
         }
 
@@ -1974,7 +2082,9 @@
         }
 
         // Mix dialogue with overlaps
-        function mixDialogueWithOverlaps(speakerBuffers, numOverlaps) {
+        function mixDialogueWithOverlaps(speakerBuffers, numOverlaps, dialogueScript = null) {
+            // Use provided dialogueScript or fall back to global generatedDialogueScript
+            const scriptToMark = dialogueScript || generatedDialogueScript;
             if (!audioContext) {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
             }
@@ -1988,7 +2098,8 @@
                         buffer: seg.buffer,
                         startTime: seg.startTime,
                         endTime: seg.startTime + (seg.buffer.duration || 0),
-                        originalStartTime: seg.startTime
+                        originalStartTime: seg.startTime,
+                        text: seg.text || '' // Store text for overlap marking
                     });
                 });
             });
@@ -2048,6 +2159,12 @@
             }
             
             console.log(`Found ${overlapOpportunities.length} overlap opportunities, target: ${targetOverlaps}`);
+            console.log('Overlap opportunities:', overlapOpportunities.map(opp => ({
+                segIdx: opp.segIdx,
+                prevSegIdx: opp.prevSegIdx,
+                gap: opp.gap,
+                priority: opp.priority
+            })));
 
             // Sort opportunities by priority (client interrupting first), then by gap (overlapping first)
             overlapOpportunities.sort((a, b) => {
@@ -2061,8 +2178,15 @@
             // Select exact number of overlaps (or all available if less than target)
             const selectedOverlaps = overlapOpportunities.slice(0, Math.min(targetOverlaps, overlapOpportunities.length));
             const overlapMap = new Map(); // Map segment index to overlap info
+            const overlapIndices = new Set(); // Track which dialogue items have overlaps
 
             console.log(`Selected ${selectedOverlaps.length} overlaps to apply`);
+            console.log('Selected overlaps:', selectedOverlaps.map(opp => ({
+                segIdx: opp.segIdx,
+                prevSegIdx: opp.prevSegIdx,
+                segText: allSegments[opp.segIdx]?.text?.substring(0, 50),
+                prevSegText: allSegments[opp.prevSegIdx]?.text?.substring(0, 50)
+            })));
 
             selectedOverlaps.forEach(opp => {
                 overlapMap.set(opp.segIdx, {
@@ -2071,7 +2195,80 @@
                     prevDuration: opp.prevSeg.buffer.duration || 0,
                     gap: opp.gap
                 });
+                // Mark both segments as having overlap
+                overlapIndices.add(opp.segIdx);
+                overlapIndices.add(opp.prevSegIdx);
             });
+            
+            // Store overlap information in dialogueScript
+            // First, create a map of dialogue items by text and speaker for quick lookup
+            const dialogueMap = new Map();
+            if (scriptToMark && scriptToMark.length > 0) {
+                console.log('Creating dialogue map from dialogueScript:', scriptToMark.length, 'items');
+                scriptToMark.forEach((item, index) => {
+                    // Normalize speaker ID to number for comparison
+                    const speakerId = parseInt(item.speaker);
+                    const text = (item.text || '').trim();
+                    const key = `${speakerId}:${text}`;
+                    dialogueMap.set(key, { item, index });
+                    console.log(`Dialogue map entry ${index}: key="${key}", speaker=${speakerId}, text="${text.substring(0, 30)}"`);
+                });
+                
+                // Mark overlaps based on segment indices
+                let markedCount = 0;
+                console.log('Processing overlap indices:', Array.from(overlapIndices));
+                overlapIndices.forEach(segIndex => {
+                    const seg = allSegments[segIndex];
+                    if (seg && seg.text) {
+                        const speakerId = parseInt(seg.speakerId);
+                        const text = seg.text.trim();
+                        const key = `${speakerId}:${text}`;
+                        console.log(`Looking for overlap: key="${key}", speakerId=${speakerId}, text="${text.substring(0, 30)}"`);
+                        const dialogueEntry = dialogueMap.get(key);
+                        if (dialogueEntry) {
+                            dialogueEntry.item.hasOverlap = true;
+                            markedCount++;
+                            const overlapInfo = overlapMap.get(segIndex);
+                            if (overlapInfo) {
+                                dialogueEntry.item.overlapWith = overlapInfo.prevSeg.speakerId;
+                            }
+                            console.log(`✓ Marked overlap for dialogue item ${dialogueEntry.index}: Speaker ${speakerId} - "${text.substring(0, 50)}"`);
+                        } else {
+                            console.warn(`✗ Could not find dialogue entry for overlap: key="${key}"`);
+                            console.warn('Available keys:', Array.from(dialogueMap.keys()).slice(0, 5));
+                        }
+                    } else {
+                        console.warn(`✗ Segment ${segIndex} has no text:`, seg);
+                    }
+                });
+                console.log(`✓ Marked ${markedCount} dialogue items with overlaps out of ${overlapIndices.size} overlap indices`);
+                
+                // Update global generatedDialogueScript if we used a local copy
+                if (dialogueScript && dialogueScript !== generatedDialogueScript) {
+                    generatedDialogueScript = dialogueScript;
+                }
+                
+                // Immediately update the display if dialogueText element exists
+                const dialogueTextEl = document.getElementById('dialogueText');
+                if (dialogueTextEl && markedCount > 0) {
+                    console.log('Immediately updating dialogue display after marking overlaps');
+                    dialogueTextEl.innerHTML = scriptToMark.map((item, i) => {
+                        const overlapMarker = item.hasOverlap ? 
+                            `<span style="background: #ffeb3b; color: #000; padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: bold; margin-left: 8px;">[OVERLAP]</span>` : '';
+                        return `<div style="margin-bottom: var(--space-8);">
+                            <strong style="color: var(--color-primary);">Speaker ${item.speaker}:</strong> 
+                            <span>${item.text}</span>${overlapMarker}
+                        </div>`;
+                    }).join('');
+                }
+            } else {
+                console.warn('✗ dialogueScript is empty or not available:', {
+                    hasScript: !!scriptToMark,
+                    length: scriptToMark?.length || 0,
+                    hasGlobal: !!generatedDialogueScript,
+                    globalLength: generatedDialogueScript?.length || 0
+                });
+            }
 
             // Process each segment and apply overlaps
             allSegments.forEach((seg, segIdx) => {
@@ -2104,6 +2301,28 @@
                     startOffset = Math.max(0, Math.floor(newStartTime * sampleRate));
                     overlapsCount++;
                     console.log(`Applied overlap: segment ${segIdx} starts ${overlapAmount.toFixed(2)}s earlier`);
+                    
+                    // Mark dialogue item as having overlap - find by text and speaker
+                    // (This is already done above, but keeping for redundancy)
+                    if (generatedDialogueScript && generatedDialogueScript.length > 0 && seg.text) {
+                        const dialogueIndex = generatedDialogueScript.findIndex(item => 
+                            item.text.trim() === seg.text.trim() && item.speaker === seg.speakerId
+                        );
+                        if (dialogueIndex !== -1) {
+                            generatedDialogueScript[dialogueIndex].hasOverlap = true;
+                            generatedDialogueScript[dialogueIndex].overlapWith = overlapInfo.prevSeg.speakerId;
+                            
+                            // Also mark the previous segment
+                            if (overlapInfo.prevSeg.text) {
+                                const prevDialogueIndex = generatedDialogueScript.findIndex(item => 
+                                    item.text.trim() === overlapInfo.prevSeg.text.trim() && item.speaker === overlapInfo.prevSeg.speakerId
+                                );
+                                if (prevDialogueIndex !== -1) {
+                                    generatedDialogueScript[prevDialogueIndex].hasOverlap = true;
+                                }
+                            }
+                        }
+                    }
                 }
 
                 // Copy audio data to mixed buffer
@@ -2360,6 +2579,82 @@
             showStatus(`✓ Downloaded: ${filename}`, 'success');
         }
 
+        // Download dialogue text
+        function downloadDialogueText() {
+            // Prefer generatedDialogueScript if available (has overlap info)
+            let dialogueText = '';
+            
+            if (generatedDialogueScript && generatedDialogueScript.length > 0) {
+                // Format dialogue with overlap markers
+                dialogueText = generatedDialogueScript.map((item, index) => {
+                    const overlapMarker = item.hasOverlap ? ' [OVERLAP]' : '';
+                    const overlapWith = item.overlapWith ? ` (overlaps with Speaker ${item.overlapWith})` : '';
+                    return `Speaker ${item.speaker}: ${item.text}${overlapMarker}${overlapWith}`;
+                }).join('\n\n');
+            } else {
+                // Fallback to dialogueText div
+                const dialogueTextElement = document.getElementById('dialogueText');
+                if (!dialogueTextElement || !dialogueTextElement.textContent || !dialogueTextElement.textContent.trim()) {
+                    showStatus('No dialogue available to download', 'error');
+                    return;
+                }
+
+                // Get text content from the div
+                dialogueText = dialogueTextElement.textContent.trim();
+                
+                // Remove "Generated Dialogue" title if present
+                dialogueText = dialogueText.replace(/^Generated Dialogue\s*/i, '').trim();
+            }
+            
+            if (!dialogueText || !dialogueText.trim()) {
+                showStatus('No dialogue available to download', 'error');
+                return;
+            }
+
+            // Create blob and download
+            const blob = new Blob([dialogueText], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+            const scenario = dialogueScenario ? dialogueScenario.value : 'dialogue';
+            const filename = `dialogue-${scenario}-${timestamp}.txt`;
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showStatus(`✓ Downloaded dialogue text: ${filename}`, 'success');
+        }
+
+        // Download dialogue text button handler
+        downloadTextBtn.addEventListener('click', () => {
+            downloadDialogueText();
+        });
+
+        // Diarize button handler - always available
+        diarizeBtn.addEventListener('click', async () => {
+            // Check if we have processed audio
+            if (currentProcessedBlob) {
+                await sendToDiarization(currentProcessedBlob);
+            } else if (generatedDialogueBuffer) {
+                // If no processed audio, but we have generated dialogue, process it first
+                showStatus('Processing audio first...', 'info');
+                try {
+                    const wav = audioBufferToWav(generatedDialogueBuffer);
+                    const blob = new Blob([wav], { type: 'audio/wav' });
+                    await sendToDiarization(blob);
+                } catch (error) {
+                    showStatus('Error: ' + error.message, 'error');
+                }
+            } else {
+                showStatus('No audio available. Please generate or process audio first.', 'error');
+            }
+        });
+
         // Save current settings and result
         saveSettingsBtn.addEventListener('click', () => {
             if (!currentProcessedBlob) {
@@ -2581,24 +2876,141 @@
 
                 const targetView = options.targetView || 'upload';
 
-                // Try to send via postMessage if in iframe or opened from parent
-                if (window.parent !== window) {
-                    if (targetView && targetView !== 'upload') {
-                        markFlowIntent(targetView);
+                // Prepare dialogue text if available
+                let dialogueText = null;
+                if (generatedDialogueScript && generatedDialogueScript.length > 0) {
+                    dialogueText = generatedDialogueScript.map((item, index) => {
+                        const overlapMarker = item.hasOverlap ? ' [OVERLAP]' : '';
+                        return `Speaker ${item.speaker}: ${item.text}${overlapMarker}`;
+                    }).join('\n\n');
+                }
+
+                // Since generator is loaded directly in modal (same page), use direct DOM access
+                // Convert blob to File and set it in the audio file input
+                try {
+                    console.log('🔍 Looking for audioFile input...');
+                    console.log('Current document:', document.location?.href || 'unknown');
+                    console.log('Window location:', window.location?.href || 'unknown');
+                    
+                    // Try multiple ways to find the audioFile input
+                    let audioFileInput = null;
+                    
+                    // Method 1: Direct getElementById
+                    audioFileInput = document.getElementById('audioFile');
+                    console.log('Method 1 (direct getElementById):', !!audioFileInput);
+                    
+                    // Method 2: Query selector
+                    if (!audioFileInput) {
+                        audioFileInput = document.querySelector('#audioFile');
+                        console.log('Method 2 (querySelector):', !!audioFileInput);
                     }
-                    // In iframe - send file data via postMessage
+                    
+                    // Method 3: Search in all iframes (if any)
+                    if (!audioFileInput) {
+                        try {
+                            const iframes = document.querySelectorAll('iframe');
+                            for (const iframe of iframes) {
+                                try {
+                                    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+                                    if (iframeDoc) {
+                                        const iframeInput = iframeDoc.getElementById('audioFile');
+                                        if (iframeInput) {
+                                            audioFileInput = iframeInput;
+                                            console.log('Method 3 (found in iframe):', !!audioFileInput);
+                                            break;
+                                        }
+                                    }
+                                } catch (e) {
+                                    // Cross-origin iframe, skip
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('Error searching iframes:', e);
+                        }
+                    }
+                    
+                    if (audioFileInput) {
+                        console.log('✓ Found audioFile input');
+                        // Create File from blob
+                        const audioFile = new File([blob], filename, { type: 'audio/wav' });
+                        console.log('Created File:', filename, 'size:', audioFile.size);
+                        
+                        // Set file using DataTransfer
+                        const dataTransfer = new DataTransfer();
+                        dataTransfer.items.add(audioFile);
+                        audioFileInput.files = dataTransfer.files;
+                        console.log('✓ File set in input, files.length:', audioFileInput.files.length);
+                        
+                        // Store dialogue text if available
+                        if (dialogueText) {
+                            window.generatorDialogue = dialogueText;
+                            console.log('📝 Stored dialogue text:', dialogueText.length, 'characters');
+                        }
+                        
+                        // Trigger change event to notify form
+                        const changeEvent = new Event('change', { bubbles: true });
+                        audioFileInput.dispatchEvent(changeEvent);
+                        console.log('✓ Change event dispatched');
+                        
+                        // Also trigger input event
+                        const inputEvent = new Event('input', { bubbles: true });
+                        audioFileInput.dispatchEvent(inputEvent);
+                        
+                        // Show notification on main page
+                        const mainBody = document.body;
+                        if (mainBody) {
+                            const notification = document.createElement('div');
+                            notification.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #2ecc71; color: white; padding: 15px 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 10000; max-width: 400px;';
+                            notification.innerHTML = `
+                              <div style="font-weight: 600; margin-bottom: 5px;">✓ Audio and Dialogue Loaded</div>
+                              <div style="font-size: 13px;">Audio file and dialogue text have been loaded. You can now process the audio.</div>
+                            `;
+                            mainBody.appendChild(notification);
+                            setTimeout(() => {
+                              notification.style.opacity = '0';
+                              notification.style.transition = 'opacity 0.3s';
+                              setTimeout(() => notification.remove(), 300);
+                            }, 3000);
+                        }
+                        
+                        // Close modal
+                        setTimeout(() => {
+                            if (typeof closeGeneratorModal === 'function') {
+                                closeGeneratorModal();
+                            } else {
+                                const generatorModal = document.getElementById('generatorModal');
+                                if (generatorModal) {
+                                    generatorModal.style.display = 'none';
+                                }
+                            }
+                        }, 500);
+                        
+                        showStatus('✓ Audio and dialogue loaded to demo page!', 'success');
+                        diarizeBtn.disabled = false;
+                        diarizeBtn.textContent = '🚀 Start Diarization Flow';
+                        return;
+                    } else {
+                        console.error('✗ audioFile input not found anywhere');
+                        throw new Error('Could not find audioFile input element');
+                    }
+                } catch (directAccessError) {
+                    console.warn('Direct DOM access failed, trying postMessage:', directAccessError);
+                }
+                
+                // Fallback: Try postMessage if direct access doesn't work
+                try {
                     const arrayBuffer = await blob.arrayBuffer();
-                    // Use chunked base64 encoding for large files
                     const uint8Array = new Uint8Array(arrayBuffer);
                     let base64 = '';
-                    const chunkSize = 8192; // Process in chunks to avoid memory issues
+                    const chunkSize = 8192;
                     for (let i = 0; i < uint8Array.length; i += chunkSize) {
                         const chunk = uint8Array.slice(i, i + chunkSize);
                         base64 += String.fromCharCode.apply(null, chunk);
                     }
                     base64 = btoa(base64);
                     
-                    window.parent.postMessage({
+                    // Send message to same window (since we're in modal on same page)
+                    window.postMessage({
                         type: 'AUDIO_GENERATOR_FILE',
                         file: {
                             name: filename,
@@ -2606,13 +3018,15 @@
                             data: base64,
                             size: blob.size
                         },
-                        targetView
+                        dialogue: dialogueText
                     }, '*');
                     
-                    showStatus('✓ Audio sent to main app! Check the upload view.', 'success');
+                    showStatus('✓ Audio and dialogue sent!', 'success');
                     diarizeBtn.disabled = false;
-                    diarizeBtn.textContent = '🎙️ Send to Diarization';
+                    diarizeBtn.textContent = '🚀 Start Diarization Flow';
                     return;
+                } catch (postMessageError) {
+                    console.error('All methods failed:', postMessageError);
                 }
 
                 // If opened in new tab, use IndexedDB for reliable storage (handles large files)
@@ -2778,13 +3192,15 @@
                 }
                 numOverlapsValue.textContent = numOverlaps.value;
                 
-                // Display dialogue preview
-                dialogueText.innerHTML = dialogue.map((item, i) => 
-                    `<div style="margin-bottom: var(--space-8);">
+                // Display dialogue preview with overlap markers
+                dialogueText.innerHTML = dialogue.map((item, i) => {
+                    const overlapMarker = item.hasOverlap ? 
+                        `<span style="background: #ffeb3b; color: #000; padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: bold; margin-left: 8px;">[OVERLAP]</span>` : '';
+                    return `<div style="margin-bottom: var(--space-8);">
                         <strong style="color: var(--color-primary);">Speaker ${item.speaker}:</strong> 
-                        <span>${item.text}</span>
-                    </div>`
-                ).join('');
+                        <span>${item.text}</span>${overlapMarker}
+                    </div>`;
+                }).join('');
                 dialoguePreview.classList.remove('hidden');
                 
                 // Synthesize speech with ElevenLabs (will use cached audio segments)
@@ -2805,6 +3221,21 @@
                 );
                 
                 if (generatedDialogueBuffer) {
+                    // Update dialogue display with overlap markers after synthesis
+                    const dialogueTextEl = document.getElementById('dialogueText');
+                    if (generatedDialogueScript && generatedDialogueScript.length > 0 && dialogueTextEl) {
+                        const overlapsCount = generatedDialogueScript.filter(item => item.hasOverlap).length;
+                        console.log('After cached synthesis - updating display with overlaps:', overlapsCount);
+                        dialogueTextEl.innerHTML = generatedDialogueScript.map((item, i) => {
+                            const overlapMarker = item.hasOverlap ? 
+                                `<span style="background: #ffeb3b; color: #000; padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: bold; margin-left: 8px;">[OVERLAP]</span>` : '';
+                            return `<div style="margin-bottom: var(--space-8);">
+                                <strong style="color: var(--color-primary);">Speaker ${item.speaker}:</strong> 
+                                <span>${item.text}</span>${overlapMarker}
+                            </div>`;
+                        }).join('');
+                    }
+                    
                     sourceBuffer = generatedDialogueBuffer;
                     voiceReady = true;
                     updateProcessButtonState();

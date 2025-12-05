@@ -1,0 +1,36 @@
+You are assigning roles (Agent or Client) to speakers. Your task is simple: use the role guidance to decide who is Agent and who is Client.
+
+## INPUT DATA
+
+1. Validated replicas (from previous step):
+```
+{{VALIDATED_REPLICAS}}
+```
+
+2. Role guidance:
+```
+{{ROLE_GUIDANCE}}
+```
+
+## TASK
+
+For each replica:
+- Read the ROLE_GUIDANCE to see who is Agent and who is Client
+- If ROLE_GUIDANCE says "SPEAKER_00 is Agent", then all SPEAKER_00 replicas become "Agent"
+- If ROLE_GUIDANCE says "SPEAKER_01 is Client", then all SPEAKER_01 replicas become "Client"
+- Assign the role based on the speaker label and ROLE_GUIDANCE
+
+## OUTPUT FORMAT
+
+Return a JSON array. Each item should have:
+- "text": the replica text
+- "speaker": "Agent" or "Client" (based on ROLE_GUIDANCE)
+- "start": start time (number)
+- "end": end time (number)
+
+Example:
+[
+  {"text": "Hello", "speaker": "Agent", "start": 0.5, "end": 1.0},
+  {"text": "Hi there", "speaker": "Client", "start": 1.2, "end": 1.8}
+]
+

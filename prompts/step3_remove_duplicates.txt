@@ -1,0 +1,90 @@
+You are removing replicas that belong to the wrong speaker from separated voice tracks. Your MAIN TASK is to remove replicas from Agent/Client tracks that actually belong to the other speaker due to separation errors.
+
+## CRITICAL PROBLEM
+
+When audio is separated into voice tracks (Agent track and Client track), sometimes replicas from one speaker appear in the wrong track. For example:
+- A Client's replica might appear in the Agent track
+- An Agent's replica might appear in the Client track
+
+This happens because audio separation is not perfect. Also, text matching may not be exact - the same replica might have slight differences in transcription.
+
+## INPUT DATA
+
+1. Replicas with assigned roles (from previous step):
+```
+{{ROLED_REPLICAS}}
+```
+
+2. Standard diarization (reference truth):
+   - General (combined):
+   ```
+   {{GENERAL_DIALOGUE}}
+   ```
+   - Standard Speaker 0:
+   ```
+   {{STANDARD_SPEAKER0_DIALOGUE}}
+   ```
+   - Standard Speaker 1:
+   ```
+   {{STANDARD_SPEAKER1_DIALOGUE}}
+   ```
+
+3. Role guidance (who is Agent, who is Client):
+```
+{{ROLE_GUIDANCE}}
+```
+
+## MAIN TASK: Remove Wrong Speaker Replicas
+
+For each replica in ROLED_REPLICAS:
+
+1. **Identify the true speaker using Standard diarization:**
+   - Use ROLE_GUIDANCE to know: if it says "SPEAKER_00 is Agent", then Standard Speaker 0 = Agent, Standard Speaker 1 = Client
+   - Check if the replica text (or similar text) appears in Standard Speaker 0 or Standard Speaker 1
+   - **Fuzzy matching**: Text doesn't need to match exactly. Look for:
+     * Same meaning (e.g., "Hello" vs "Hi there" - both greetings)
+     * Similar words (e.g., "I can help" vs "I can help you")
+     * Partial matches (e.g., "Thank you very much" vs "Thank you")
+     * Same time period (if timestamps are close, it's likely the same replica)
+
+2. **Remove if wrong speaker:**
+   - If replica is marked as "Agent" but appears in Standard Speaker 1 (Client) → REMOVE it
+   - If replica is marked as "Client" but appears in Standard Speaker 0 (Agent) → REMOVE it
+   - If replica doesn't appear in any Standard dialogue but clearly belongs to the other speaker based on context → REMOVE it
+
+3. **Recognize irrelevant replicas:**
+   - If a replica doesn't match any Standard dialogue AND doesn't fit the role context → REMOVE it
+   - If a replica is clearly not relevant to the conversation (e.g., background noise transcription, system messages) → REMOVE it
+   - If ROLE_GUIDANCE mentions phrases that are "not in any source" or "irrelevant" → REMOVE them
+
+4. **Also handle duplicates and overlaps:**
+   - If the same text appears twice with same speaker → keep only one
+   - If same speaker has overlapping segments → merge them (earliest start, latest end, combine text)
+
+## DECISION RULES
+
+When in doubt:
+1. **Trust Standard diarization** - if Standard Speaker 0/1 has the text, that's the true speaker
+2. **Check timestamps** - if timestamps are close (within 1-2 seconds), likely the same replica
+3. **Check context** - if the replica makes sense for the role (Agent says "How can I help?", Client says "I need...")
+4. **When uncertain** - if you can't determine the true speaker, keep the replica but mark it for review (or remove if clearly wrong)
+
+## OUTPUT FORMAT
+
+Return a JSON array with cleaned replicas. Each item should have:
+- "text": merged text (if segments were merged, combine them with space)
+- "speaker": "Agent" or "Client" (only keep if it matches Standard diarization)
+- "start": earliest start time (number)
+- "end": latest end time (number)
+
+Example:
+[
+  {"text": "Hello how can I help", "speaker": "Agent", "start": 0.5, "end": 2.0},
+  {"text": "Hi there", "speaker": "Client", "start": 1.2, "end": 1.8}
+]
+
+**IMPORTANT**: 
+- Remove all replicas that belong to the wrong speaker (even if text doesn't match exactly)
+- Remove all irrelevant replicas that don't appear in Standard diarization
+- Use fuzzy matching to identify same replicas with slight text differences
+- Trust Standard diarization as the source of truth

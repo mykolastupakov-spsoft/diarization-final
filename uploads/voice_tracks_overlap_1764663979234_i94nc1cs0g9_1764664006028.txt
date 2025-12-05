@@ -1,0 +1,15 @@
+SPEAKER_00 (operator) [0.16-3.84]: Hello Thank you for calling acne support How can I assist you today
+SPEAKER_01 (operator) [1.68-5.64]: Hi I'm having trouble with my internet connection It keeps dropping
+SPEAKER_00 (operator) [7.32-9.60]: May I have your account number Your details
+SPEAKER_01 (operator) [12.76-15.80]: Sure It's 74285932 So
+SPEAKER_00 (operator) [16.16-20.12]: Thank you I see a recent outage in your area It might be causing the drop
+SPEAKER_01 (operator) [20.48-23.52]: Oh I didn't know that Do you know when it'll be fixed
+SPEAKER_00 (operator) [24.08-27.08]: The tech team estimates that within the next two hours
+SPEAKER_01 (operator) [27.52-31.88]: All right Thanks In the meantime is there anything I can do to improve the connection
+SPEAKER_00 (operator) [32.36-36.80]: Yes Try rebooting your modem by unplugging it for 30s and plugging it back in
+SPEAKER_01 (operator) [37.24-38.68]: Okay I'll do that right now
+SPEAKER_00 (operator) [39.16-42.24]: Great Let me know if the connection stabilizes after the reboot
+SPEAKER_01 (operator) [42.68-45.16]: It looks like it's working better now Thank you for the help
+SPEAKER_00 (operator) [45.56-49.80]: You're welcome I'll keep the ticket open for an hour to ensure the issue stays resolved
+SPEAKER_01 (operator) [50.28-53.12]: Sounds good I appreciate the assistance today
+SPEAKER_00 (operator) [53.60-56.16]: Thank you for calling active support Have a great day
