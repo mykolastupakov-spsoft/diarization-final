@@ -32,7 +32,6 @@ const { separateSpeakers } = require('./lib/audioshake-client');
 const { validateDiarizationPayload, formatAjvErrors } = require('./lib/validators/diarizationSchema');
 const textSimilarityUtils = require('./text_similarity_utils');
 const textAnalysis = require('./lib/textAnalysis');
-const ParameterOptimizer = require('./lib/parameter-optimizer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -535,6 +534,18 @@ async function loadGroundTruthTextForUpload(uploadedFile) {
 
 // Middleware
 const BODY_LIMIT = process.env.REQUEST_BODY_LIMIT || '15mb';
+
+// CORS middleware
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 app.use(express.json({ limit: BODY_LIMIT }));
 app.use(express.urlencoded({ extended: true, limit: BODY_LIMIT }));
 app.use('/uploads', express.static(uploadsDir));
@@ -621,43 +632,6 @@ const upload = multer({
   dest: path.join(__dirname, 'temp_uploads'),
   limits: {
     fileSize: 100 * 1024 * 1024 // 100MB limit
-  }
-});
-
-// Endpoint for uploading audio file for debug separation (must be after multer initialization)
-app.post('/api/upload-audio', upload.single('audio'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No audio file provided' });
-    }
-
-    const tempFilePath = req.file.path;
-    const originalName = req.file.originalname;
-    const timestamp = Date.now();
-    const filename = `${timestamp}_${originalName}`;
-    const destPath = path.join(uploadsDir, filename);
-
-    // Copy file from temp_uploads to uploads
-    await fs.copyFile(tempFilePath, destPath);
-    
-    // Clean up temp file
-    try {
-      await fs.unlink(tempFilePath);
-    } catch (e) {
-      console.warn('Failed to delete temp file:', e.message);
-    }
-
-    console.log(`[DEBUG-SEPARATION] File uploaded: ${filename}`);
-    res.json({
-      success: true,
-      filePath: filename,
-      path: filename, // Alias for compatibility
-      originalName: originalName,
-      size: req.file.size
-    });
-  } catch (error) {
-    console.error('Upload audio error:', error);
-    res.status(500).json({ error: 'Failed to upload audio', details: error.message });
   }
 });
 
@@ -1120,6 +1094,47 @@ async function persistUploadedFile(tempPath, originalName) {
     await fs.unlink(tempPath);
   }
   return { filename, destinationPath };
+}
+
+// Convert audio file to WAV format using ffmpeg
+async function convertAudioToWav(inputPath, outputPath) {
+  return new Promise((resolve, reject) => {
+    const ffmpegPath = process.env.FFMPEG_PATH || 'ffmpeg';
+    const ffmpegArgs = [
+      '-hide_banner',
+      '-loglevel', 'error',
+      '-y', // Overwrite output file
+      '-i', inputPath,
+      '-ac', '1', // Mono
+      '-ar', '8000', // 8kHz sample rate (SpeechBrain expects 8kHz)
+      '-sample_fmt', 's16', // 16-bit PCM
+      outputPath
+    ];
+    
+    console.log(`[CONVERT] Converting ${inputPath} to WAV: ${outputPath}`);
+    const ffmpegProcess = spawn(ffmpegPath, ffmpegArgs);
+    
+    let stderr = '';
+    ffmpegProcess.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+    
+    ffmpegProcess.on('close', (code) => {
+      if (code === 0 && fsSync.existsSync(outputPath)) {
+        console.log(`[CONVERT] ✅ Successfully converted to WAV: ${outputPath}`);
+        resolve(outputPath);
+      } else {
+        const error = new Error(`ffmpeg conversion failed with code ${code}: ${stderr}`);
+        console.error(`[CONVERT] ❌ ${error.message}`);
+        reject(error);
+      }
+    });
+    
+    ffmpegProcess.on('error', (error) => {
+      console.error(`[CONVERT] ❌ Failed to spawn ffmpeg: ${error.message}`);
+      reject(new Error(`ffmpeg not found or not executable: ${error.message}`));
+    });
+  });
 }
 
 function getPublicFileUrl(filename) {
@@ -1886,8 +1901,19 @@ async function separateSpeakersWithPyAnnote(audioPath) {
   });
 }
 
-async function separateSpeakersWithSpeechBrain(audioPath, requestId = null, res = null, sendSSEUpdate = null, collectLogsCallback = null, settings = null) {
+async function separateSpeakersWithSpeechBrain(audioPath, requestId = null, res = null, sendSSEUpdate = null, debugParams = null) {
   const logPrefix = requestId ? `[${requestId}]` : '[SpeechBrain]';
+  
+  // Validate audioPath parameter
+  if (!audioPath || typeof audioPath !== 'string') {
+    throw new Error('audioPath is required');
+  }
+  
+  // Verify audio file exists
+  if (!fsSync.existsSync(audioPath)) {
+    throw new Error(`Audio file not found: ${audioPath}`);
+  }
+  
   const pythonScriptPath = path.join(__dirname, 'speechbrain_separation.py');
   if (!fsSync.existsSync(pythonScriptPath)) {
     throw new Error('SpeechBrain separation script not found');
@@ -1896,6 +1922,9 @@ async function separateSpeakersWithSpeechBrain(audioPath, requestId = null, res 
   console.log(`${logPrefix} 🔵 MODE3: Initializing SpeechBrain separation`);
   console.log(`${logPrefix} 🔵 MODE3: Python script: ${pythonScriptPath}`);
   console.log(`${logPrefix} 🔵 MODE3: Audio path: ${audioPath}`);
+  if (debugParams) {
+    console.log(`${logPrefix} 🔵 MODE3: Debug parameters:`, debugParams);
+  }
   
   const timestamp = Date.now();
   const outputDir = path.join(tempUploadsDir, `speechbrain_separation_${timestamp}`);
@@ -1946,67 +1975,37 @@ async function separateSpeakersWithSpeechBrain(audioPath, requestId = null, res 
   });
 
   return new Promise((resolve, reject) => {
-    // Prepare environment variables from settings
+    const pythonArgs = [pythonScriptPath, audioPath, outputDir];
+    console.log(`${logPrefix} 🔵 MODE3: Executing Python script: ${PYTHON_BIN} ${pythonArgs.join(' ')}`);
+    
+    // Prepare environment variables (include debug params if provided)
     const env = { ...process.env };
-    const settingsToUse = settings || {};
-    if (settingsToUse && typeof settingsToUse === 'object') {
-      // Basic settings
-      if (settingsToUse.chunkSeconds) {
-        env.SPEECHBRAIN_CHUNK_SECONDS = settingsToUse.chunkSeconds.toString();
+    if (debugParams) {
+      // Mark as debug mode
+      env.SPEECHBRAIN_DEBUG_MODE = '1';
+      if (debugParams.chunkSeconds !== null && debugParams.chunkSeconds !== undefined) {
+        env.SPEECHBRAIN_CHUNK_SECONDS = debugParams.chunkSeconds.toString();
+        console.log(`${logPrefix} 🔵 MODE3: Setting SPEECHBRAIN_CHUNK_SECONDS=${debugParams.chunkSeconds}`);
       }
-      if (settingsToUse.device && settingsToUse.device !== 'auto') {
-        env.SPEECHBRAIN_DEVICE = settingsToUse.device;
-      }
-      if (settingsToUse.sampleRate) {
-        env.SPEECHBRAIN_SAMPLE_RATE = settingsToUse.sampleRate.toString();
-      }
-      if (settingsToUse.numSpeakers) {
-        env.SPEECHBRAIN_NUM_SPEAKERS = settingsToUse.numSpeakers.toString();
-      }
-      
-      // Quality settings (critical for separation quality)
-      if (settingsToUse.segmentOverlap !== undefined) {
-        env.SPEECHBRAIN_SEGMENT_OVERLAP = settingsToUse.segmentOverlap.toString();
-      }
-      if (settingsToUse.minIntersegmentGap !== undefined) {
-        env.SPEECHBRAIN_MIN_INTERSEGMENT_GAP = settingsToUse.minIntersegmentGap.toString();
-      }
-      if (settingsToUse.strictMode !== undefined) {
-        env.SPEECHBRAIN_STRICT_MODE = settingsToUse.strictMode.toString();
-      }
-      if (settingsToUse.vadThreshold !== undefined) {
-        env.SPEECHBRAIN_VAD_THRESHOLD = settingsToUse.vadThreshold.toString();
-      }
-      if (settingsToUse.maxSpeechDuration !== undefined) {
-        env.SPEECHBRAIN_MAX_SPEECH_DURATION = settingsToUse.maxSpeechDuration.toString();
-      }
-      
-      // Advanced settings
-      if (settingsToUse.batchSize !== undefined) {
-        env.SPEECHBRAIN_BATCH_SIZE = settingsToUse.batchSize.toString();
-      }
-      if (settingsToUse.dynamicBatching !== undefined) {
-        env.SPEECHBRAIN_DYNAMIC_BATCHING = settingsToUse.dynamicBatching.toString();
-      }
-      if (settingsToUse.vadModel) {
-        env.SPEECHBRAIN_VAD_MODEL = settingsToUse.vadModel;
-      }
-      if (settingsToUse.diarizationModel) {
-        env.SPEECHBRAIN_DIARIZATION_MODEL = settingsToUse.diarizationModel;
+      if (debugParams.enableSpectralGating) {
+        env.SPEECHBRAIN_ENABLE_SPECTRAL_GATING = '1';
+        if (debugParams.gateThreshold !== null && debugParams.gateThreshold !== undefined) {
+          env.SPEECHBRAIN_GATE_THRESHOLD = debugParams.gateThreshold.toString();
+          console.log(`${logPrefix} 🔵 MODE3: Setting SPEECHBRAIN_GATE_THRESHOLD=${debugParams.gateThreshold}`);
+        }
+        if (debugParams.gateAlpha !== null && debugParams.gateAlpha !== undefined) {
+          env.SPEECHBRAIN_GATE_ALPHA = debugParams.gateAlpha.toString();
+          console.log(`${logPrefix} 🔵 MODE3: Setting SPEECHBRAIN_GATE_ALPHA=${debugParams.gateAlpha}`);
+        }
       }
     }
-    
-    // Pass settings as JSON to Python script
-    const settingsJson = settingsToUse ? JSON.stringify(settingsToUse) : '{}';
-    const pythonArgs = [pythonScriptPath, audioPath, outputDir, settingsJson];
-    console.log(`${logPrefix} 🔵 MODE3: Executing Python script: ${PYTHON_BIN} ${pythonArgs.join(' ')}`);
     
     sendProgress('spawning', 'Запуск Python процесу...', {
       input: {
         pythonBin: PYTHON_BIN,
         pythonArgs: pythonArgs,
         workingDir: __dirname,
-        settings: settingsToUse
+        debugParams: debugParams || null
       }
     });
     
@@ -2038,67 +2037,44 @@ async function separateSpeakersWithSpeechBrain(audioPath, requestId = null, res 
       stderr += chunk;
       console.error(`${logPrefix} 📊 MODE3 stderr: ${chunk.trim()}`);
       
-      // Збираємо логи для callback, якщо він наданий
-      if (collectLogsCallback) {
-        const lines = chunk.split('\n').filter(line => line.trim());
-        lines.forEach(line => {
-          collectLogsCallback(line.trim());
-        });
-      }
-      
-      // Parse progress from stderr - детальне логування
-      const lines = chunk.split('\n').filter(line => line.trim());
-      lines.forEach(line => {
-        // Логування всіх повідомлень з Python скрипта
-        if (line.includes('[SpeechBrain]') || line.includes('📁') || line.includes('🔀') || 
-            line.includes('📦') || line.includes('✅') || line.includes('❌') || 
-            line.includes('💾') || line.includes('📊') || line.includes('════')) {
-          sendProgress('python_log', line.trim(), {
-            input: {
-              rawMessage: line.trim()
-            }
-          });
-        }
-        
-        // Специфічна обробка для детального логування
-        if (line.includes('[SpeechBrain]')) {
-          const match = line.match(/\[SpeechBrain\](.+)/);
-          if (match) {
-            const message = match[1].trim();
-            if (message.includes('Using device')) {
-              const deviceMatch = message.match(/Using device:\s*(.+)/);
-              sendProgress('model_loading', message, {
-                input: {
-                  device: deviceMatch ? deviceMatch[1] : 'unknown',
-                  rawMessage: message
-                }
-              });
-            } else if (message.includes('Cache dir')) {
-              const cacheMatch = message.match(/Cache dir:\s*(.+)/);
-              sendProgress('model_loading', message, {
-                input: {
-                  cacheDir: cacheMatch ? cacheMatch[1] : 'unknown',
-                  rawMessage: message
-                }
-              });
-            } else if (message.includes('Loaded via') || message.includes('Resampling')) {
-              sendProgress('audio_processing', message, {
-                input: {
-                  rawMessage: message
-                }
-              });
-            } else if (message.includes('Processing in chunks') || message.includes('Separating chunk')) {
-              const chunkMatch = message.match(/chunk\s+(\d+):(\d+)/);
-              sendProgress('separation', message, {
-                input: {
-                  chunkInfo: chunkMatch ? { start: chunkMatch[1], end: chunkMatch[2] } : null,
-                  rawMessage: message
-                }
-              });
-            }
+      // Parse progress from stderr
+      if (chunk.includes('[SpeechBrain]')) {
+        const match = chunk.match(/\[SpeechBrain\](.+)/);
+        if (match) {
+          const message = match[1].trim();
+          if (message.includes('Using device')) {
+            const deviceMatch = message.match(/Using device:\s*(.+)/);
+            sendProgress('model_loading', message, {
+              input: {
+                device: deviceMatch ? deviceMatch[1] : 'unknown',
+                rawMessage: message
+              }
+            });
+          } else if (message.includes('Cache dir')) {
+            const cacheMatch = message.match(/Cache dir:\s*(.+)/);
+            sendProgress('model_loading', message, {
+              input: {
+                cacheDir: cacheMatch ? cacheMatch[1] : 'unknown',
+                rawMessage: message
+              }
+            });
+          } else if (message.includes('Loaded via') || message.includes('Resampling')) {
+            sendProgress('audio_processing', message, {
+              input: {
+                rawMessage: message
+              }
+            });
+          } else if (message.includes('Processing in chunks') || message.includes('Separating chunk')) {
+            const chunkMatch = message.match(/chunk\s+(\d+):(\d+)/);
+            sendProgress('separation', message, {
+              input: {
+                chunkInfo: chunkMatch ? { start: chunkMatch[1], end: chunkMatch[2] } : null,
+                rawMessage: message
+              }
+            });
           }
         }
-      });
+      }
     });
 
     pythonProcess.on('error', (error) => {
@@ -5702,6 +5678,436 @@ app.post('/api/diarize-llm', upload.single('audio'), async (req, res) => {
 });
 
 // Audio Diarization endpoint (uses Speechmatics via process-audio-temp)
+// Helper function to handle raw file upload (for Shortcuts)
+async function handleRawFileUpload(req, tempDir) {
+  if (req.body && req.body.length > 0 && Buffer.isBuffer(req.body)) {
+    // Raw binary data received
+    const contentDisposition = req.headers['content-disposition'];
+    let originalName = 'audio.wav';
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+      if (filenameMatch && filenameMatch[1]) {
+        originalName = filenameMatch[1].replace(/['"]/g, '');
+      }
+    } else {
+      const contentType = req.headers['content-type'] || '';
+      if (contentType.includes('mp3')) originalName = 'audio.mp3';
+      else if (contentType.includes('m4a')) originalName = 'audio.m4a';
+      else if (contentType.includes('wav')) originalName = 'audio.wav';
+    }
+    
+    const tempFilePath = path.join(tempDir, `raw_${Date.now()}_${originalName}`);
+    await fs.writeFile(tempFilePath, req.body);
+    
+    return {
+      path: tempFilePath,
+      originalname: originalName,
+      size: req.body.length,
+      mimetype: req.headers['content-type'] || 'application/octet-stream'
+    };
+  }
+  return null;
+}
+
+// Alternative endpoint for Shortcuts: accepts file as raw binary data, JSON, or multipart/form-data
+app.post('/api/diarize-audio-raw', handleShortcutsUpload, async (req, res) => {
+  const requestId = `audio_raw_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const startTime = Date.now();
+  
+  try {
+    let filePath = null;
+    let originalName = 'audio.wav';
+    
+    // Check if multer already processed the file (multipart/form-data)
+    if (req.file) {
+      console.log(`[${requestId}] 📥 Received file via multipart/form-data: ${req.file.originalname}, size: ${req.file.size}`);
+      filePath = req.file.path;
+      originalName = req.file.originalname;
+    } else {
+      // Check Content-Type to determine how data was sent
+      const contentType = req.headers['content-type'] || '';
+      console.log(`[${requestId}] 📥 Content-Type: ${contentType}`);
+      console.log(`[${requestId}] 📥 Body type: ${typeof req.body}, isBuffer: ${Buffer.isBuffer(req.body)}`);
+      
+      let fileData = null;
+      
+      if (Buffer.isBuffer(req.body)) {
+        // Raw binary data
+        fileData = req.body;
+        console.log(`[${requestId}] 📥 Received raw binary data: ${fileData.length} bytes`);
+      } else if (typeof req.body === 'object' && req.body !== null) {
+        // JSON data - Shortcuts might send file as base64 or file path
+        if (req.body.filePath) {
+          const filePathFromBody = req.body.filePath;
+          if (fsSync.existsSync(filePathFromBody)) {
+            filePath = filePathFromBody;
+            originalName = path.basename(filePathFromBody);
+            console.log(`[${requestId}] 📥 Using file from path: ${filePathFromBody}`);
+          } else {
+            return res.status(400).json({
+              error: `File not found at path: ${filePathFromBody}`
+            });
+          }
+        } else if (req.body.base64) {
+          fileData = Buffer.from(req.body.base64, 'base64');
+          originalName = req.body.filename || 'audio.wav';
+          console.log(`[${requestId}] 📥 Decoded base64 data: ${fileData.length} bytes`);
+        } else if (req.body.data && Buffer.isBuffer(req.body.data)) {
+          fileData = req.body.data;
+          originalName = req.body.filename || 'audio.wav';
+        } else {
+          return res.status(400).json({
+            error: 'Invalid request format. Expected: multipart/form-data with field "audio", raw binary, {filePath: "..."}, or {base64: "...", filename: "..."}',
+            received: Object.keys(req.body),
+            contentType: contentType
+          });
+        }
+      } else {
+        return res.status(400).json({
+          error: 'No audio file provided (empty or invalid body)',
+          contentType: contentType
+        });
+      }
+      
+      // If we have fileData, save it to temp file
+      if (fileData && !filePath) {
+        if (!fileData || fileData.length === 0) {
+          return res.status(400).json({
+            error: 'No audio file provided (empty data)'
+          });
+        }
+        
+        // Get filename from headers if not already set
+        if (originalName === 'audio.wav') {
+          const contentDisposition = req.headers['content-disposition'];
+          if (contentDisposition) {
+            const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+            if (filenameMatch && filenameMatch[1]) {
+              originalName = filenameMatch[1].replace(/['"]/g, '');
+            }
+          } else {
+            if (contentType.includes('mp3')) originalName = 'audio.mp3';
+            else if (contentType.includes('m4a')) originalName = 'audio.m4a';
+            else if (contentType.includes('wav')) originalName = 'audio.wav';
+          }
+        }
+        
+        filePath = path.join(tempUploadsDir, `raw_${Date.now()}_${originalName}`);
+        await fs.writeFile(filePath, fileData);
+      }
+    }
+    
+    if (!filePath || !fsSync.existsSync(filePath)) {
+      return res.status(400).json({
+        error: `Audio file not found at path: ${filePath}`
+      });
+    }
+
+    // Get parameters from query string or headers
+    const language = req.query.language || req.headers['x-language'] || 'auto';
+    const speakerCount = req.query.speakerCount || req.headers['x-speaker-count'] || null;
+    const engine = req.query.engine || req.headers['x-engine'] || 'speechmatics';
+
+    console.log(`[${requestId}] 📥 Audio diarization RAW endpoint called`);
+    console.log(`[${requestId}] File: ${originalName}, path: ${filePath}`);
+    console.log(`[${requestId}] Params: language=${language}, speakerCount=${speakerCount}, engine=${engine}`);
+
+    const transcriptionEngine = resolveTranscriptionEngine(engine);
+    
+    const diarizationStartTime = Date.now();
+    const result = await runPythonDiarization({
+      filePath: filePath,
+      language: language,
+      speakerCount: speakerCount,
+      originalFilename: originalName,
+      engine: transcriptionEngine
+    });
+    const diarizationDuration = ((Date.now() - diarizationStartTime) / 1000).toFixed(2);
+    
+    // Cleanup temp file (only if it was created by us, not multer)
+    if (!req.file && filePath && fsSync.existsSync(filePath)) {
+      try {
+        await fs.unlink(filePath);
+        console.log(`[${requestId}] 🧹 Cleaned up temp file: ${filePath}`);
+      } catch (cleanupError) {
+        console.warn(`[${requestId}] ⚠️ Failed to cleanup temp file:`, cleanupError.message);
+      }
+    } else if (req.file && req.file.path && fsSync.existsSync(req.file.path)) {
+      // Cleanup multer temp file
+      try {
+        await fs.unlink(req.file.path);
+        console.log(`[${requestId}] 🧹 Cleaned up multer temp file: ${req.file.path}`);
+      } catch (cleanupError) {
+        console.warn(`[${requestId}] ⚠️ Failed to cleanup multer file:`, cleanupError.message);
+      }
+    }
+    
+    const totalDuration = ((Date.now() - startTime) / 1000).toFixed(2);
+    const segmentsCount = result?.recordings?.[0]?.results?.speechmatics?.segments?.length || 0;
+    
+    console.log(`[${requestId}] ✅ Python diarization completed in ${diarizationDuration}s, found ${segmentsCount} segments`);
+    
+    res.json({
+      success: true,
+      recordings: result.recordings,
+      duration: totalDuration,
+      segmentsCount: segmentsCount
+    });
+    
+  } catch (error) {
+    console.error(`[${requestId}] ❌ Error:`, error);
+    res.status(500).json({
+      error: 'Audio processing failed',
+      details: error.message
+    });
+  }
+});
+
+// Endpoint for Shortcuts: transcribe audio from URL
+app.post('/api/diarize-audio-from-url', express.json(), async (req, res) => {
+  const requestId = `audio_url_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const startTime = Date.now();
+  
+  try {
+    const { url, language, speakerCount, engine } = req.body;
+    
+    if (!url) {
+      return res.status(400).json({
+        error: 'URL is required'
+      });
+    }
+    
+    const transcriptionEngine = resolveTranscriptionEngine(engine || 'speechmatics');
+    const lang = language || 'auto';
+    const spCount = speakerCount || null;
+    
+    console.log(`[${requestId}] 📥 Audio diarization from URL: ${url}`);
+    console.log(`[${requestId}] Params: language=${lang}, speakerCount=${spCount}, engine=${transcriptionEngine}`);
+    
+    const diarizationStartTime = Date.now();
+    const result = await runPythonDiarization({
+      url: url,
+      language: lang,
+      speakerCount: spCount,
+      originalFilename: null,
+      engine: transcriptionEngine
+    });
+    const diarizationDuration = ((Date.now() - diarizationStartTime) / 1000).toFixed(2);
+    
+    const totalDuration = ((Date.now() - startTime) / 1000).toFixed(2);
+    const segmentsCount = result?.recordings?.[0]?.results?.[transcriptionEngine]?.segments?.length || 0;
+    
+    console.log(`[${requestId}] ✅ Python diarization completed in ${diarizationDuration}s, found ${segmentsCount} segments`);
+    
+    res.json({
+      success: true,
+      recordings: result.recordings,
+      duration: totalDuration,
+      segmentsCount: segmentsCount
+    });
+    
+  } catch (error) {
+    console.error(`[${requestId}] ❌ Error:`, error);
+    res.status(500).json({
+      error: 'Audio processing failed',
+      details: error.message
+    });
+  }
+});
+
+// Middleware to handle both text and JSON for transcribe endpoint
+function handleTranscribeRequest(req, res, next) {
+  const contentType = req.headers['content-type'] || '';
+  
+  if (contentType.includes('application/json')) {
+    express.json({ limit: '10mb' })(req, res, next);
+  } else {
+    // Plain text (JSON string from Shortcuts)
+    express.text({ type: '*/*', limit: '10mb' })(req, res, next);
+  }
+}
+
+// Endpoint for Shortcuts: transcribe all separated speakers at once
+// Accepts both JSON object and plain text (JSON string from Shortcuts)
+app.post('/api/transcribe-separated-speakers', handleTranscribeRequest, async (req, res) => {
+  const requestId = `transcribe_sep_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const startTime = Date.now();
+  
+  try {
+    let speakers, language, engine;
+    
+    // Check if body is plain text (JSON string from Shortcuts)
+    if (typeof req.body === 'string') {
+      try {
+        // Parse JSON string (handles escaped slashes like \/)
+        const parsed = JSON.parse(req.body);
+        
+        // Extract speakers - can be direct array or nested in separation result
+        if (Array.isArray(parsed)) {
+          speakers = parsed;
+        } else if (parsed.speakers && Array.isArray(parsed.speakers)) {
+          speakers = parsed.speakers;
+        } else if (parsed.speakers) {
+          speakers = parsed.speakers;
+        }
+        
+        language = parsed.language;
+        engine = parsed.engine;
+        console.log(`[${requestId}] 📥 Received plain text JSON string, parsed successfully`);
+      } catch (parseError) {
+        return res.status(400).json({
+          error: 'Invalid JSON string in request body',
+          details: parseError.message
+        });
+      }
+    } else if (typeof req.body === 'object' && req.body !== null) {
+      // Regular JSON object
+      // Extract speakers - can be direct array or nested in separation result
+      if (Array.isArray(req.body)) {
+        speakers = req.body;
+      } else if (req.body.speakers && Array.isArray(req.body.speakers)) {
+        speakers = req.body.speakers;
+      } else {
+        speakers = req.body.speakers;
+      }
+      
+      language = req.body.language;
+      engine = req.body.engine;
+      console.log(`[${requestId}] 📥 Received JSON object`);
+    } else {
+      return res.status(400).json({
+        error: 'Request body must be JSON object or JSON string'
+      });
+    }
+    
+    if (!speakers || !Array.isArray(speakers) || speakers.length === 0) {
+      return res.status(400).json({
+        error: 'speakers array is required',
+        received: typeof speakers,
+        bodyType: typeof req.body
+      });
+    }
+    
+    const transcriptionEngine = resolveTranscriptionEngine(engine || 'speechmatics');
+    const lang = language || 'auto';
+    
+    console.log(`[${requestId}] 📥 Transcribing ${speakers.length} separated speakers`);
+    console.log(`[${requestId}] Params: language=${lang}, engine=${transcriptionEngine}`);
+    
+    const voiceTracks = [];
+    
+    // Process each speaker
+    for (let i = 0; i < speakers.length; i++) {
+      const speaker = speakers[i];
+      
+      // Skip background tracks
+      if (speaker.isBackground) {
+        console.log(`[${requestId}] ⏭️ Skipping background track: ${speaker.name}`);
+        continue;
+      }
+      
+      console.log(`[${requestId}] 🎤 Transcribing speaker ${i + 1}/${speakers.length}: ${speaker.name}`);
+      
+      try {
+        // Determine audio source (prefer local path over URL for reliability)
+        let audioUrl = null;
+        let audioPath = null;
+        
+        // Prefer local_path if available and file exists
+        if (speaker.local_path && fsSync.existsSync(speaker.local_path)) {
+          audioPath = speaker.local_path;
+          console.log(`[${requestId}] 📥 Using local path: ${audioPath}`);
+        } else if (speaker.url) {
+          audioUrl = speaker.url;
+          console.log(`[${requestId}] 📥 Using URL: ${audioUrl}`);
+          console.warn(`[${requestId}] ⚠️ Note: URL may not be accessible to Speechmatics if it's a local tunnel`);
+        } else {
+          console.warn(`[${requestId}] ⚠️ No valid audio source for ${speaker.name}, skipping`);
+          continue;
+        }
+        
+        // Transcribe the speaker track with timeout
+        const transcriptionStartTime = Date.now();
+        
+        // Set timeout for each transcription (5 minutes)
+        const transcriptionPromise = runPythonDiarization({
+          url: audioUrl,
+          filePath: audioPath,
+          language: lang,
+          speakerCount: 1, // Single speaker track
+          originalFilename: speaker.filename || `${speaker.name}.wav`,
+          engine: transcriptionEngine
+        });
+        
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Transcription timeout (5 minutes)')), 5 * 60 * 1000);
+        });
+        
+        let transcription;
+        try {
+          transcription = await Promise.race([transcriptionPromise, timeoutPromise]);
+        } catch (timeoutError) {
+          throw new Error(`Transcription timeout for ${speaker.name}: ${timeoutError.message}`);
+        }
+        
+        const transcriptionDuration = ((Date.now() - transcriptionStartTime) / 1000).toFixed(2);
+        
+        const segments = transcription?.recordings?.[0]?.results?.[transcriptionEngine]?.segments || [];
+        
+        console.log(`[${requestId}] ✅ Transcribed ${speaker.name} in ${transcriptionDuration}s, found ${segments.length} segments`);
+        
+        voiceTracks.push({
+          speaker: speaker.name,
+          role: null, // Will be assigned later
+          confidence: null,
+          transcription: transcription,
+          segments: segments,
+          audioPath: audioPath,
+          downloadUrl: speaker.url,
+          filename: speaker.filename,
+          duration: transcriptionDuration,
+          success: true
+        });
+        
+      } catch (speakerError) {
+        console.error(`[${requestId}] ❌ Failed to transcribe ${speaker.name}:`, speakerError);
+        voiceTracks.push({
+          speaker: speaker.name,
+          error: speakerError.message,
+          transcription: null,
+          success: false
+        });
+      }
+    }
+    
+    const totalDuration = ((Date.now() - startTime) / 1000).toFixed(2);
+    const successfulTracks = voiceTracks.filter(track => track.success).length;
+    const failedTracks = voiceTracks.filter(track => !track.success).length;
+    
+    console.log(`[${requestId}] ✅ Completed transcription: ${successfulTracks} successful, ${failedTracks} failed, total time: ${totalDuration}s`);
+    
+    res.json({
+      success: successfulTracks > 0,
+      voiceTracks: voiceTracks,
+      totalDuration: totalDuration,
+      speakersCount: voiceTracks.length,
+      successfulCount: successfulTracks,
+      failedCount: failedTracks,
+      errors: failedTracks > 0 ? voiceTracks.filter(track => !track.success).map(track => ({
+        speaker: track.speaker,
+        error: track.error
+      })) : null
+    });
+    
+  } catch (error) {
+    console.error(`[${requestId}] ❌ Error:`, error);
+    res.status(500).json({
+      error: 'Transcription failed',
+      details: error.message
+    });
+  }
+});
+
 app.post('/api/diarize-audio', upload.single('audio'), async (req, res) => {
   const requestId = `audio_${Date.now()}_${Math.random().toString(36).slice(2)}`;
   let uploadedFile = req.file;
@@ -6488,233 +6894,530 @@ app.get('/api/audioshake-stems/:jobId/:filename', async (req, res) => {
   }
 });
 
-// Endpoint for debug separation using SpeechBrain
-app.post('/api/debug-separation', async (req, res) => {
-  const startTime = Date.now();
-  const logs = [];
-  
-  const addLog = (message, level = 'info') => {
-    const timestamp = new Date().toISOString();
-    const logEntry = { timestamp, level, message };
-    logs.push(logEntry);
-    console.log(`[DEBUG-SEPARATION] ${message}`);
-  };
+// Debug endpoint for SpeechBrain separation
+app.post('/api/debug-separation', upload.single('audio'), async (req, res) => {
+  const requestId = `debug_sep_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const logPrefix = `[${requestId}]`;
   
   try {
-    const { audioPath, settings = {} } = req.body;
-    
-    if (!audioPath) {
-      addLog('❌ audioPath is required', 'error');
-      return res.status(400).json({ error: 'audioPath is required', logs });
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: 'No audio file provided'
+      });
     }
 
-    const fullAudioPath = path.join(uploadsDir, path.basename(audioPath));
+    console.log(`${logPrefix} 🔵 DEBUG SEPARATION: Starting separation for file: ${req.file.originalname}`);
+    console.log(`${logPrefix} 🔵 DEBUG SEPARATION: Temp file path: ${req.file.path}`);
     
-    // Apply settings (from UI or defaults)
-    const separationSettings = {
-      chunkSeconds: settings.chunkSeconds || parseFloat(process.env.SPEECHBRAIN_CHUNK_SECONDS) || 30,
-      sampleRate: settings.sampleRate || 8000,
-      device: settings.device === 'auto' ? null : (settings.device || process.env.SPEECHBRAIN_DEVICE || null),
-      numSpeakers: settings.numSpeakers || 2,
-      // Quality settings (оптимізовані для якості)
-      segmentOverlap: settings.segmentOverlap !== undefined ? settings.segmentOverlap : (parseFloat(process.env.SPEECHBRAIN_SEGMENT_OVERLAP) || 0.5),  // Більший overlap для кращого зшивання
-      minIntersegmentGap: settings.minIntersegmentGap !== undefined ? settings.minIntersegmentGap : (parseFloat(process.env.SPEECHBRAIN_MIN_INTERSEGMENT_GAP) || 0.1),  // Більший gap
-      strictMode: settings.strictMode !== undefined ? settings.strictMode : (process.env.SPEECHBRAIN_STRICT_MODE === 'true'),
-      vadThreshold: settings.vadThreshold !== undefined ? settings.vadThreshold : (parseFloat(process.env.SPEECHBRAIN_VAD_THRESHOLD) || 0.7),
-      maxSpeechDuration: settings.maxSpeechDuration !== undefined ? settings.maxSpeechDuration : (parseFloat(process.env.SPEECHBRAIN_MAX_SPEECH_DURATION) || 30),  // Не обмежуємо
-      // Advanced settings
-      batchSize: settings.batchSize || parseInt(process.env.SPEECHBRAIN_BATCH_SIZE) || 4,
-      dynamicBatching: settings.dynamicBatching !== undefined ? settings.dynamicBatching : (process.env.SPEECHBRAIN_DYNAMIC_BATCHING === 'true'),
-      vadModel: settings.vadModel || process.env.SPEECHBRAIN_VAD_MODEL || 'speechbrain/vad-crdnn-libriparty',
-      diarizationModel: settings.diarizationModel || process.env.SPEECHBRAIN_DIARIZATION_MODEL || 'speechbrain/diarization-mfa',
-      // Allow any additional settings from document
-      ...settings
+    // Verify temp file exists
+    if (!fsSync.existsSync(req.file.path)) {
+      throw new Error(`Temporary file not found: ${req.file.path}`);
+    }
+    
+    // Check if file needs conversion to WAV
+    const fileExtension = path.extname(req.file.originalname).toLowerCase();
+    const needsConversion = fileExtension !== '.wav';
+    
+    let audioPath;
+    let convertedFilePath = null;
+    
+    if (needsConversion) {
+      console.log(`${logPrefix} 🔵 DEBUG SEPARATION: Converting ${fileExtension} to WAV format...`);
+      // Convert to WAV in temp directory first
+      const baseName = path.basename(req.file.originalname, fileExtension);
+      convertedFilePath = path.join(tempUploadsDir, `converted_${Date.now()}_${baseName}.wav`);
+      await convertAudioToWav(req.file.path, convertedFilePath);
+      audioPath = convertedFilePath;
+    } else {
+      // Save uploaded file to uploads directory
+      const storedFile = await persistUploadedFile(req.file.path, req.file.originalname);
+      console.log(`${logPrefix} 🔵 DEBUG SEPARATION: Stored file info:`, storedFile);
+      audioPath = storedFile.destinationPath;
+      
+      if (!audioPath) {
+        throw new Error(`destinationPath not found in storedFile. Got: ${JSON.stringify(storedFile)}`);
+      }
+    }
+    
+    // Verify file exists
+    if (!fsSync.existsSync(audioPath)) {
+      throw new Error(`Audio file not found at path: ${audioPath}`);
+    }
+    
+    console.log(`${logPrefix} 🔵 DEBUG SEPARATION: Audio ready at: ${audioPath}`);
+    
+    // Extract debug parameters from request body (FormData fields)
+    // Note: multer makes FormData fields available in req.body
+    const debugParams = {
+      chunkSeconds: req.body.chunkSeconds ? parseFloat(req.body.chunkSeconds) : null,
+      gateThreshold: req.body.gateThreshold ? parseFloat(req.body.gateThreshold) : null,
+      gateAlpha: req.body.gateAlpha ? parseFloat(req.body.gateAlpha) : null,
+      enableSpectralGating: req.body.enableSpectralGating === 'true' || req.body.enableSpectralGating === true
     };
     
-    // 2. Перед початком розділення - логування стартової точки та параметрів
-    addLog('═══════════════════════════════════════════════════════════');
-    addLog('🚀 ПОЧАТОК РОЗДІЛЕННЯ ТРЕКІВ (СЕРВЕР)');
-    addLog('═══════════════════════════════════════════════════════════');
-    addLog(`📁 Шлях до аудіо файлу: ${fullAudioPath}`);
+    console.log(`${logPrefix} 🔵 DEBUG SEPARATION: Raw body:`, req.body);
+    console.log(`${logPrefix} 🔵 DEBUG SEPARATION: Parameters:`, debugParams);
     
-    if (!fsSync.existsSync(fullAudioPath)) {
-      addLog(`❌ Файл не знайдено: ${fullAudioPath}`, 'error');
-      return res.status(404).json({ error: 'Audio file not found', logs });
+    // Run SpeechBrain separation with debug parameters
+    const separationResult = await separateSpeakersWithSpeechBrain(audioPath, requestId, null, null, debugParams);
+    
+    console.log(`${logPrefix} ✅ DEBUG SEPARATION: Separation completed, found ${separationResult.speakers.length} speakers`);
+    
+    // Cleanup converted file if it was created
+    if (convertedFilePath && fsSync.existsSync(convertedFilePath)) {
+      try {
+        await fs.unlink(convertedFilePath);
+        console.log(`${logPrefix} 🧹 DEBUG SEPARATION: Cleaned up converted file: ${convertedFilePath}`);
+      } catch (cleanupError) {
+        console.warn(`${logPrefix} ⚠️ DEBUG SEPARATION: Failed to cleanup converted file: ${cleanupError.message}`);
+      }
     }
     
-    const fileStats = fsSync.statSync(fullAudioPath);
-    const fileSizeMB = (fileStats.size / (1024 * 1024)).toFixed(2);
-    addLog(`📊 Розмір файлу: ${fileSizeMB} MB (${fileStats.size} байт)`);
-    addLog(`🕐 Стартова точка: ${new Date().toISOString()}`);
-    addLog('⚙️  Параметри алгоритму:');
-    addLog('   - Модель: SpeechBrain SepFormer WSJ02Mix');
-    addLog(`   - Очікувана кількість спікерів: ${separationSettings.numSpeakers}`);
-    addLog(`   - Sample rate: ${separationSettings.sampleRate} Hz`);
-    addLog(`   - Chunk size: ${separationSettings.chunkSeconds} сек`);
-    addLog(`   - Device: ${separationSettings.device || 'автоматичний вибір'}`);
-    addLog('   🎯 Критичні параметри якості:');
-    addLog(`     - Segment Overlap: ${separationSettings.segmentOverlap || 0.03} сек`);
-    addLog(`     - Min Intersegment Gap: ${separationSettings.minIntersegmentGap || 0.05} сек`);
-    addLog(`     - Strict Mode: ${separationSettings.strictMode !== false ? 'true' : 'false'}`);
-    addLog(`     - VAD Threshold: ${separationSettings.vadThreshold || 0.7}`);
-    addLog(`     - Max Speech Duration: ${separationSettings.maxSpeechDuration || 5} сек`);
-    if (separationSettings.batchSize || separationSettings.dynamicBatching !== undefined) {
-      addLog('   Додаткові параметри:');
-      if (separationSettings.batchSize) addLog(`     - Batch Size: ${separationSettings.batchSize}`);
-      if (separationSettings.dynamicBatching !== undefined) addLog(`     - Dynamic Batching: ${separationSettings.dynamicBatching}`);
-      if (separationSettings.vadModel) addLog(`     - VAD Model: ${separationSettings.vadModel}`);
-      if (separationSettings.diarizationModel) addLog(`     - Diarization Model: ${separationSettings.diarizationModel}`);
-    }
-    addLog('');
-    
-    // Use the existing separateSpeakersWithSpeechBrain function with detailed logging
-    addLog('🔀 Запуск функції розділення...');
-    const separationStartTime = Date.now();
-    
-    // Збираємо логи з Python процесу
-    const pythonLogs = [];
-    const collectPythonLog = (message) => {
-      if (message && message.trim()) {
-        pythonLogs.push(message.trim());
-        // Додаємо важливі логи до основного логу
-        if (message.includes('📁') || message.includes('🔀') || message.includes('📦') || 
-            message.includes('✅') || message.includes('❌') || message.includes('💾') || 
-            message.includes('📊') || message.includes('════') || message.includes('[SpeechBrain]')) {
-          addLog(`   [Python] ${message.trim()}`);
-        }
-      }
-    };
-    
-    const result = await separateSpeakersWithSpeechBrain(fullAudioPath, null, null, (step, status, description, details) => {
-      // 3. Під час аналізу аудіо - логування сегментів
-      if (details && details.input) {
-        if (details.input.chunkInfo) {
-          addLog(`📦 Обробка сегмента: ${details.input.chunkInfo.start} - ${details.input.chunkInfo.end} зразків`);
-        }
-        if (details.input.rawMessage) {
-          const msg = details.input.rawMessage;
-          collectPythonLog(msg);
-          // Додаємо детальні логи про сегменти
-          if (msg.includes('Обробка сегмента') || msg.includes('Separating chunk')) {
-            addLog(`   ${msg}`);
-          }
-        }
-      }
-      if (details && details.output) {
-        if (details.output.speakerIndex) {
-          addLog(`   ✅ Сегмент ${details.output.speakerIndex}/${details.output.totalSpeakers}: ${details.output.speakerName}`);
-          if (details.output.fileSize) {
-            addLog(`      Розмір файлу: ${details.output.fileSize}`);
-          }
-        }
-      }
-    }, collectPythonLog, separationSettings);
-    
-    // Додаємо всі логи з Python процесу
-    if (pythonLogs.length > 0) {
-      addLog('');
-      addLog('📋 Детальні логи з Python процесу:');
-      pythonLogs.forEach(log => {
-        if (log && log.trim()) {
-          addLog(`   ${log.trim()}`);
-        }
-      });
-      addLog('');
-    }
-    
-    const separationTime = ((Date.now() - separationStartTime) / 1000).toFixed(2);
-    
-    // 4. Після завершення розділення
-    addLog('');
-    addLog('✅ РОЗДІЛЕННЯ ЗАВЕРШЕНО');
-    addLog(`   Час обробки: ${separationTime} сек`);
-    addLog(`   Кількість отриманих фрагментів: ${result.speakers?.length || 0}`);
-    addLog(`   Статус: ${result.speakers && result.speakers.length > 0 ? 'Успішно' : 'Помилка'}`);
-    
-    if (result.speakers && result.speakers.length > 0) {
-      addLog('📋 Список фрагментів:');
-      result.speakers.forEach((speaker, index) => {
-        addLog(`   ${index + 1}. ${speaker.name}`);
+    // Prepare response with speaker information
+    const response = {
+      success: true,
+      num_speakers: separationResult.speakers.length,
+      speakers: separationResult.speakers.map(speaker => {
+        // Extract filename from local_path for URL generation
+        let filename = null;
         if (speaker.local_path) {
-          addLog(`      Шлях: ${speaker.local_path}`);
+          filename = path.basename(speaker.local_path);
+        } else if (speaker.url) {
+          // Extract filename from URL if available
+          const urlParts = speaker.url.split('/');
+          filename = urlParts[urlParts.length - 1];
         }
-        if (speaker.url) {
-          addLog(`      URL: ${speaker.url}`);
-        }
-      });
-    }
-    addLog('');
+        
+        return {
+          name: speaker.name,
+          format: speaker.format || 'wav',
+          url: speaker.url || (filename ? `/api/speechbrain-stems/${encodeURIComponent(filename)}` : null),
+          local_path: speaker.local_path,
+          filename: filename,
+          isBackground: speaker.isBackground || false
+        };
+      }),
+      timeline: separationResult.timeline || [],
+      output_dir: separationResult.output_dir
+    };
     
-    // 5. При збереженні результатів
-    addLog('💾 ЗБЕРЕЖЕННЯ РЕЗУЛЬТАТІВ');
-    const saveStartTime = Date.now();
+    res.json(response);
     
-    if (result.speakers && result.speakers.length > 0) {
-      for (let i = 0; i < result.speakers.length; i++) {
-        const speaker = result.speakers[i];
-        if (speaker.local_path && fsSync.existsSync(speaker.local_path)) {
-          const fileStats = fsSync.statSync(speaker.local_path);
-          const fileSizeMB = (fileStats.size / (1024 * 1024)).toFixed(2);
-          addLog(`   ${i + 1}. ${speaker.name}: ✅ Успішно`);
-          addLog(`      Шлях: ${speaker.local_path}`);
-          addLog(`      Розмір: ${fileSizeMB} MB (${fileStats.size} байт)`);
-          addLog(`      Статус запису: ✅ Файл існує`);
-        } else {
-          addLog(`   ${i + 1}. ${speaker.name}: ❌ Не вдалося`);
-          addLog(`      Шлях: ${speaker.local_path || 'N/A'}`);
-          addLog(`      Статус запису: ❌ Файл не знайдено`);
-        }
+  } catch (error) {
+    // Cleanup converted file if it was created (even on error)
+    if (convertedFilePath && fsSync.existsSync(convertedFilePath)) {
+      try {
+        await fs.unlink(convertedFilePath);
+        console.log(`${logPrefix} 🧹 DEBUG SEPARATION: Cleaned up converted file after error: ${convertedFilePath}`);
+      } catch (cleanupError) {
+        console.warn(`${logPrefix} ⚠️ DEBUG SEPARATION: Failed to cleanup converted file: ${cleanupError.message}`);
       }
     }
     
-    const saveTime = ((Date.now() - saveStartTime) / 1000).toFixed(2);
-    addLog(`   Час збереження: ${saveTime} сек`);
-    addLog('');
+    console.error(`${logPrefix} ❌ DEBUG SEPARATION: Error:`, error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Separation failed',
+      details: error.stack
+    });
+  }
+});
+
+// Test endpoint to diagnose what Shortcuts sends
+// Use conditional middleware to avoid stream conflicts
+app.post('/api/test-upload', (req, res, next) => {
+  const contentType = req.headers['content-type'] || '';
+  if (contentType.includes('multipart/form-data')) {
+    upload.single('audio')(req, res, next);
+  } else if (contentType.includes('application/json')) {
+    express.json({ limit: '500mb' })(req, res, next);
+  } else {
+    express.raw({ type: '*/*', limit: '500mb' })(req, res, next);
+  }
+}, async (req, res) => {
+  const requestId = `test_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const logPrefix = `[${requestId}]`;
+  
+  try {
+    const diagnostics = {
+      timestamp: new Date().toISOString(),
+      headers: {
+        'content-type': req.headers['content-type'],
+        'content-length': req.headers['content-length'],
+        'content-disposition': req.headers['content-disposition'],
+        'user-agent': req.headers['user-agent']
+      },
+      body: {
+        type: typeof req.body,
+        isBuffer: Buffer.isBuffer(req.body),
+        isNull: req.body === null,
+        isUndefined: req.body === undefined,
+        length: req.body ? (Buffer.isBuffer(req.body) ? req.body.length : (typeof req.body === 'object' ? Object.keys(req.body).length : String(req.body).length)) : 0,
+        keys: typeof req.body === 'object' && req.body !== null && !Buffer.isBuffer(req.body) ? Object.keys(req.body) : null,
+        preview: Buffer.isBuffer(req.body) ? `Buffer(${req.body.length} bytes)` : 
+                 typeof req.body === 'object' && req.body !== null ? JSON.stringify(req.body).substring(0, 200) : 
+                 String(req.body).substring(0, 200)
+      },
+      file: req.file ? {
+        fieldname: req.file.fieldname,
+        originalname: req.file.originalname,
+        encoding: req.file.encoding,
+        mimetype: req.file.mimetype,
+        size: req.file.size,
+        path: req.file.path,
+        exists: require('fs').existsSync(req.file.path)
+      } : null,
+      query: req.query,
+      method: req.method,
+      url: req.url
+    };
     
-    const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
-    addLog('═══════════════════════════════════════════════════════════');
-    addLog(`📊 Загальний час: ${totalTime} сек`);
-    addLog('═══════════════════════════════════════════════════════════');
+    console.log(`${logPrefix} 📋 TEST UPLOAD DIAGNOSTICS:`, JSON.stringify(diagnostics, null, 2));
+    
+    // Try to read file if it exists
+    if (req.file && require('fs').existsSync(req.file.path)) {
+      const fileStats = require('fs').statSync(req.file.path);
+      diagnostics.file.fileSize = fileStats.size;
+      diagnostics.file.firstBytes = require('fs').readFileSync(req.file.path, { encoding: 'hex', start: 0, end: 20 });
+    }
     
     res.json({
       success: true,
-      speakers: result.speakers || [],
-      timeline: result.timeline || [],
-      numSpeakers: result.speakers?.length || 0,
-      logs: logs,
-      timing: {
-        total: totalTime,
-        separation: separationTime,
-        save: saveTime
-      }
+      message: 'Test endpoint received request',
+      diagnostics: diagnostics
     });
+    
   } catch (error) {
-    // 6. У випадку помилок
-    const errorTime = ((Date.now() - startTime) / 1000).toFixed(2);
-    addLog('');
-    addLog('═══════════════════════════════════════════════════════════');
-    addLog('❌ ПОМИЛКА ПРОЦЕСУ');
-    addLog('═══════════════════════════════════════════════════════════');
-    addLog(`   Код помилки: ${error.name || 'Unknown'}`, 'error');
-    addLog(`   Опис: ${error.message || 'Unknown error'}`, 'error');
-    addLog(`   Час до помилки: ${errorTime} сек`, 'error');
-    if (error.stack) {
-      addLog('   Стек трасування:', 'error');
-      const stackLines = error.stack.split('\n').slice(0, 10);
-      stackLines.forEach(line => {
-        addLog(`      ${line.trim()}`, 'error');
+    console.error(`${logPrefix} ❌ TEST UPLOAD ERROR:`, error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      stack: error.stack
+    });
+  }
+});
+
+// Custom middleware to handle both JSON and raw binary
+function handleShortcutsUpload(req, res, next) {
+  const contentType = req.headers['content-type'] || '';
+  
+  if (contentType.includes('application/json')) {
+    express.json({ limit: '500mb' })(req, res, next);
+  } else if (contentType.includes('multipart/form-data')) {
+    // Shortcuts sends file as multipart/form-data even when selecting "File"
+    upload.single('audio')(req, res, next);
+  } else {
+    express.raw({ type: '*/*', limit: '500mb' })(req, res, next);
+  }
+}
+
+// Alternative endpoint for Shortcuts: accepts file as raw binary data, JSON, or multipart/form-data
+app.post('/api/debug-separation-raw', handleShortcutsUpload, async (req, res) => {
+  const requestId = `debug_sep_raw_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const logPrefix = `[${requestId}]`;
+  
+  try {
+    let fileData = null;
+    let originalName = 'audio.wav';
+    let tempFilePath = null;
+    
+    // Check if multer already processed the file (multipart/form-data)
+    if (req.file) {
+      console.log(`${logPrefix} 📥 Received file via multipart/form-data: ${req.file.originalname}, size: ${req.file.size}`);
+      // Use the file path directly from multer - no need to read and write again
+      tempFilePath = req.file.path;
+      originalName = req.file.originalname;
+      console.log(`${logPrefix} 📥 File ready at: ${tempFilePath}`);
+    } else {
+      // Check Content-Type to determine how data was sent
+      const contentType = req.headers['content-type'] || '';
+      console.log(`${logPrefix} 📥 Content-Type: ${contentType}`);
+      console.log(`${logPrefix} 📥 Body type: ${typeof req.body}, isBuffer: ${Buffer.isBuffer(req.body)}`);
+      
+      if (Buffer.isBuffer(req.body)) {
+        // Raw binary data
+        fileData = req.body;
+        console.log(`${logPrefix} 📥 Received raw binary data: ${fileData.length} bytes`);
+      } else if (typeof req.body === 'object' && req.body !== null) {
+        // JSON data - Shortcuts might send file as base64 or file path
+        if (req.body.filePath) {
+          // File path provided
+          const filePath = req.body.filePath;
+          if (fsSync.existsSync(filePath)) {
+            fileData = await fs.readFile(filePath);
+            originalName = path.basename(filePath);
+            console.log(`${logPrefix} 📥 Read file from path: ${filePath}`);
+          } else {
+            return res.status(400).json({
+              success: false,
+              error: `File not found at path: ${filePath}`
+            });
+          }
+        } else if (req.body.base64) {
+          // Base64 encoded file
+          fileData = Buffer.from(req.body.base64, 'base64');
+          originalName = req.body.filename || 'audio.wav';
+          console.log(`${logPrefix} 📥 Decoded base64 data: ${fileData.length} bytes`);
+        } else if (req.body.data && Buffer.isBuffer(req.body.data)) {
+          // Data in data field
+          fileData = req.body.data;
+          originalName = req.body.filename || 'audio.wav';
+        } else {
+          // Check if body is empty object (Shortcuts might send empty object when file is in Form)
+          if (Object.keys(req.body).length === 0) {
+            return res.status(400).json({
+              success: false,
+              error: 'No audio file provided. Please send file as: raw binary, multipart/form-data with field "audio", {filePath: "..."}, or {base64: "...", filename: "..."}',
+              contentType: req.headers['content-type'],
+              hasFile: !!req.file
+            });
+          }
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid request format. Expected: raw binary, {filePath: "..."}, or {base64: "...", filename: "..."}',
+            received: Object.keys(req.body),
+            contentType: req.headers['content-type']
+          });
+        }
+      } else {
+        return res.status(400).json({
+          success: false,
+          error: 'No audio file provided (empty or invalid body)',
+          contentType: req.headers['content-type'],
+          hasFile: !!req.file
+        });
+      }
+    }
+    
+    if (!fileData || fileData.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No audio file provided (empty data)'
       });
     }
-    addLog('═══════════════════════════════════════════════════════════');
-    
-    console.error('[DEBUG-SEPARATION] Error:', error);
-    res.status(500).json({ 
-      error: 'Separation failed', 
-      details: error.message,
-      logs: logs,
-      timing: {
-        total: errorTime
+
+    // Get filename from headers if not already set
+    if (originalName === 'audio.wav') {
+      const contentDisposition = req.headers['content-disposition'];
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+        if (filenameMatch && filenameMatch[1]) {
+          originalName = filenameMatch[1].replace(/['"]/g, '');
+        }
+      } else {
+        // Try to detect from Content-Type
+        const contentType = req.headers['content-type'] || '';
+        if (contentType.includes('mp3')) originalName = 'audio.mp3';
+        else if (contentType.includes('m4a')) originalName = 'audio.m4a';
+        else if (contentType.includes('wav')) originalName = 'audio.wav';
       }
+    }
+
+    // If we have fileData (from raw/JSON), save it to temp file
+    if (fileData && !tempFilePath) {
+      console.log(`${logPrefix} 🔵 DEBUG SEPARATION RAW: Received file: ${originalName}, size: ${fileData.length} bytes`);
+      tempFilePath = path.join(tempUploadsDir, `raw_${Date.now()}_${originalName}`);
+      await fs.writeFile(tempFilePath, fileData);
+    } else if (tempFilePath) {
+      console.log(`${logPrefix} 🔵 DEBUG SEPARATION RAW: Using multer file: ${originalName}, size: ${req.file.size} bytes`);
+    }
+
+    if (!tempFilePath || !fsSync.existsSync(tempFilePath)) {
+      throw new Error(`Audio file not found at path: ${tempFilePath}`);
+    }
+    
+    // Check if file needs conversion to WAV
+    const fileExtension = path.extname(originalName).toLowerCase();
+    const needsConversion = fileExtension !== '.wav';
+    
+    let audioPath;
+    let convertedFilePath = null;
+    let shouldCleanupTempFile = false;
+    
+    if (needsConversion) {
+      console.log(`${logPrefix} 🔵 DEBUG SEPARATION RAW: Converting ${fileExtension} to WAV format...`);
+      const baseName = path.basename(originalName, fileExtension);
+      convertedFilePath = path.join(tempUploadsDir, `converted_${Date.now()}_${baseName}.wav`);
+      await convertAudioToWav(tempFilePath, convertedFilePath);
+      audioPath = convertedFilePath;
+      // Mark temp file for cleanup (if it was created by us, not multer)
+      shouldCleanupTempFile = !req.file;
+    } else {
+      // For WAV files, use the temp file directly or persist it
+      if (req.file) {
+        // Multer file - use it directly
+        audioPath = tempFilePath;
+      } else {
+        // Our temp file - persist it
+        const storedFile = await persistUploadedFile(tempFilePath, originalName);
+        console.log(`${logPrefix} 🔵 DEBUG SEPARATION RAW: Stored file info:`, storedFile);
+        audioPath = storedFile.destinationPath;
+        shouldCleanupTempFile = false; // Already moved
+      }
+    }
+    
+    // Verify file exists
+    if (!fsSync.existsSync(audioPath)) {
+      throw new Error(`Audio file not found at path: ${audioPath}`);
+    }
+    
+    console.log(`${logPrefix} 🔵 DEBUG SEPARATION RAW: Audio ready at: ${audioPath}`);
+    
+    // Run SpeechBrain separation
+    const separationResult = await separateSpeakersWithSpeechBrain(audioPath, requestId);
+    
+    console.log(`${logPrefix} ✅ DEBUG SEPARATION RAW: Separation completed, found ${separationResult.speakers.length} speakers`);
+    
+    // Cleanup files
+    if (shouldCleanupTempFile && tempFilePath && fsSync.existsSync(tempFilePath)) {
+      try {
+        await fs.unlink(tempFilePath);
+        console.log(`${logPrefix} 🧹 DEBUG SEPARATION RAW: Cleaned up temp file: ${tempFilePath}`);
+      } catch (cleanupError) {
+        console.warn(`${logPrefix} ⚠️ DEBUG SEPARATION RAW: Failed to cleanup temp file: ${cleanupError.message}`);
+      }
+    }
+    
+    // Cleanup multer temp file if it was used
+    if (req.file && req.file.path && fsSync.existsSync(req.file.path) && audioPath !== req.file.path) {
+      try {
+        await fs.unlink(req.file.path);
+        console.log(`${logPrefix} 🧹 DEBUG SEPARATION RAW: Cleaned up multer temp file: ${req.file.path}`);
+      } catch (cleanupError) {
+        console.warn(`${logPrefix} ⚠️ DEBUG SEPARATION RAW: Failed to cleanup multer file: ${cleanupError.message}`);
+      }
+    }
+    
+    // Cleanup converted file if it was created
+    if (convertedFilePath && fsSync.existsSync(convertedFilePath)) {
+      try {
+        await fs.unlink(convertedFilePath);
+        console.log(`${logPrefix} 🧹 DEBUG SEPARATION RAW: Cleaned up converted file: ${convertedFilePath}`);
+      } catch (cleanupError) {
+        console.warn(`${logPrefix} ⚠️ DEBUG SEPARATION RAW: Failed to cleanup converted file: ${cleanupError.message}`);
+      }
+    }
+    
+    // Prepare response
+    const response = {
+      success: true,
+      num_speakers: separationResult.speakers.length,
+      speakers: separationResult.speakers.map(speaker => {
+        let filename = null;
+        if (speaker.local_path) {
+          filename = path.basename(speaker.local_path);
+        } else if (speaker.url) {
+          const urlParts = speaker.url.split('/');
+          filename = urlParts[urlParts.length - 1];
+        }
+        
+        return {
+          name: speaker.name,
+          format: speaker.format || 'wav',
+          url: speaker.url || (filename ? `/api/speechbrain-stems/${encodeURIComponent(filename)}` : null),
+          local_path: speaker.local_path,
+          filename: filename,
+          isBackground: speaker.isBackground || false
+        };
+      }),
+      timeline: separationResult.timeline || [],
+      output_dir: separationResult.output_dir
+    };
+    
+    res.json(response);
+    
+  } catch (error) {
+    console.error(`${logPrefix} ❌ DEBUG SEPARATION RAW: Error:`, error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Separation failed',
+      details: error.stack
+    });
+  }
+});
+
+// API endpoint for applying separation parameters to project
+app.post('/api/apply-separation-params', async (req, res) => {
+  const logPrefix = '[Apply Separation Params]';
+  
+  try {
+    const { chunkSeconds, gateThreshold, gateAlpha, enableSpectralGating } = req.body;
+    
+    // Validate parameters
+    if (chunkSeconds !== undefined && (chunkSeconds < 5 || chunkSeconds > 30)) {
+      return res.status(400).json({
+        success: false,
+        error: 'chunkSeconds must be between 5 and 30'
+      });
+    }
+    
+    if (gateThreshold !== undefined && (gateThreshold < 0.05 || gateThreshold > 0.3)) {
+      return res.status(400).json({
+        success: false,
+        error: 'gateThreshold must be between 0.05 and 0.3'
+      });
+    }
+    
+    if (gateAlpha !== undefined && (gateAlpha < 0.1 || gateAlpha > 0.9)) {
+      return res.status(400).json({
+        success: false,
+        error: 'gateAlpha must be between 0.1 and 0.9'
+      });
+    }
+    
+    // Create configuration object
+    const config = {
+      chunkSeconds: chunkSeconds !== undefined ? chunkSeconds : null,
+      gateThreshold: gateThreshold !== undefined ? gateThreshold : null,
+      gateAlpha: gateAlpha !== undefined ? gateAlpha : null,
+      enableSpectralGating: enableSpectralGating !== undefined ? enableSpectralGating : null,
+      appliedAt: new Date().toISOString(),
+      appliedBy: 'debug-panel'
+    };
+    
+    // Save to configuration file
+    const configPath = path.join(__dirname, 'cache', 'speechbrain_separation_config.json');
+    const configDir = path.dirname(configPath);
+    
+    // Ensure cache directory exists
+    if (!fsSync.existsSync(configDir)) {
+      fsSync.mkdirSync(configDir, { recursive: true });
+    }
+    
+    // Read existing config if exists
+    let existingConfig = {};
+    if (fsSync.existsSync(configPath)) {
+      try {
+        const existingData = fsSync.readFileSync(configPath, 'utf8');
+        existingConfig = JSON.parse(existingData);
+      } catch (e) {
+        console.warn(`${logPrefix} Warning: Could not read existing config, creating new one`);
+      }
+    }
+    
+    // Merge with existing config (only update provided values)
+    const mergedConfig = {
+      ...existingConfig,
+      ...config
+    };
+    
+    // Write configuration file
+    fsSync.writeFileSync(configPath, JSON.stringify(mergedConfig, null, 2), 'utf8');
+    
+    console.log(`${logPrefix} ✅ Applied separation parameters:`, mergedConfig);
+    
+    res.json({
+      success: true,
+      message: 'Parameters applied successfully',
+      config: mergedConfig
+    });
+    
+  } catch (error) {
+    console.error(`${logPrefix} ❌ Error:`, error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to apply parameters'
     });
   }
 });
@@ -9063,11 +9766,344 @@ function prepareSegmentsForLLM(segments) {
       text: text,
       start: parseFloat(start.toFixed(2)), // Round to 2 decimal places
       end: parseFloat(end.toFixed(2)),
-      speaker_id: speakerId
+      speaker_id: speakerId,
+      original_speaker: speaker // Зберігаємо оригінального спікера з Speechmatics (SPEAKER_00, SPEAKER_01)
     };
   });
 
   return formattedSegments;
+}
+
+/**
+ * Знаходить підозрілі пари сегментів, які можуть бути розірваними фразами
+ * @param {Array} segments - Масив сегментів
+ * @param {Object} options - Опції
+ * @returns {Array} Масив пар сегментів для перевірки
+ */
+function findSuspiciousFragmentPairs(segments, options = {}) {
+  const { maxGapSeconds = 3.0 } = options;
+  
+  if (!Array.isArray(segments) || segments.length < 2) {
+    return [];
+  }
+
+  const sorted = [...segments].sort((a, b) => 
+    (parseFloat(a.start) || 0) - (parseFloat(b.start) || 0)
+  );
+
+  const suspiciousPairs = [];
+
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const current = sorted[i];
+    const next = sorted[i + 1];
+    
+    const gap = (parseFloat(next.start) || 0) - (parseFloat(current.end) || 0);
+    
+    // Перевіряємо тільки сегменти з малим проміжком
+    if (gap >= 0 && gap <= maxGapSeconds) {
+      suspiciousPairs.push({
+        first: current,
+        second: next,
+        gap: gap,
+        index: i
+      });
+    }
+  }
+
+  return suspiciousPairs;
+}
+
+/**
+ * Перевіряє через LLM чи два сегменти є однією розірваною фразою
+ * @param {Object} pair - Пара сегментів для перевірки
+ * @param {Object} options - Опції (model, useLocalLLM, apiUrl, headers)
+ * @returns {Promise<boolean>} true якщо це одна фраза, false якщо ні
+ */
+async function checkIfFragmentedPhrase(pair, options = {}) {
+  const { model, useLocalLLM, apiUrl, headers, logPrefix = '[LLM Check]' } = options;
+  
+  const firstText = (pair.first.text || '').trim();
+  const secondText = (pair.second.text || '').trim();
+  
+  if (!firstText || !secondText) {
+    return false;
+  }
+
+  const systemPrompt = `You are a language expert analyzing call center conversations. Your task is to determine if two text segments are parts of ONE fragmented phrase (split due to a pause) or TWO separate phrases.
+
+CRITICAL: Even if segments have different speaker labels (Agent/Client), they might still be ONE fragmented phrase if the first segment is incomplete and the second continues it.
+
+Answer ONLY with "YES" if they are one fragmented phrase, or "NO" if they are separate phrases.`;
+
+  const firstSpeaker = pair.first.speaker_id || 'Unknown';
+  const secondSpeaker = pair.second.speaker_id || 'Unknown';
+  
+  // Отримуємо оригінальних спікерів з Speechmatics (SPEAKER_00, SPEAKER_01)
+  const firstOriginalSpeaker = pair.first.original_speaker || pair.first.speaker || 'Unknown';
+  const secondOriginalSpeaker = pair.second.original_speaker || pair.second.speaker || 'Unknown';
+  
+  const userPrompt = `Are these two segments parts of ONE fragmented phrase?
+
+Segment 1:
+- Assigned role: ${firstSpeaker}
+- Speechmatics speaker: ${firstOriginalSpeaker}
+- Text: "${firstText}"
+
+Segment 2:
+- Assigned role: ${secondSpeaker}
+- Speechmatics speaker: ${secondOriginalSpeaker}
+- Text: "${secondText}"
+
+Gap between them: ${pair.gap.toFixed(2)} seconds
+
+IMPORTANT CONTEXT:
+- Speechmatics speaker labels (${firstOriginalSpeaker}, ${secondOriginalSpeaker}) show who was detected by the audio diarization system
+- Assigned roles (${firstSpeaker}, ${secondSpeaker}) may be incorrect if the phrase was fragmented
+- If Speechmatics shows the SAME speaker for both segments, they are likely ONE fragmented phrase
+- If Speechmatics shows DIFFERENT speakers, check if the first segment is incomplete (ends with "to", "and", "did you", etc.)
+
+RULES FOR FRAGMENTED PHRASES:
+
+1. **AGENT asking questions** - If first segment is Agent asking incomplete question, continuation belongs to AGENT:
+   - "And did you try to" (Agent) + "reset your modem" (Agent/Client) = YES, belongs to AGENT
+   - "Can you tell" (Agent) + "me your IP address" (Agent/Client) = YES, belongs to AGENT
+   - "Did you check" (Agent) + "the settings" (Agent/Client) = YES, belongs to AGENT
+   - Reason: Agent is asking a question, so the continuation of the question belongs to Agent
+
+2. **CLIENT asking questions** - If first segment is Client asking incomplete question, continuation belongs to CLIENT:
+   - "Can you help" (Client) + "me with this" (Client/Agent) = YES, belongs to CLIENT
+   - "I need to" (Client) + "reset my password" (Client/Agent) = YES, belongs to CLIENT
+   - Reason: Client is asking for help, so the continuation belongs to Client
+
+3. **AGENT giving instructions** - If first segment is Agent giving incomplete instruction, continuation belongs to AGENT:
+   - "Try to" (Agent) + "restart the device" (Agent/Client) = YES, belongs to AGENT
+   - "You should" (Agent) + "check the settings" (Agent/Client) = YES, belongs to AGENT
+   - Reason: Agent is providing instructions, so continuation belongs to Agent
+
+4. **CLIENT describing problem** - If first segment is Client describing incomplete problem, continuation belongs to CLIENT:
+   - "I have a problem" (Client) + "with my internet" (Client/Agent) = YES, belongs to CLIENT
+   - "My connection" (Client) + "keeps dropping" (Client/Agent) = YES, belongs to CLIENT
+   - Reason: Client is describing their issue, so continuation belongs to Client
+
+5. **NOT fragmented** - These are separate phrases:
+   - "Hello" + "How are you?" = NO (greeting + question, separate)
+   - "Yes" + "please" = NO (short response, separate)
+   - "Thank you" + "You're welcome" = NO (different speakers, separate)
+
+DECISION RULE:
+- If first segment ends with incomplete question/instruction/description (no period, ends with "to", "and", "did you", "can you", "I need", etc.)
+- AND second segment completes the thought
+- THEN = YES (one fragmented phrase)
+- The continuation belongs to the SAME speaker who started the phrase
+
+SPEECHMATICS SPEAKER CONTEXT:
+- If Speechmatics shows the SAME speaker for both segments (${firstOriginalSpeaker} = ${secondOriginalSpeaker}), they are almost certainly ONE fragmented phrase
+- If Speechmatics shows DIFFERENT speakers (${firstOriginalSpeaker} ≠ ${secondOriginalSpeaker}) but the first segment is clearly incomplete, check who STARTED the phrase based on content
+- Speechmatics speaker detection is more reliable than assigned roles for fragmented phrases - trust it when speakers match
+
+Examples:
+- "And did you try to" (Assigned: Client, Speechmatics: ${firstOriginalSpeaker}) + "reset your modem" (Assigned: Agent, Speechmatics: ${secondOriginalSpeaker})
+  * If Speechmatics speakers match (${firstOriginalSpeaker} = ${secondOriginalSpeaker}): YES, belongs to ${firstOriginalSpeaker}
+  * If Speechmatics speakers differ: Check content - if it's a question from Agent, belongs to AGENT
+- "I need to" (Assigned: Agent, Speechmatics: ${firstOriginalSpeaker}) + "reset my password" (Assigned: Client, Speechmatics: ${secondOriginalSpeaker})
+  * If Speechmatics speakers match: YES, belongs to ${firstOriginalSpeaker}
+  * If Speechmatics speakers differ: Check content - if Client was asking, belongs to CLIENT
+
+Answer: YES or NO`;
+
+  const payload = {
+    model: model,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ],
+    temperature: 0,
+    max_tokens: 10 // Коротка відповідь
+  };
+
+  try {
+    // Логуємо дані, які відправляємо
+    console.log(`${logPrefix} 📤 Sending to LLM:`, {
+      segment1: {
+        text: firstText,
+        assignedRole: firstSpeaker,
+        speechmaticsSpeaker: firstOriginalSpeaker
+      },
+      segment2: {
+        text: secondText,
+        assignedRole: secondSpeaker,
+        speechmaticsSpeaker: secondOriginalSpeaker
+      },
+      gap: pair.gap.toFixed(2) + 's',
+      prompt: userPrompt.substring(0, 200) + '...'
+    });
+    
+    const response = await axios.post(apiUrl, payload, {
+      headers: headers,
+      timeout: 30000 // 30 секунд для короткої перевірки
+    });
+
+    const answer = (response.data.choices[0]?.message?.content || '').trim().toUpperCase();
+    const isFragmented = answer.includes('YES');
+    
+    // Логуємо відповідь
+    console.log(`${logPrefix} 📥 LLM Response:`, {
+      rawAnswer: response.data.choices[0]?.message?.content || '',
+      normalizedAnswer: answer,
+      decision: isFragmented ? 'MERGE' : 'SEPARATE',
+      segment1: firstText.substring(0, 40),
+      segment2: secondText.substring(0, 40)
+    });
+    
+    console.log(`${logPrefix} Fragment check: "${firstText.substring(0, 30)}..." + "${secondText.substring(0, 30)}..." → ${isFragmented ? 'MERGE' : 'SEPARATE'}`);
+    
+    return isFragmented;
+  } catch (error) {
+    console.error(`${logPrefix} ❌ Fragment check failed: ${error.message}`, error.stack);
+    console.warn(`${logPrefix} ⚠️ Defaulting to false`);
+    return false;
+  }
+}
+
+/**
+ * Об'єднує розірвані фрази на основі перевірки через LLM
+ * @param {Array} segments - Масив сегментів
+ * @param {Object} options - Опції для LLM перевірки
+ * @returns {Promise<Array>} Сегменти з об'єднаними фразами
+ */
+async function mergeFragmentedPhrasesWithLLM(segments, options = {}) {
+  const {
+    model,
+    useLocalLLM,
+    apiUrl,
+    headers,
+    logPrefix = '[Fragment Merge]',
+    maxGapSeconds = 3.0
+  } = options;
+
+  if (!Array.isArray(segments) || segments.length < 2) {
+    return segments;
+  }
+
+  console.log(`${logPrefix} 🔍 Checking ${segments.length} segments for fragmented phrases...`);
+
+  // Знаходимо підозрілі пари
+  const suspiciousPairs = findSuspiciousFragmentPairs(segments, { maxGapSeconds });
+  
+  if (suspiciousPairs.length === 0) {
+    console.log(`${logPrefix} ✅ No suspicious fragment pairs found`);
+    return segments;
+  }
+
+  console.log(`${logPrefix} 📋 Found ${suspiciousPairs.length} suspicious pairs to check`);
+  // Логуємо перші 3 пари для дебагу
+  suspiciousPairs.slice(0, 3).forEach((pair, idx) => {
+    const firstOriginal = pair.first.original_speaker || pair.first.speaker || 'Unknown';
+    const secondOriginal = pair.second.original_speaker || pair.second.speaker || 'Unknown';
+    console.log(`${logPrefix}   Pair ${idx + 1}: "${pair.first.text?.substring(0, 30)}..." (Role: ${pair.first.speaker_id}, Speechmatics: ${firstOriginal}) + "${pair.second.text?.substring(0, 30)}..." (Role: ${pair.second.speaker_id}, Speechmatics: ${secondOriginal}), gap: ${pair.gap.toFixed(2)}s`);
+  });
+
+  // Перевіряємо кожну пару через LLM
+  const mergeDecisions = [];
+  for (const pair of suspiciousPairs) {
+    const shouldMerge = await checkIfFragmentedPhrase(pair, {
+      model,
+      useLocalLLM,
+      apiUrl,
+      headers,
+      logPrefix
+    });
+    mergeDecisions.push({ pair, shouldMerge });
+  }
+
+  // Об'єднуємо сегменти на основі рішень LLM
+  const sorted = [...segments].sort((a, b) => 
+    (parseFloat(a.start) || 0) - (parseFloat(b.start) || 0)
+  );
+
+  const merged = [];
+  const mergedIndices = new Set();
+
+  for (let i = 0; i < sorted.length; i++) {
+    if (mergedIndices.has(i)) {
+      continue; // Цей сегмент вже об'єднано
+    }
+
+    // Шукаємо рішення для цієї пари
+    const decision = mergeDecisions.find(d => d.pair.index === i);
+    
+    if (decision && decision.shouldMerge) {
+      // Об'єднуємо
+      const current = sorted[i];
+      const next = sorted[i + 1];
+      
+      if (next) {
+        // Визначаємо правильного спікера на основі контексту:
+        // Правило: продовження належить тому, хто ПОЧАВ фразу
+        const currentText = (current.text || '').trim().toLowerCase();
+        const nextText = (next.text || '').trim().toLowerCase();
+        
+        // Перевіряємо, хто почав фразу (питає, дає інструкції, описує проблему)
+        let mergedSpeaker = current.speaker_id; // За замовчуванням - той, хто почав
+        
+        if (current.speaker_id !== next.speaker_id) {
+          // Якщо спікери різні, визначаємо правильного на основі контексту
+          
+          // АГЕНТ починає (питає, дає інструкції) → продовження належить АГЕНТУ
+          const agentStarts = /\b(and\s+)?(did\s+you|can\s+you|will\s+you|would\s+you|should\s+you|have\s+you|try\s+to|you\s+should|you\s+need|let\s+me|i\s+will|i\s+can)/i.test(currentText);
+          
+          // КЛІЄНТ починає (питає про допомогу, описує проблему) → продовження належить КЛІЄНТУ
+          const clientStarts = /\b(i\s+have|i\s+need|i\s+want|i\s+can't|i\s+cannot|my\s+|can\s+you\s+help|please\s+help)/i.test(currentText);
+          
+          if (agentStarts && current.speaker_id === 'Agent') {
+            mergedSpeaker = 'Agent'; // Агент почав питання/інструкцію → продовження агента
+          } else if (agentStarts && current.speaker_id === 'Client') {
+            // Якщо клієнт почав з агентської фрази, можливо це помилка - перевіряємо контекст
+            // Якщо продовження виглядає як відповідь на питання → залишаємо клієнта
+            const looksLikeAnswer = /^(yes|no|sure|okay|ok|alright|of course|certainly|absolutely|definitely|maybe|perhaps|probably|i think|i believe|i guess|i tried|i did|i can|i will)/i.test(nextText);
+            mergedSpeaker = looksLikeAnswer ? 'Client' : 'Agent';
+          } else if (clientStarts && current.speaker_id === 'Client') {
+            mergedSpeaker = 'Client'; // Клієнт почав опис проблеми → продовження клієнта
+          } else if (clientStarts && current.speaker_id === 'Agent') {
+            // Якщо агент почав з клієнтської фрази, можливо це помилка
+            mergedSpeaker = 'Agent'; // Залишаємо агента
+          } else {
+            // Якщо не можемо визначити, використовуємо спікера першого сегмента (той, хто почав)
+            mergedSpeaker = current.speaker_id;
+          }
+        }
+        
+        const mergedSegment = {
+          ...current,
+          speaker_id: mergedSpeaker, // Використовуємо визначеного спікера
+          text: ((current.text || '').trim() + ' ' + (next.text || '').trim()).trim(),
+          end: Math.max(parseFloat(current.end) || 0, parseFloat(next.end) || parseFloat(next.start)),
+          _mergedFragment: true,
+          _originalSegments: [current, next],
+          _originalSpeakers: [current.speaker_id, next.speaker_id] // Зберігаємо оригінальних спікерів для логів
+        };
+        
+        merged.push(mergedSegment);
+        mergedIndices.add(i);
+        mergedIndices.add(i + 1);
+        
+        const speakerNote = current.speaker_id !== next.speaker_id 
+          ? ` [${current.speaker_id}→${next.speaker_id}, assigned to ${mergedSpeaker} (${current.speaker_id} started the phrase)]`
+          : '';
+        console.log(`${logPrefix} 🔗 Merged: "${current.text.substring(0, 40)}..." + "${next.text.substring(0, 40)}..."${speakerNote}`);
+        
+        i++; // Пропускаємо наступний сегмент
+        continue;
+      }
+    }
+
+    // Не об'єднуємо - додаємо як є
+    merged.push({ ...sorted[i] });
+  }
+
+  console.log(`${logPrefix} ✅ Fragment merge complete: ${segments.length} → ${merged.length} segments`);
+  
+  return merged;
 }
 
 /**
@@ -9101,6 +10137,13 @@ async function sendSegmentsToLLMForFixes(segmentsForLLM, options = {}) {
   }
 
   console.log(`${logPrefix} 🤖 Preparing to send ${segmentsForLLM.length} segments to LLM for speaker mixing fixes...`);
+  console.log(`${logPrefix} 📊 First 3 segments for debugging:`, segmentsForLLM.slice(0, 3).map(s => ({
+    id: s.segment_id,
+    speaker: s.speaker_id,
+    text: s.text?.substring(0, 50),
+    start: s.start,
+    end: s.end
+  })));
 
   // ---------- 1. Select model based on mode ----------
   let model;
@@ -9123,7 +10166,59 @@ async function sendSegmentsToLLMForFixes(segmentsForLLM, options = {}) {
     console.log(`${logPrefix} 🔵 Using OpenRouter model: ${model}`);
   }
 
-  // ---------- 2. Build prompt with voice tracks context ----------
+  // ---------- 2. Pre-merge fragmented phrases using LLM check ----------
+  // Configure API endpoint and headers for fragment check
+  const apiUrl = useLocalLLM 
+    ? `${LOCAL_LLM_BASE_URL}/v1/chat/completions`
+    : 'https://openrouter.ai/api/v1/chat/completions';
+  
+  const headers = {
+    'Content-Type': 'application/json'
+  };
+  
+  if (useLocalLLM) {
+    if (LOCAL_LLM_API_KEY) {
+      headers['Authorization'] = `Bearer ${LOCAL_LLM_API_KEY}`;
+    }
+  } else {
+    headers['Authorization'] = `Bearer ${process.env.OPENROUTER_API_KEY}`;
+    headers['HTTP-Referer'] = process.env.APP_URL || 'http://localhost:3000';
+    headers['X-Title'] = 'Fragment Check';
+  }
+
+  // Merge fragmented phrases before main LLM processing
+  let processedSegments = segmentsForLLM;
+  try {
+    console.log(`${logPrefix} 🔍 Starting fragmented phrases check for ${segmentsForLLM.length} segments...`);
+    
+    if (sendUpdate) {
+      sendUpdate(5, 'processing', `🔍 Перевірка розірваних фраз (${segmentsForLLM.length} сегментів)...`, {
+        stage: 'fragment_check',
+        input: { segmentsCount: segmentsForLLM.length }
+      });
+    }
+    
+    processedSegments = await mergeFragmentedPhrasesWithLLM(segmentsForLLM, {
+      model,
+      useLocalLLM,
+      apiUrl,
+      headers,
+      logPrefix,
+      maxGapSeconds: 3.0
+    });
+    
+    if (processedSegments.length !== segmentsForLLM.length) {
+      console.log(`${logPrefix} ✅ Fragmented phrases merged: ${segmentsForLLM.length} → ${processedSegments.length} segments`);
+    } else {
+      console.log(`${logPrefix} ℹ️ No fragments merged (${segmentsForLLM.length} segments remain)`);
+    }
+  } catch (error) {
+    console.error(`${logPrefix} ❌ Fragment merge failed: ${error.message}`, error.stack);
+    console.warn(`${logPrefix} ⚠️ Continuing with original segments`);
+    processedSegments = segmentsForLLM;
+  }
+
+  // ---------- 3. Build prompt with voice tracks context ----------
   // Extract voice tracks segments as JSON for context
   const voiceTracksContext = [];
   if (voiceTracks && Array.isArray(voiceTracks)) {
@@ -9177,6 +10272,10 @@ CRITICAL RULES FOR SEGMENT SPLITTING:
 CRITICAL RULES FOR SEGMENT MERGING:
 1. **Merge continuous speech**: If consecutive segments from the same speaker are clearly one continuous utterance, merge them
 2. **Merge incomplete sentences**: If a segment ends mid-sentence and the next segment from the same speaker continues it, merge them
+3. **Merge fragmented phrases across speakers**: If a segment is clearly incomplete (ends with "to", "and", "did you", "can you", etc.) and the next segment completes it, merge them EVEN IF they have different speaker labels. The continuation belongs to the speaker who STARTED the phrase:
+   - **AGENT started** (asking question/giving instruction): "And did you try to" (Client) + "reset your modem" (Agent) → Merge, assign to AGENT (Agent was asking)
+   - **CLIENT started** (asking for help/describing problem): "I need to" (Agent) + "reset my password" (Client) → Merge, assign to CLIENT (Client was asking)
+   - **Rule**: The speaker who STARTS the incomplete phrase owns the continuation, regardless of intermediate speaker labels
 
 CRITICAL RULES FOR SPEAKER ASSIGNMENT:
 1. **AGENT/CLIENT IDENTIFICATION**: Determine which speaker is Agent and which is Client based on conversational context:
@@ -9212,11 +10311,17 @@ Return format: JSON array with fields: segment_id, text, start, end, speaker_id
 - end: end time in seconds (can be modified to fix overlaps)
 - speaker_id: correct speaker identifier (use "Agent" for SPEAKER_00, "Client" for SPEAKER_01)`;
 
-  // Format segments for prompt with more context
-  const totalDuration = Math.max(...segmentsForLLM.map(s => s.end));
-  const speakers = [...new Set(segmentsForLLM.map(s => s.speaker_id))];
+  // Format segments for prompt with more context (use processed segments)
+  const totalDuration = Math.max(...processedSegments.map(s => s.end));
+  const speakers = [...new Set(processedSegments.map(s => s.speaker_id))];
   
-  const segmentsText = segmentsForLLM.map(s => 
+  // Re-number segments after merging
+  const renumberedSegments = processedSegments.map((s, idx) => ({
+    ...s,
+    segment_id: idx + 1
+  }));
+  
+  const segmentsText = renumberedSegments.map(s => 
     `[${s.segment_id}] ${s.speaker_id}: "${s.text}" (${s.start.toFixed(2)}s - ${s.end.toFixed(2)}s)`
   ).join('\n');
 
@@ -9243,7 +10348,7 @@ IMPORTANT:
 DIALOGUE CONTEXT:
 - Total duration: ${totalDuration.toFixed(2)} seconds
 - Speakers detected: ${speakers.join(', ')}
-- Total segments: ${segmentsForLLM.length}
+- Total segments: ${renumberedSegments.length}
 
 MERGED SEGMENTS (in chronological order):
 ${segmentsText}${voiceTracksText}
@@ -9256,7 +10361,7 @@ TASK - Review the ENTIRE dialogue and:
 5. **Merge continuous segments**: If consecutive segments from the same speaker should be one continuous utterance, merge them
 6. **Fix timestamps**: Adjust start/end times to properly separate overlapping speech
 7. **Use voice tracks**: Trust voice tracks transcriptions for correct text and speaker assignments
-8. **Ensure completeness**: The corrected dialogue must cover the entire time range from ${segmentsForLLM[0]?.start?.toFixed(2) || 0}s to ${totalDuration.toFixed(2)}s
+8. **Ensure completeness**: The corrected dialogue must cover the entire time range from ${renumberedSegments[0]?.start?.toFixed(2) || 0}s to ${totalDuration.toFixed(2)}s
 9. **Maintain all text**: Do not delete or modify any text content, only reorganize it
 
 EXAMPLE OF CORRECT SPLITTING:
@@ -9277,32 +10382,13 @@ Return a JSON array with ALL corrected segments. The array should:
 
 Return ONLY the JSON array, no additional text or markdown.`;
 
-  // ---------- 3. Configure API endpoint and headers ----------
-  const apiUrl = useLocalLLM 
-    ? `${LOCAL_LLM_BASE_URL}/v1/chat/completions`
-    : 'https://openrouter.ai/api/v1/chat/completions';
-  
-  const headers = {
-    'Content-Type': 'application/json'
-  };
-  
-  if (useLocalLLM) {
-    if (LOCAL_LLM_API_KEY) {
-      headers['Authorization'] = `Bearer ${LOCAL_LLM_API_KEY}`;
-    }
-  } else {
-    headers['Authorization'] = `Bearer ${process.env.OPENROUTER_API_KEY}`;
-    headers['HTTP-Referer'] = process.env.APP_URL || 'http://localhost:3000';
-    headers['X-Title'] = 'Speaker Mixing Fixes';
-  }
-
   // ---------- 4. Send request to LLM ----------
   if (sendUpdate) {
-    sendUpdate(5, 'processing', `🤖 MODE3: Відправка ${segmentsForLLM.length} сегментів на LLM для виправлення змішування спікерів...`, {
+    sendUpdate(5, 'processing', `🤖 MODE3: Відправка ${renumberedSegments.length} сегментів на LLM для виправлення змішування спікерів...`, {
       stage: 'llm_request',
       input: {
-        segmentsCount: segmentsForLLM.length,
-        speakers: [...new Set(segmentsForLLM.map(s => s.speaker_id))],
+        segmentsCount: renumberedSegments.length,
+        speakers: [...new Set(renumberedSegments.map(s => s.speaker_id))],
         model: model
       }
     });
@@ -10105,6 +11191,7 @@ function mergeConsecutiveSpeakerSegmentsInMarkdown(markdownTable, maxGapSeconds 
   }
   
   // Step 1: Merge consecutive segments from the same speaker
+  // IMPROVED: Now handles overlapping timestamps and larger gaps
   const mergedRows = [];
   
   for (let i = 0; i < dataRows.length; i++) {
@@ -10121,17 +11208,30 @@ function mergeConsecutiveSpeakerSegmentsInMarkdown(markdownTable, maxGapSeconds 
     }
     
     const last = mergedRows[mergedRows.length - 1];
+    const lastStart = last.startTime;
     const lastEnd = last.endTime;
     const currentStart = current.startTime;
+    const currentEnd = current.endTime;
+    
+    // Calculate overlap and gap
+    const overlap = Math.max(0, Math.min(lastEnd, currentEnd) - Math.max(lastStart, currentStart));
     const gap = currentStart - lastEnd;
     
-    // Check if we should merge: same speaker and gap is small or overlapping
-    if (last.speaker === current.speaker && gap <= maxGapSeconds) {
+    // Check if we should merge: same speaker AND (overlapping OR small gap)
+    // Also merge if segments are very close in time (even if gap is slightly larger)
+    const shouldMerge = last.speaker === current.speaker && (
+      overlap > 0 || // Overlapping segments
+      gap <= maxGapSeconds || // Small gap
+      (gap <= maxGapSeconds * 2 && lastEnd > 0 && currentStart > 0 && Math.abs(gap) < 5.0) // Close segments from same speaker
+    );
+    
+    if (shouldMerge) {
       // Merge: extend end time and combine text
-      last.endTime = Math.max(last.endTime, current.endTime);
+      last.endTime = Math.max(lastEnd, currentEnd);
       last.text = (last.text + ' ' + current.text).trim().replace(/\s+/g, ' ');
       // Update start time to the earliest
-      last.startTime = Math.min(last.startTime, current.startTime);
+      last.startTime = Math.min(lastStart, currentStart);
+      console.log(`🔗 Merging consecutive ${last.speaker} segments: [${lastStart.toFixed(2)}-${lastEnd.toFixed(2)}] + [${currentStart.toFixed(2)}-${currentEnd.toFixed(2)}] → [${last.startTime.toFixed(2)}-${last.endTime.toFixed(2)}]`);
     } else {
       // New segment
       mergedRows.push({
@@ -10161,7 +11261,7 @@ function mergeConsecutiveSpeakerSegmentsInMarkdown(markdownTable, maxGapSeconds 
     
     const last = alternatingRows[alternatingRows.length - 1];
     
-    // If same speaker as previous, merge them
+    // If same speaker as previous, merge them (regardless of gap)
     if (last.speaker === current.speaker) {
       // Merge: extend end time and combine text
       last.endTime = Math.max(last.endTime, current.endTime);
@@ -10188,6 +11288,199 @@ function mergeConsecutiveSpeakerSegmentsInMarkdown(markdownTable, maxGapSeconds 
   }
   
   return result.trim();
+}
+
+/**
+ * Check input segments for potential consecutive same-speaker issues
+ * This helps enhance the prompt before sending to LLM
+ * @param {Array} agentSegments - Agent transcript segments
+ * @param {Array} clientSegments - Client transcript segments
+ * @param {Object} promptContext - Prompt context with general dialogue
+ * @returns {boolean} True if potential consecutive segments detected
+ */
+function checkForConsecutiveSegmentsInInput(agentSegments, clientSegments, promptContext) {
+  // Check if we have segments that are close in time and from the same speaker
+  const allSegments = [];
+  
+  // Add agent segments
+  (agentSegments || []).forEach(seg => {
+    if (seg && seg.start !== undefined && seg.end !== undefined) {
+      allSegments.push({
+        ...seg,
+        speaker: 'Agent',
+        start: parseFloat(seg.start) || 0,
+        end: parseFloat(seg.end) || parseFloat(seg.start) || 0
+      });
+    }
+  });
+  
+  // Add client segments
+  (clientSegments || []).forEach(seg => {
+    if (seg && seg.start !== undefined && seg.end !== undefined) {
+      allSegments.push({
+        ...seg,
+        speaker: 'Client',
+        start: parseFloat(seg.start) || 0,
+        end: parseFloat(seg.end) || parseFloat(seg.start) || 0
+      });
+    }
+  });
+  
+  // Sort by start time
+  allSegments.sort((a, b) => a.start - b.start);
+  
+  // Check for consecutive same-speaker segments
+  for (let i = 1; i < allSegments.length; i++) {
+    const prev = allSegments[i - 1];
+    const curr = allSegments[i];
+    
+    // If same speaker and close in time (gap < 5 seconds or overlapping)
+    if (prev.speaker === curr.speaker) {
+      const gap = curr.start - prev.end;
+      if (gap < 5.0 || gap < 0) { // Overlapping or close
+        console.log(`⚠️ Potential consecutive ${prev.speaker} segments detected: [${prev.start.toFixed(2)}-${prev.end.toFixed(2)}] and [${curr.start.toFixed(2)}-${curr.end.toFixed(2)}] (gap: ${gap.toFixed(2)}s)`);
+        return true;
+      }
+    }
+  }
+  
+  return false;
+}
+
+/**
+ * Detect consecutive same-speaker segments in markdown table
+ * Returns information about consecutive segments that might need more context for LLM
+ * @param {string} markdownTable - Markdown table string
+ * @returns {Object} Object with hasConsecutiveSameSpeaker flag and details
+ */
+function detectConsecutiveSameSpeakerSegments(markdownTable) {
+  if (!markdownTable) {
+    return { hasConsecutiveSameSpeaker: false, consecutiveGroups: [] };
+  }
+  
+  const lines = markdownTable.split('\n');
+  const dataRows = [];
+  let foundSeparator = false;
+  
+  // Parse markdown table
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    
+    if (!line || !line.includes('|')) {
+      continue;
+    }
+    
+    // Check if it's a separator row
+    if (line.match(/^\|[\s\-:]*\|$/)) {
+      foundSeparator = true;
+      continue;
+    }
+    
+    if (foundSeparator) {
+      const cells = line.split('|').map(c => c.trim()).filter(c => c);
+      if (cells.length >= 5) {
+        const speaker = cells[1].trim();
+        const normalizedSpeaker = speaker.toLowerCase() === 'agent' ? 'Agent' : 
+                                 speaker.toLowerCase() === 'client' ? 'Client' : speaker;
+        
+        if (normalizedSpeaker === 'Agent' || normalizedSpeaker === 'Client') {
+          dataRows.push({
+            segmentId: cells[0],
+            speaker: normalizedSpeaker,
+            text: cells[2],
+            startTime: parseFloat(cells[3]) || 0,
+            endTime: parseFloat(cells[4]) || 0
+          });
+        }
+      }
+    }
+  }
+  
+  if (dataRows.length < 2) {
+    return { hasConsecutiveSameSpeaker: false, consecutiveGroups: [] };
+  }
+  
+  // Find consecutive same-speaker groups
+  const consecutiveGroups = [];
+  let currentGroup = null;
+  
+  for (let i = 0; i < dataRows.length; i++) {
+    const current = dataRows[i];
+    
+    if (i === 0) {
+      currentGroup = {
+        speaker: current.speaker,
+        segments: [current],
+        startIndex: i
+      };
+    } else {
+      const prev = dataRows[i - 1];
+      
+      if (prev.speaker === current.speaker) {
+        // Same speaker - add to current group
+        if (!currentGroup) {
+          currentGroup = {
+            speaker: current.speaker,
+            segments: [prev, current],
+            startIndex: i - 1
+          };
+        } else {
+          currentGroup.segments.push(current);
+        }
+      } else {
+        // Different speaker - finalize current group if it has 2+ segments
+        if (currentGroup && currentGroup.segments.length >= 2) {
+          consecutiveGroups.push({
+            speaker: currentGroup.speaker,
+            count: currentGroup.segments.length,
+            startIndex: currentGroup.startIndex,
+            endIndex: i - 1,
+            segments: currentGroup.segments
+          });
+        }
+        currentGroup = null;
+      }
+    }
+  }
+  
+  // Finalize last group if exists
+  if (currentGroup && currentGroup.segments.length >= 2) {
+    consecutiveGroups.push({
+      speaker: currentGroup.speaker,
+      count: currentGroup.segments.length,
+      startIndex: currentGroup.startIndex,
+      endIndex: dataRows.length - 1,
+      segments: currentGroup.segments
+    });
+  }
+  
+  return {
+    hasConsecutiveSameSpeaker: consecutiveGroups.length > 0,
+    consecutiveGroups: consecutiveGroups
+  };
+}
+
+/**
+ * Build enhanced dialogue context with more replicas when consecutive same-speaker segments detected
+ * @param {Object} promptContext - Original prompt context
+ * @param {Object} consecutiveDetection - Result from detectConsecutiveSameSpeakerSegments
+ * @returns {Object} Enhanced prompt context with more replicas
+ */
+function buildEnhancedDialogueContext(promptContext, consecutiveDetection) {
+  // If no consecutive segments detected, return original context
+  if (!consecutiveDetection.hasConsecutiveSameSpeaker) {
+    return promptContext;
+  }
+  
+  console.log(`🔍 Detected ${consecutiveDetection.consecutiveGroups.length} groups of consecutive same-speaker segments. Providing enhanced context (4 replicas instead of 2).`);
+  
+  // For now, we'll add a note to the prompt about consecutive segments
+  // The actual enhancement will be in the prompt template itself
+  return {
+    ...promptContext,
+    hasConsecutiveSameSpeaker: true,
+    consecutiveGroups: consecutiveDetection.consecutiveGroups
+  };
 }
 
 
@@ -11978,15 +13271,110 @@ app.get('/api/demo-config', (req, res) => {
   }
 });
 
-// Serve demo.html
+// Serve main diarization user page on /demo
 app.get('/demo', (req, res) => {
-  const demoPath = path.join(__dirname, 'public', 'demo.html');
-  res.sendFile(demoPath, (err) => {
+  const filePath = path.join(__dirname, 'public', 'demo2_user.html');
+  res.sendFile(filePath, (err) => {
     if (err) {
-      console.error('Error serving demo page:', err);
-      res.status(404).send('Demo page not found');
+      console.error('Error serving demo2_user.html on /demo:', err);
+      // Fallback to original demo.html if custom page is not available
+      const fallbackPath = path.join(__dirname, 'public', 'demo.html');
+      res.sendFile(fallbackPath, (fallbackErr) => {
+        if (fallbackErr) {
+          console.error('Error serving fallback demo.html:', fallbackErr);
+          res.status(404).send('Demo page not found');
+        }
+      });
     }
   });
+});
+
+// Serve demo2.html (SpeechBrain + Whisper)
+app.get('/demo2', (req, res) => {
+  const demo2Path = path.join(__dirname, 'public', 'demo2.html');
+  res.sendFile(demo2Path, (err) => {
+    if (err) {
+      console.error('Error serving demo2 page:', err);
+      res.status(404).send('Demo2 page not found');
+    }
+  });
+});
+
+// Proxy для Flask API (demo2)
+const DEMO2_FLASK_PORT = process.env.DEMO2_PORT || 5001;
+const DEMO2_FLASK_URL = process.env.DEMO2_FLASK_URL || `http://localhost:${DEMO2_FLASK_PORT}`;
+
+app.get('/api/demo2/health', async (req, res) => {
+  try {
+    const response = await axios.get(`${DEMO2_FLASK_URL}/api/health`, {
+      timeout: 5000
+    });
+    res.json(response.data);
+  } catch (err) {
+    res.status(503).json({
+      status: 'error',
+      message: 'Flask server is not available',
+      error: err.message
+    });
+  }
+});
+
+app.post('/api/demo2/diarize', upload.single('file'), async (req, res) => {
+  let tempFile = req.file;
+  
+  try {
+    // Створюємо FormData для передачі в Flask
+    const FormData = require('form-data');
+    const formData = new FormData();
+    
+    if (tempFile) {
+      formData.append('file', fsSync.createReadStream(tempFile.path), {
+        filename: tempFile.originalname,
+        contentType: tempFile.mimetype
+      });
+    }
+    
+    // Додаємо інші параметри
+    if (req.body.num_speakers) {
+      formData.append('num_speakers', req.body.num_speakers);
+    }
+    if (req.body.language) {
+      formData.append('language', req.body.language);
+    }
+    if (req.body.segment_duration) {
+      formData.append('segment_duration', req.body.segment_duration);
+    }
+    if (req.body.overlap) {
+      formData.append('overlap', req.body.overlap);
+    }
+    if (req.body.include_transcription !== undefined) {
+      formData.append('include_transcription', req.body.include_transcription);
+    }
+    
+    const response = await axios.post(`${DEMO2_FLASK_URL}/api/diarize`, formData, {
+      headers: formData.getHeaders(),
+      timeout: 300000, // 5 хвилин для великих файлів
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity
+    });
+    
+    res.json(response.data);
+  } catch (err) {
+    console.error('Error proxying to Flask:', err.message);
+    res.status(err.response?.status || 500).json({
+      success: false,
+      error: err.message || 'Error processing request'
+    });
+  } finally {
+    // Видаляємо тимчасовий файл
+    if (tempFile) {
+      try {
+        await fs.unlink(tempFile.path);
+      } catch (e) {
+        console.warn('Could not delete temp file:', e.message);
+      }
+    }
+  }
 });
 
 // Serve realistic-audio-generator.html
@@ -11996,6 +13384,17 @@ app.get('/audio-generator', (req, res) => {
     if (err) {
       console.error('Error serving Realistic-audio-generator.html:', err);
       res.status(500).send('Error loading Audio Generator');
+    }
+  });
+});
+
+// Serve monitor.html
+app.get('/monitor', (req, res) => {
+  const filePath = path.join(__dirname, 'monitor.html');
+  res.sendFile(filePath, (err) => {
+    if (err) {
+      console.error('Error serving monitor.html:', err);
+      res.status(500).send('Error loading Monitoring Dashboard');
     }
   });
 });
@@ -12549,6 +13948,264 @@ app.post('/api/client-log', express.json(), (req, res) => {
 // Debug overlap diarization page
 app.get('/debug-overlap', (req, res) => {
   res.sendFile(path.join(__dirname, 'debug_overlap.html'));
+});
+
+// Role voting page
+app.get('/voting', (req, res) => {
+  res.sendFile(path.join(__dirname, 'voting.html'));
+});
+
+// Proxy endpoints for n8n webhooks (to avoid CORS issues)
+app.post('/api/webhook/diarization-send', async (req, res) => {
+  try {
+    console.log('📤 [Webhook Proxy] Sending POST request to n8n webhook...');
+    console.log('📤 [Webhook Proxy] Request body size:', JSON.stringify(req.body).length, 'bytes');
+    
+    const response = await axios.post('https://spsoft.app.n8n.cloud/webhook/diarization-send', req.body, {
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      timeout: 300000 // 5 minutes - збільшено для великих даних
+    });
+    
+    console.log('✅ [Webhook Proxy] POST request successful, status:', response.status);
+    res.json(response.data);
+  } catch (error) {
+    console.error('❌ [Webhook Proxy] POST error:', error.message);
+    if (error.code === 'ECONNABORTED') {
+      console.error('❌ [Webhook Proxy] Request timeout - webhook took too long to respond');
+      res.status(504).json({
+        error: 'Webhook send failed',
+        details: 'Request timeout - the external service took too long to respond. Please try again.',
+        code: 'TIMEOUT'
+      });
+    } else {
+      res.status(error.response?.status || 500).json({
+        error: 'Webhook send failed',
+        details: error.message || 'Failed to proxy webhook request',
+        code: error.code || 'UNKNOWN_ERROR'
+      });
+    }
+  }
+});
+
+app.get('/api/webhook/diarization-get', async (req, res) => {
+  try {
+    console.log('📥 [Webhook Proxy] Sending GET request to n8n webhook...');
+    
+    const response = await axios.get('https://spsoft.app.n8n.cloud/webhook/diarization-get', {
+      timeout: 300000 // 5 minutes - збільшено для великих даних
+    });
+    
+    console.log('✅ [Webhook Proxy] GET request successful, status:', response.status);
+    res.json(response.data);
+  } catch (error) {
+    console.error('❌ [Webhook Proxy] GET error:', error.message);
+    if (error.code === 'ECONNABORTED') {
+      console.error('❌ [Webhook Proxy] Request timeout - webhook took too long to respond');
+      res.status(504).json({
+        error: 'Webhook get failed',
+        details: 'Request timeout - the external service took too long to respond. Please try again.',
+        code: 'TIMEOUT'
+      });
+    } else {
+      res.status(error.response?.status || 500).json({
+        error: 'Webhook get failed',
+        details: error.message || 'Failed to proxy webhook request',
+        code: error.code || 'UNKNOWN_ERROR'
+      });
+    }
+  }
+});
+
+// Proxy endpoint for LLM chat completions (uses demo mode from env)
+app.post('/api/llm/chat-completions', async (req, res) => {
+  // Define variables outside try block so they're accessible in catch
+  let apiUrl;
+  let apiKey;
+  let model;
+  let useLocal = false;
+  
+  try {
+    // Determine which LLM to use based on demo mode
+    const hasLocalConfig = process.env.DEMO_LOCAL_LLM_MODE === 'local';
+    const isLocalMode = process.env.DEMO_LLM_MODE === 'local';
+    useLocal = hasLocalConfig || isLocalMode;
+    
+    if (useLocal) {
+      // Use local LLM (LM Studio)
+      apiUrl = `${LOCAL_LLM_BASE_URL}/v1/chat/completions`;
+      apiKey = LOCAL_LLM_API_KEY;
+      model = LOCAL_LLM_MODEL;
+      console.log('🤖 [LLM-PROXY] Using LOCAL LLM:', { apiUrl, model });
+    } else {
+      // Use cloud LLM (OpenRouter)
+      const llmMode = process.env.DEMO_LLM_MODE || 'smart';
+      apiUrl = 'https://openrouter.ai/api/v1/chat/completions';
+      apiKey = process.env.OPENROUTER_API_KEY;
+      
+      // Get model based on mode (use getModelId function for consistency)
+      // Normalize smart2 to smart-2 for compatibility
+      const normalizedMode = llmMode === 'smart2' ? 'smart-2' : llmMode;
+      model = getModelId(normalizedMode);
+      
+      console.log('☁️  [LLM-PROXY] Using CLOUD LLM:', { apiUrl, model, mode: llmMode, normalizedMode });
+    }
+    
+    // Prepare request body
+    const requestBody = {
+      ...req.body,
+      model: req.body.model || model // Use provided model or fallback to configured model
+    };
+    
+    // Prepare headers
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+    
+    if (apiKey) {
+      headers['Authorization'] = `Bearer ${apiKey}`;
+    }
+    
+    // Make request to LLM
+    const response = await axios.post(apiUrl, requestBody, {
+      headers: headers,
+      timeout: 300000 // 5 minutes for LLM requests
+    });
+    
+    res.json(response.data);
+  } catch (error) {
+    console.error('❌ [LLM-PROXY] Error:', error.message);
+    
+    // Get current model from request body or fallback to configured model
+    // If model wasn't set (error occurred before assignment), use default
+    const currentModel = req.body?.model || model || 'google/gemini-3.0-pro';
+    
+    // Special handling for 402 Payment Required
+    if (error.response?.status === 402) {
+      console.error('❌ [LLM-PROXY] Payment Required (402) - API credits exhausted or payment issue');
+      console.error('❌ [LLM-PROXY] Model that failed:', currentModel);
+      console.error('❌ [LLM-PROXY] Error details:', error.response?.data);
+      const errorData = error.response?.data || {};
+      
+      // Try to fallback to gpt-5.1 if the current model fails
+      const isGeminiModel = currentModel.includes('gemini') || currentModel.includes('google/');
+      
+      if (isGeminiModel && !useLocal) {
+        console.log('🔄 [LLM-PROXY] Attempting fallback to gpt-5.1...');
+        try {
+          const fallbackModel = 'openai/gpt-5.1';
+          const fallbackRequestBody = {
+            ...req.body,
+            model: fallbackModel
+          };
+          
+          const fallbackHeaders = {
+            'Content-Type': 'application/json'
+          };
+          if (apiKey) {
+            fallbackHeaders['Authorization'] = `Bearer ${apiKey}`;
+          }
+          
+          const fallbackResponse = await axios.post(apiUrl, fallbackRequestBody, {
+            headers: fallbackHeaders,
+            timeout: 300000
+          });
+          
+          console.log('✅ [LLM-PROXY] Fallback to gpt-5.1 successful');
+          return res.json(fallbackResponse.data);
+        } catch (fallbackError) {
+          console.error('❌ [LLM-PROXY] Fallback to gpt-5.1 also failed:', fallbackError.message);
+          if (fallbackError.response?.status === 402) {
+            console.error('❌ [LLM-PROXY] gpt-5.1 also requires payment. Trying alternative fallback...');
+            // Try one more fallback to a cheaper model
+            try {
+              const alternativeModel = 'openai/gpt-4o-mini';
+              const alternativeRequestBody = {
+                ...req.body,
+                model: alternativeModel
+              };
+              
+              const alternativeHeaders = {
+                'Content-Type': 'application/json'
+              };
+              if (apiKey) {
+                alternativeHeaders['Authorization'] = `Bearer ${apiKey}`;
+              }
+              
+              const alternativeResponse = await axios.post(apiUrl, alternativeRequestBody, {
+                headers: alternativeHeaders,
+                timeout: 300000
+              });
+              
+              console.log('✅ [LLM-PROXY] Fallback to gpt-4o-mini successful');
+              return res.json(alternativeResponse.data);
+            } catch (altError) {
+              console.error('❌ [LLM-PROXY] All fallback models failed');
+            }
+          }
+        }
+      }
+      
+      // Try to fallback to local LLM if available
+      const hasLocalConfig = process.env.DEMO_LOCAL_LLM_MODE === 'local';
+      const isLocalMode = process.env.DEMO_LLM_MODE === 'local';
+      const canUseLocal = hasLocalConfig || isLocalMode;
+      
+      if (canUseLocal && LOCAL_LLM_BASE_URL) {
+        console.log('🔄 [LLM-PROXY] Attempting fallback to local LLM...');
+        try {
+          const localApiUrl = `${LOCAL_LLM_BASE_URL}/v1/chat/completions`;
+          const localApiKey = LOCAL_LLM_API_KEY;
+          const localModel = LOCAL_LLM_MODEL;
+          
+          const localHeaders = {
+            'Content-Type': 'application/json'
+          };
+          if (localApiKey) {
+            localHeaders['Authorization'] = `Bearer ${localApiKey}`;
+          }
+          
+          const localRequestBody = {
+            ...req.body,
+            model: req.body.model || localModel
+          };
+          
+          const localResponse = await axios.post(localApiUrl, localRequestBody, {
+            headers: localHeaders,
+            timeout: 300000
+          });
+          
+          console.log('✅ [LLM-PROXY] Fallback to local LLM successful');
+          return res.json(localResponse.data);
+        } catch (localError) {
+          console.error('❌ [LLM-PROXY] Local LLM fallback also failed:', localError.message);
+        }
+      }
+      
+      return res.status(402).json({
+        error: 'Payment Required',
+        message: `LLM API credits exhausted for model "${currentModel}". The model may require a minimum balance or special access. Try using a different model or check your OpenRouter account balance.`,
+        details: errorData,
+        code: 'PAYMENT_REQUIRED',
+        model: currentModel,
+        canRetry: false,
+        suggestion: 'Consider using a cheaper model like google/gemini-3.0-pro or configure local LLM'
+      });
+    }
+    
+    // Handle other errors
+    console.error('❌ [LLM-PROXY] Error details:', error.response?.data || error.message);
+    const statusCode = error.response?.status || 500;
+    const errorMessage = error.response?.data?.error?.message || error.message || 'Failed to proxy LLM request';
+    
+    res.status(statusCode).json({
+      error: errorMessage,
+      details: error.response?.data || undefined,
+      code: error.code || 'LLM_REQUEST_FAILED',
+      status: statusCode
+    });
+  }
 });
 
 // Static files middleware (must be AFTER API routes and specific routes)
@@ -14630,7 +16287,16 @@ async function processMarkdownFixesMultiStep(promptContext, mode = 'smart', reco
 
 app.post('/api/apply-markdown-fixes', async (req, res) => {
   try {
-    const { agentTranscript, clientTranscript, mode = 'smart', recordingId, useMultiStep = false } = req.body;
+    let { agentTranscript, clientTranscript, mode = 'smart', recordingId, useMultiStep = false } = req.body;
+
+    // Fallback: якщо mode не передано або 'smart', перевіряємо DEMO_LLM_MODE зі змінних оточення
+    if (!mode || mode === 'smart') {
+      const demoMode = process.env.DEMO_LLM_MODE || process.env.DEMO_LOCAL_LLM_MODE;
+      if (demoMode) {
+        mode = demoMode;
+        console.log(`🔍 [apply-markdown-fixes] Using DEMO_LLM_MODE from env: ${mode}`);
+      }
+    }
 
     if (!agentTranscript || !clientTranscript) {
       return res.status(400).json({ 
@@ -14671,10 +16337,99 @@ app.post('/api/apply-markdown-fixes', async (req, res) => {
       console.log(`🔵 Using OpenRouter model: ${model}`);
     }
 
+    // Pre-process: Merge fragmented phrases in segments BEFORE building prompt context
+    let processedAgentSegments = agentSegments;
+    let processedClientSegments = clientSegments;
+    
+    try {
+      console.log('🔍 Pre-processing: Checking for fragmented phrases in transcripts...');
+      
+      // Configure API for fragment check
+      const apiUrl = useLocalLLM 
+        ? `${LOCAL_LLM_BASE_URL}/v1/chat/completions`
+        : 'https://openrouter.ai/api/v1/chat/completions';
+      
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+      
+      if (useLocalLLM) {
+        if (LOCAL_LLM_API_KEY) {
+          headers['Authorization'] = `Bearer ${LOCAL_LLM_API_KEY}`;
+        }
+      } else {
+        headers['Authorization'] = `Bearer ${process.env.OPENROUTER_API_KEY}`;
+        headers['HTTP-Referer'] = process.env.APP_URL || 'http://localhost:3000';
+        headers['X-Title'] = 'Fragment Check';
+      }
+      
+      // Prepare segments in LLM format for fragment check
+      // Зберігаємо оригінального спікера з Speechmatics для кращого контексту
+      const agentSegmentsForLLM = agentSegments.map((seg, idx) => ({
+        segment_id: idx + 1,
+        text: seg.text || '',
+        start: parseFloat(seg.start) || 0,
+        end: parseFloat(seg.end) || parseFloat(seg.start) || 0,
+        speaker_id: 'Agent',
+        original_speaker: seg.speaker || seg.original_speaker || 'SPEAKER_00' // Зберігаємо оригінального спікера
+      }));
+      
+      const clientSegmentsForLLM = clientSegments.map((seg, idx) => ({
+        segment_id: idx + 1,
+        text: seg.text || '',
+        start: parseFloat(seg.start) || 0,
+        end: parseFloat(seg.end) || parseFloat(seg.start) || 0,
+        speaker_id: 'Client',
+        original_speaker: seg.speaker || seg.original_speaker || 'SPEAKER_01' // Зберігаємо оригінального спікера
+      }));
+      
+      // Merge fragmented phrases
+      const mergedAgent = await mergeFragmentedPhrasesWithLLM(agentSegmentsForLLM, {
+        model,
+        useLocalLLM,
+        apiUrl,
+        headers,
+        logPrefix: '[Markdown Fixes]',
+        maxGapSeconds: 3.0
+      });
+      
+      const mergedClient = await mergeFragmentedPhrasesWithLLM(clientSegmentsForLLM, {
+        model,
+        useLocalLLM,
+        apiUrl,
+        headers,
+        logPrefix: '[Markdown Fixes]',
+        maxGapSeconds: 3.0
+      });
+      
+      // Convert back to original format
+      processedAgentSegments = mergedAgent.map(seg => ({
+        ...agentSegments[seg.segment_id - 1] || {},
+        text: seg.text,
+        start: seg.start,
+        end: seg.end
+      })).filter(seg => seg.text);
+      
+      processedClientSegments = mergedClient.map(seg => ({
+        ...clientSegments[seg.segment_id - 1] || {},
+        text: seg.text,
+        start: seg.start,
+        end: seg.end
+      })).filter(seg => seg.text);
+      
+      if (processedAgentSegments.length !== agentSegments.length || processedClientSegments.length !== clientSegments.length) {
+        console.log(`✅ Fragmented phrases merged: Agent ${agentSegments.length}→${processedAgentSegments.length}, Client ${clientSegments.length}→${processedClientSegments.length}`);
+      }
+    } catch (error) {
+      console.warn(`⚠️ Fragment merge failed: ${error.message}, using original segments`);
+      processedAgentSegments = agentSegments;
+      processedClientSegments = clientSegments;
+    }
+    
     const promptContext = buildDialoguePromptContext({
       primaryDiarization: req.body.primaryDiarization || null,
-      agentTranscript,
-      clientTranscript,
+      agentTranscript: { ...agentTranscript, segments: processedAgentSegments },
+      clientTranscript: { ...clientTranscript, segments: processedClientSegments },
       voiceTracks: Array.isArray(req.body.voiceTracks) ? req.body.voiceTracks : [],
       speaker0SegmentsOverride: Array.isArray(req.body.standardSpeaker0Segments) ? req.body.standardSpeaker0Segments : null,
       speaker1SegmentsOverride: Array.isArray(req.body.standardSpeaker1Segments) ? req.body.standardSpeaker1Segments : null,
@@ -14682,9 +16437,12 @@ app.post('/api/apply-markdown-fixes', async (req, res) => {
     });
     
     console.log('📋 Preparing transcripts for LLM:', {
-      agentSegments: agentSegments.length,
-      clientSegments: clientSegments.length
+      agentSegments: processedAgentSegments.length,
+      clientSegments: processedClientSegments.length
     });
+    
+    // Calculate total segments count
+    const totalSegmentsCount = processedAgentSegments.length + processedClientSegments.length;
     
     // Load prompt template from file
     let promptTemplate;
@@ -14756,10 +16514,12 @@ Each dialogue is already normalized into plain text lines like \`SPEAKER_00 (ope
    - Remove exact or near-duplicate sentences that describe the same moment twice.
    - If a line appears once as Agent and once as Client, decide who truly said it; keep only that one.
    - Merge overlapping lines from the same real speaker: earliest start, latest end, concatenated text (chronological order).
+   - **CRITICAL**: Merge consecutive segments from the same speaker. If you see Client → Client or Agent → Agent in sequence, these are almost always parts of ONE continuous utterance that was incorrectly split. Merge them unless there's a clear time gap (> 5 seconds) AND different topics.
 
 4. **Strict Alternation**
    - Final table must alternate Agent → Client → Agent → Client.
-   - Temporary double Agent/Client is allowed only if both lines undoubtedly belong to the same speaker. Try to resolve by reassignment before accepting a double turn.
+   - **CRITICAL**: Consecutive same-speaker segments (e.g., Client → Client or Agent → Agent) indicate an error. You MUST merge them into a single row.
+   - Temporary double Agent/Client is allowed ONLY if there is a significant time gap (> 5 seconds) AND clearly different topics. Otherwise, merge them.
 
 5. **No Hallucinations**
    - Sentences absent from every dialogue block are forbidden. Discard them even if they appeared in the original markdown.
@@ -14790,6 +16550,30 @@ Where:
 6. **VERIFY ROLE DISTRIBUTION**: Check that the table contains segments from BOTH Agent and Client. If all segments have the same role, you MUST review ROLE_GUIDANCE and correct the assignments.
 
 If any requirement cannot be satisfied, adjust the rows (reassign, merge, drop) until compliance is achieved. Only then output the final table.`;
+    }
+    
+    // Check for potential consecutive same-speaker segments in input data
+    // This helps us enhance the prompt to prevent the issue
+    const hasPotentialConsecutiveSegments = checkForConsecutiveSegmentsInInput(
+      agentSegments,
+      clientSegments,
+      promptContext
+    );
+    
+    if (hasPotentialConsecutiveSegments) {
+      console.log('⚠️ Detected potential consecutive same-speaker segments in input. Enhancing prompt with merge instructions.');
+      // Add special instruction to prompt template
+      const mergeInstruction = `
+
+## ⚠️ CRITICAL: CONSECUTIVE SEGMENT MERGING
+**IMPORTANT**: The input data may contain consecutive segments from the same speaker that should be merged.
+- If you see multiple segments from the same speaker in a row (e.g., Client → Client or Agent → Agent), these are likely parts of ONE continuous utterance.
+- **ALWAYS merge consecutive same-speaker segments** unless there is a clear time gap (> 5 seconds) AND different topics.
+- When merging: combine text, use earliest start time, use latest end time.
+- The final table MUST alternate between Agent and Client. Consecutive same-speaker segments indicate an error that needs fixing.
+
+`;
+      promptTemplate = mergeInstruction + promptTemplate;
     }
     
     const replacements = {
@@ -15084,7 +16868,16 @@ If any requirement cannot be satisfied, adjust the rows (reassign, merge, drop) 
     
     // Second LLM call: Validation and correction
     console.log('🔍 Starting validation LLM call...');
+    
+    // Prepare JSON strings for validation prompt (define outside try block to ensure availability)
+    let agentTranscriptJSON;
+    let clientTranscriptJSON;
+    
     try {
+      // Prepare JSON strings for validation prompt
+      agentTranscriptJSON = JSON.stringify(processedAgentSegments, null, 2);
+      clientTranscriptJSON = JSON.stringify(processedClientSegments, null, 2);
+      
       // Load validation prompt template
       let validationPromptTemplate;
       try {
@@ -15094,13 +16887,18 @@ If any requirement cannot be satisfied, adjust the rows (reassign, merge, drop) 
         validationPromptTemplate = null;
       }
       
-      if (validationPromptTemplate) {
+      if (validationPromptTemplate && agentTranscriptJSON && clientTranscriptJSON) {
+        // Ensure totalSegmentsCount is defined for validation prompt
+        const validationSegmentCount = typeof totalSegmentsCount !== 'undefined' 
+          ? totalSegmentsCount 
+          : (processedAgentSegments.length + processedClientSegments.length);
+        
         // Replace placeholders in validation prompt
         const validationPrompt = validationPromptTemplate
           .replace(/\{\{AGENT_TRANSCRIPT\}\}/g, agentTranscriptJSON)
           .replace(/\{\{CLIENT_TRANSCRIPT\}\}/g, clientTranscriptJSON)
           .replace(/\{\{TABLE_TO_VALIDATE\}\}/g, cleanedMarkdown)
-          .replace(/\{\{SEGMENT_COUNT\}\}/g, totalSegmentsCount.toString());
+          .replace(/\{\{SEGMENT_COUNT\}\}/g, validationSegmentCount.toString());
         
         // Build payload for validation LLM call
         const validationPayload = {
@@ -15221,12 +17019,17 @@ If any requirement cannot be satisfied, adjust the rows (reassign, merge, drop) 
     // Save to cache - зберігаємо чистий markdown від LLM (до валідації)
     // rawMarkdownFromLLM - це чистий markdown після витягнення з code blocks, але до валідації
     
+    // Ensure totalSegmentsCount is defined (fallback to sum if not already calculated)
+    const finalTotalSegmentsCount = typeof totalSegmentsCount !== 'undefined' 
+      ? totalSegmentsCount 
+      : (processedAgentSegments.length + processedClientSegments.length);
+    
     if (cacheKey && rawMarkdownFromLLM) {
       writeLLMCache(cacheKey, {
         rawMarkdown: rawMarkdownFromLLM, // Чистий markdown від LLM (після витягнення з code blocks, але до валідації)
         agentSegmentsCount: agentSegments.length,
         clientSegmentsCount: clientSegments.length,
-        totalSegmentsCount: totalSegmentsCount,
+        totalSegmentsCount: finalTotalSegmentsCount,
         model: model,
         mode: mode,
         timestamp: new Date().toISOString()
@@ -15238,7 +17041,7 @@ If any requirement cannot be satisfied, adjust the rows (reassign, merge, drop) 
       markdown: cleanedMarkdown,
       agentSegmentsCount: agentSegments.length,
       clientSegmentsCount: clientSegments.length,
-      totalSegmentsCount: totalSegmentsCount
+      totalSegmentsCount: finalTotalSegmentsCount
     });
 
   } catch (error) {
@@ -15425,247 +17228,6 @@ app.post('/api/debug-llm-query', async (req, res) => {
       console.error('❌ [DEBUG LLM] Response data:', error.response.data);
     }
     return res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
-// ============================================================================
-// Parameter Optimization API
-// ============================================================================
-
-const optimizer = new ParameterOptimizer();
-
-// Почати нову сесію оптимізації
-app.post('/api/optimization/start', (req, res) => {
-  try {
-    const { audioFile } = req.body;
-    const session = optimizer.startNewSession(audioFile);
-    
-    res.json({
-      success: true,
-      sessionId: session.sessionId,
-      config: session.config,
-      iteration: session.iteration
-    });
-  } catch (error) {
-    console.error('❌ [OPTIMIZATION] Error starting session:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
-// Отримати поточну конфігурацію для тестування
-app.get('/api/optimization/current', (req, res) => {
-  try {
-    const current = optimizer.getCurrentConfig();
-    
-    if (!current) {
-      return res.json({
-        success: false,
-        message: 'No active session. Start a new session first.',
-        action: 'start'
-      });
-    }
-    
-    res.json({
-      success: true,
-      ...current
-    });
-  } catch (error) {
-    console.error('❌ [OPTIMIZATION] Error getting current config:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
-// Відправити фідбек (краще/гірше)
-app.post('/api/optimization/feedback', async (req, res) => {
-  try {
-    // Визначаємо режим LLM: з запиту, або з env змінних, або за замовчуванням
-    const defaultMode = process.env.DEMO_LLM_MODE || process.env.DEMO_LOCAL_LLM_MODE || 'smart';
-    const { feedback, notes, useLLM = true, llmMode = defaultMode } = req.body;
-    
-    if (!feedback || !['better', 'worse', 'same'].includes(feedback)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid feedback. Must be "better", "worse", or "same"'
-      });
-    }
-    
-    let result;
-    
-    if (useLLM) {
-      // Налаштування LLM - використовуємо ТУ САМУ логіку, що для діаризації
-      const useLocalLLM = llmMode === 'local' || llmMode === 'test' || llmMode === 'test2';
-      const llmModel = getModelId(llmMode); // Отримуємо модель з env змінних
-      
-      // Використовуємо ті самі константи та функції, що для діаризації
-      const llmApiUrl = useLocalLLM 
-        ? `${LOCAL_LLM_BASE_URL}/v1/chat/completions`
-        : 'https://openrouter.ai/api/v1/chat/completions';
-      
-      // Використовуємо ті самі функції для заголовків
-      const llmHeaders = useLocalLLM 
-        ? getLocalLLMHeaders()
-        : getOpenRouterHeaders('Parameter Optimization');
-      
-      const llmApiKey = useLocalLLM 
-        ? LOCAL_LLM_API_KEY
-        : process.env.OPENROUTER_API_KEY;
-      
-      console.log('🤖 [OPTIMIZATION] LLM Configuration (same as diarization):', {
-        mode: llmMode,
-        model: llmModel,
-        apiUrl: llmApiUrl,
-        useLocalLLM: useLocalLLM,
-        hasApiKey: !!llmApiKey,
-        defaultModeFromEnv: defaultMode,
-        envDEMO_LLM_MODE: process.env.DEMO_LLM_MODE,
-        envDEMO_LOCAL_LLM_MODE: process.env.DEMO_LOCAL_LLM_MODE,
-        envLOCAL_LLM_BASE_URL: LOCAL_LLM_BASE_URL,
-        envLOCAL_LLM_MODEL: LOCAL_LLM_MODEL,
-        headers: Object.keys(llmHeaders)
-      });
-      
-      if (!llmApiKey && !useLocalLLM) {
-        console.warn('⚠️ [OPTIMIZATION] LLM API key not found, falling back to hill climbing');
-        result = await optimizer.processFeedback(feedback, notes || '', false);
-      } else {
-        try {
-          console.log('🤖 [OPTIMIZATION] Calling LLM for parameter generation...');
-          // Передаємо заголовки замість API ключа окремо
-          result = await optimizer.processFeedback(
-            feedback, 
-            notes || '', 
-            true, 
-            llmApiKey, 
-            llmApiUrl, 
-            llmModel,
-            llmHeaders,  // Передаємо готові заголовки
-            useLocalLLM  // Передаємо флаг локальної LLM
-          );
-          console.log('✅ [OPTIMIZATION] LLM generation completed successfully');
-        } catch (llmError) {
-          console.error('❌ [OPTIMIZATION] LLM generation error:', llmError.message);
-          if (llmError.response) {
-            console.error('❌ [OPTIMIZATION] API Error Response:', {
-              status: llmError.response.status,
-              statusText: llmError.response.statusText,
-              data: llmError.response.data
-            });
-          }
-          console.error('❌ [OPTIMIZATION] Stack:', llmError.stack);
-          // Fallback до hill climbing при помилці LLM
-          console.log('🔄 [OPTIMIZATION] Falling back to hill climbing due to LLM error');
-          result = await optimizer.processFeedback(feedback, notes || '', false);
-        }
-      }
-    } else {
-      result = await optimizer.processFeedback(feedback, notes || '', false);
-    }
-    
-    res.json({
-      success: true,
-      nextConfig: result.nextConfig,
-      iteration: result.iteration,
-      bestConfig: result.bestConfig,
-      recentHistory: result.history,
-      usedLLM: useLLM,
-      message: feedback === 'better' 
-        ? '✅ Відмінно! Генерую покращену конфігурацію...' 
-        : feedback === 'same'
-        ? '⚖️ Зрозуміло. Роблю мікро-налаштування для пошуку кращого варіанту...'
-        : '🔄 Розумію. Спробую інші параметри...'
-    });
-  } catch (error) {
-    console.error('❌ [OPTIMIZATION] Error processing feedback:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
-// Отримати статистику оптимізації
-app.get('/api/optimization/stats', (req, res) => {
-  try {
-    const stats = optimizer.getStatistics();
-    res.json({
-      success: true,
-      ...stats
-    });
-  } catch (error) {
-    console.error('❌ [OPTIMIZATION] Error getting stats:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
-// Отримати історію тестів
-app.get('/api/optimization/history', (req, res) => {
-  try {
-    const limit = parseInt(req.query.limit) || 50;
-    const history = optimizer.getRecentHistory(limit);
-    
-    res.json({
-      success: true,
-      history: history,
-      total: history.length
-    });
-  } catch (error) {
-    console.error('❌ [OPTIMIZATION] Error getting history:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
-// Експортувати найкращу конфігурацію
-app.get('/api/optimization/export', (req, res) => {
-  try {
-    const bestConfig = optimizer.exportBestConfig();
-    
-    if (!bestConfig) {
-      return res.json({
-        success: false,
-        message: 'No best configuration found yet. Run some tests first.'
-      });
-    }
-    
-    res.json({
-      success: true,
-      config: bestConfig,
-      format: 'json'
-    });
-  } catch (error) {
-    console.error('❌ [OPTIMIZATION] Error exporting config:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
-// Скинути поточну сесію
-app.post('/api/optimization/reset', (req, res) => {
-  try {
-    optimizer.resetSession();
-    res.json({
-      success: true,
-      message: 'Session reset successfully'
-    });
-  } catch (error) {
-    console.error('❌ [OPTIMIZATION] Error resetting session:', error);
-    res.status(500).json({
       success: false,
       error: error.message
     });

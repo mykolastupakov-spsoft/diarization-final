@@ -1,0 +1,675 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Role Voting — Blind Multi-Agent (OpenRouter)</title>
+  <style>
+    :root { --bg:#0b0f14; --panel:#111826; --text:#e6eef8; --muted:#9fb0c5; --line:#223146; --ok:#34C759; --bad:#ff453a; --warn:#ffcc00; }
+    body { margin:0; font-family: -apple-system, system-ui, Segoe UI, Roboto, Arial, sans-serif; background:var(--bg); color:var(--text); }
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 18px; }
+    h1 { font-size: 18px; margin: 0 0 12px; }
+    .grid { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+    label { display:block; font-size: 12px; color: var(--muted); margin: 8px 0 6px; }
+    input[type="text"], input[type="password"], textarea, select {
+      width: 100%; box-sizing: border-box; background: #0d1420; border: 1px solid var(--line);
+      color: var(--text); padding: 10px; border-radius: 8px; outline:none; font-family: inherit;
+    }
+    textarea { min-height: 120px; resize: vertical; }
+    .row { display:flex; gap: 10px; align-items:center; flex-wrap: wrap; }
+    button {
+      background: #2563eb; border:none; color:white; padding: 10px 14px; border-radius: 8px;
+      cursor:pointer; font-weight:600;
+    }
+    button.secondary { background: #334155; }
+    button:disabled { opacity: .5; cursor:not-allowed; }
+    .small { font-size: 12px; color: var(--muted); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 12px; }
+    .status { padding: 8px 10px; border-radius: 8px; background:#0d1420; border: 1px solid var(--line); }
+    .pill { display:inline-block; padding: 3px 8px; border-radius: 999px; font-size: 12px; margin-left: 8px; background:#0d1420; border:1px solid var(--line); color: var(--muted); }
+    .ok { color: var(--ok); }
+    .bad { color: var(--bad); }
+    .warn { color: var(--warn); }
+    table { width:100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid var(--line); padding: 8px; vertical-align: top; text-align:left; }
+    th { color: var(--muted); font-weight:600; font-size: 12px; }
+    .cols { display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    @media (max-width: 980px) { .grid, .cols { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Role Voting — Blind Multi-Agent Flow (OpenRouter)</h1>
+
+  <div class="grid">
+    <div class="card">
+      <div class="row">
+        <div style="flex:1">
+          <label>OpenRouter API Key <span class="pill">auto-saved</span></label>
+          <input id="apiKey" type="password" placeholder="sk-or-..." />
+        </div>
+        <div style="min-width: 260px">
+          <label>Model <span class="pill">auto-saved</span></label>
+          <input id="model" type="text" value="google/gemini-2.0-flash-exp:free" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div style="flex:1">
+          <label>HTTP-Referer (optional) <span class="pill">auto-saved</span></label>
+          <input id="referer" type="text" placeholder="http://localhost:8000" />
+        </div>
+        <div style="flex:1">
+          <label>X-Title (optional) <span class="pill">auto-saved</span></label>
+          <input id="title" type="text" placeholder="Role Voting Blind UI" />
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:10px">
+        <button id="runBtn">Run Flow</button>
+        <button id="resetBtn" class="secondary">Reset</button>
+        <button id="clearStorageBtn" class="secondary">Clear Saved Data</button>
+        <span id="runState" class="status small">Idle</span>
+      </div>
+
+      <div class="small" style="margin-top:10px">
+        🔒 <b>Blind voting:</b> Vote A, B, C agents run in parallel; none see others' results.<br>
+        💾 <b>Auto-save:</b> All inputs are saved to browser localStorage automatically.
+      </div>
+
+      <label>Upload 3 transcript files (txt/json) (optional)</label>
+      <input id="files" type="file" multiple accept=".txt,.json,.md,.csv,application/json,text/plain" />
+
+      <div class="cols" style="margin-top:12px">
+        <div>
+          <label>Paste transcript A <span class="pill">auto-saved</span></label>
+          <textarea id="tA" placeholder="Paste transcript A..."></textarea>
+        </div>
+        <div>
+          <label>Paste transcript B <span class="pill">auto-saved</span></label>
+          <textarea id="tB" placeholder="Paste transcript B..."></textarea>
+        </div>
+        <div>
+          <label>Paste transcript C <span class="pill">auto-saved</span></label>
+          <textarea id="tC" placeholder="Paste transcript C..."></textarea>
+        </div>
+      </div>
+
+      <label>Assumption for Vote A (channel origin → role) <span class="pill">auto-saved</span></label>
+      <div class="row">
+        <div style="flex:1">
+          <label class="small">If SOURCE1 channel is mostly:</label>
+          <select id="source1Role">
+            <option>Agent</option>
+            <option>Client</option>
+          </select>
+        </div>
+        <div style="flex:1">
+          <label class="small">If SOURCE2 channel is mostly:</label>
+          <select id="source2Role">
+            <option>Client</option>
+            <option>Agent</option>
+          </select>
+        </div>
+      </div>
+
+      <label>Debug log</label>
+      <textarea id="log" class="mono" readonly style="min-height:120px"></textarea>
+    </div>
+
+    <div class="card">
+      <label>Final HTML result</label>
+      <div id="finalHtmlBox" class="status" style="padding:0; overflow:auto; max-height: 560px;"></div>
+      <div class="small" style="margin-top:10px">
+        The final table is rendered here. Each agent output is also visible below.
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <div class="row">
+      <h2 style="margin:0; font-size:14px;">Agent outputs</h2>
+      <span class="pill">Classifier → Aligner → [VoteA ∥ VoteB ∥ VoteC] → Aggregator</span>
+    </div>
+    <div class="grid" style="margin-top:10px">
+      <div>
+        <label>Agent 0 — Classifier output (JSON)</label>
+        <textarea id="outClassifier" class="mono" readonly></textarea>
+      </div>
+      <div>
+        <label>Agent 1 — Aligner output (JSON)</label>
+        <textarea id="outAligner" class="mono" readonly></textarea>
+      </div>
+      <div>
+        <label>Agent 2 — Vote A output (JSON) [blind]</label>
+        <textarea id="outVoteA" class="mono" readonly></textarea>
+      </div>
+      <div>
+        <label>Agent 3 — Vote B output (JSON) [blind]</label>
+        <textarea id="outVoteB" class="mono" readonly></textarea>
+      </div>
+      <div>
+        <label>Agent 4 — Vote C output (JSON) [blind]</label>
+        <textarea id="outVoteC" class="mono" readonly></textarea>
+      </div>
+      <div>
+        <label>Agent 5 — Aggregator output (JSON)</label>
+        <textarea id="outAgg" class="mono" readonly></textarea>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ===== localStorage helpers =====
+  const STORAGE_KEY = "roleVotingApp_v1";
+
+  function saveToStorage() {
+    const data = {
+      apiKey: document.getElementById("apiKey").value,
+      model: document.getElementById("model").value,
+      referer: document.getElementById("referer").value,
+      title: document.getElementById("title").value,
+      source1Role: document.getElementById("source1Role").value,
+      source2Role: document.getElementById("source2Role").value,
+      tA: document.getElementById("tA").value,
+      tB: document.getElementById("tB").value,
+      tC: document.getElementById("tC").value,
+    };
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch (e) {
+      console.warn("localStorage save failed:", e);
+    }
+  }
+
+  function loadFromStorage() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (data.apiKey) document.getElementById("apiKey").value = data.apiKey;
+      if (data.model) document.getElementById("model").value = data.model;
+      if (data.referer) document.getElementById("referer").value = data.referer;
+      if (data.title) document.getElementById("title").value = data.title;
+      if (data.source1Role) document.getElementById("source1Role").value = data.source1Role;
+      if (data.source2Role) document.getElementById("source2Role").value = data.source2Role;
+      if (data.tA) document.getElementById("tA").value = data.tA;
+      if (data.tB) document.getElementById("tB").value = data.tB;
+      if (data.tC) document.getElementById("tC").value = data.tC;
+      log("✓ Loaded saved data from localStorage.");
+    } catch (e) {
+      console.warn("localStorage load failed:", e);
+    }
+  }
+
+  function clearStorage() {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      log("✓ Cleared localStorage.");
+    } catch (e) {
+      console.warn("localStorage clear failed:", e);
+    }
+  }
+
+  function attachAutoSave(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("input", saveToStorage);
+    el.addEventListener("change", saveToStorage);
+  }
+
+  // ===== OpenRouter call helper =====
+  async function openRouterChat({ apiKey, model, messages, temperature = 0, referer = "", title = "" }) {
+    // Validate API key
+    if (!apiKey || !apiKey.trim()) {
+      throw new Error("OpenRouter API key is required but was not provided");
+    }
+    
+    // Ensure API key starts with proper prefix (optional check)
+    const trimmedKey = apiKey.trim();
+    if (!trimmedKey.startsWith("sk-or-") && !trimmedKey.startsWith("sk-")) {
+      console.warn("API key format may be incorrect. Expected format: sk-or-... or sk-...");
+    }
+
+    const url = "https://openrouter.ai/api/v1/chat/completions";
+    const headers = {
+      "Authorization": `Bearer ${trimmedKey}`,
+      "Content-Type": "application/json",
+    };
+    
+    // OpenRouter recommends these headers for tracking
+    if (referer.trim()) {
+      headers["HTTP-Referer"] = referer.trim();
+    } else {
+      headers["HTTP-Referer"] = window.location.origin || "http://localhost:3000";
+    }
+    
+    if (title.trim()) {
+      headers["X-Title"] = title.trim();
+    } else {
+      headers["X-Title"] = "Role Voting Blind UI";
+    }
+
+    const body = { model, temperature, messages };
+
+    try {
+      const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        const errorMsg = text.slice(0, 400);
+        
+        // Provide more helpful error messages
+        if (res.status === 401) {
+          throw new Error(`OpenRouter HTTP 401: Authentication failed. Please check your API key. ${errorMsg}`);
+        }
+        throw new Error(`OpenRouter HTTP ${res.status}: ${errorMsg}`);
+      }
+      const json = await res.json();
+      const content = json?.choices?.[0]?.message?.content ?? "";
+      return { raw: json, content };
+    } catch (error) {
+      // Re-throw with more context if it's a network error
+      if (error.message.includes("Failed to fetch") || error.message.includes("NetworkError")) {
+        throw new Error(`Network error connecting to OpenRouter: ${error.message}. Please check your internet connection.`);
+      }
+      throw error;
+    }
+  }
+
+  function log(msg) {
+    const el = document.getElementById("log");
+    el.value += (el.value ? "\n" : "") + msg;
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function setRunState(s, kind="") {
+    const el = document.getElementById("runState");
+    el.textContent = s;
+    el.classList.remove("ok","bad","warn");
+    if (kind) el.classList.add(kind);
+  }
+
+  function stripCodeFences(s) {
+    const str = String(s || "").trim();
+    return str
+      .replace(/^```(?:json)?\s*/i, "")    // Remove opening code fence with optional "json"
+      .replace(/```$/i, "")                // Remove closing code fence at the end
+      .trim();
+  }
+
+
+  function safeJsonParse(s) {
+    const cleaned = stripCodeFences(s);
+    return JSON.parse(cleaned);
+  }
+
+  // ===== Prompts =====
+  function promptClassifier(tA, tB, tC) {
+    return [
+      { role: "system", content:
+`You classify 3 transcript texts (same call) into:
+- "diarized": multi-speaker transcript with speaker labels
+- "source1": single-channel transcript (one main speaker)
+- "source2": single-channel transcript (other channel)
+
+Return STRICT JSON only (no markdown):
+{
+  "diarized": {"which":"A|B|C", "reason":"..."},
+  "source1": {"which":"A|B|C", "reason":"..."},
+  "source2": {"which":"A|B|C", "reason":"..."}
+}
+
+Rules:
+- Decide based on structure: speaker tags, timestamps, channel markers.
+- If ambiguous, pick best guess and explain.`
+      },
+      { role: "user", content:
+`TRANSCRIPT A:
+${tA}
+
+TRANSCRIPT B:
+${tB}
+
+TRANSCRIPT C:
+${tC}`
+      }
+    ];
+  }
+
+  function promptAligner(diarized, source1, source2) {
+    return [
+      { role: "system", content:
+`You are an Audio Transcript ALIGNER.
+
+Goal: Build a master timeline of events by aligning DIARIZED (skeleton) with SOURCE1/SOURCE2 (detail).
+
+Constraints:
+- Use semantic meaning + approximate order.
+- Keep original text verbatim in output.
+- If SOURCE1/SOURCE2 has utterance missing in DIARIZED, INSERT it in chronological position.
+- If DIARIZED has utterance matching nothing, keep it.
+
+Output STRICT JSON array only (no markdown):
+[
+  {
+    "event_id": 1,
+    "time": "optional",
+    "text_master": "best original text for master event",
+    "matched": {
+      "diarized": { "present": true|false, "text": "..."|null },
+      "source1":  { "present": true|false, "text": "..."|null },
+      "source2":  { "present": true|false, "text": "..."|null }
+    }
+  }
+]`
+      },
+      { role: "user", content:
+`DIARIZED:
+${diarized}
+
+SOURCE1:
+${source1}
+
+SOURCE2:
+${source2}`
+      }
+    ];
+  }
+
+  function promptVoteA(eventsJson, source1Role, source2Role) {
+    return [
+      { role: "system", content:
+`You are VOTE A (Channel Origin) agent.
+
+Input: master events (JSON). For each event:
+- If matched.source1.present is true => vote_A_source_role = "${source1Role}", unless text indicates crosstalk/other speaker, then "Unknown".
+- If matched.source2.present is true => vote_A_source_role = "${source2Role}", unless crosstalk, then "Unknown".
+- If neither source1 nor source2 present => "Unknown".
+
+⚠️ CRITICAL: You do NOT have access to other agents' votes. Vote independently.
+
+Return STRICT JSON array only (no markdown):
+[
+  { "event_id": 1, "vote_A_source_role": "Agent|Client|Unknown" }
+]`
+      },
+      { role: "user", content: `MASTER_EVENTS_JSON:\n${eventsJson}` }
+    ];
+  }
+
+  function promptVoteB(eventsJson) {
+    return [
+      { role: "system", content:
+`You are VOTE B (Dialog Context) agent.
+
+You MUST ignore diarized speaker labels. Decide role per event using dialog logic only:
+- Who asks questions / requests help? Often Client.
+- Who gives instructions / service responses? Often Agent.
+- Use neighborhood context; short acknowledgements follow speaker's role in flow.
+
+⚠️ CRITICAL: You do NOT have access to other agents' votes. Vote independently.
+
+Return STRICT JSON array only (no markdown):
+[
+  { "event_id": 1, "vote_B_context_role": "Agent|Client|Unknown" }
+]`
+      },
+      { role: "user", content: `MASTER_EVENTS_JSON:\n${eventsJson}` }
+    ];
+  }
+
+  function promptVoteC(eventsJson) {
+    return [
+      { role: "system", content:
+`You are VOTE C (Diarized-based) agent.
+
+Use ONLY matched.diarized.text (if present) + speaker label patterns inside it to infer Agent/Client.
+If no diarized text for event, output "Unknown".
+
+⚠️ CRITICAL: You do NOT have access to other agents' votes. Vote independently.
+
+Return STRICT JSON array only (no markdown):
+[
+  { "event_id": 1, "vote_C_diarized_role": "Agent|Client|Unknown" }
+]`
+      },
+      { role: "user", content: `MASTER_EVENTS_JSON:\n${eventsJson}` }
+    ];
+  }
+
+  function computeFinalRole(a, b, c) {
+    const vals = [a,b,c].filter(x => x && x !== "Unknown");
+    if (vals.length === 0) return "Unknown";
+    const count = vals.reduce((m,v)=> (m[v]=(m[v]||0)+1, m), {});
+    const entries = Object.entries(count).sort((x,y)=>y[1]-x[1]);
+    const topCount = entries[0]?.[1] || 0;
+    const tied = entries.filter(([,v]) => v === topCount).map(([k])=>k);
+    if (tied.length > 1) {
+      if (b && b !== "Unknown" && tied.includes(b)) return b;
+      if (a && a !== "Unknown" && tied.includes(a)) return a;
+      if (c && c !== "Unknown" && tied.includes(c)) return c;
+    }
+    return entries[0]?.[0] || "Unknown";
+  }
+
+  function buildHtmlTable(finalRows) {
+    const esc = (s) => String(s ?? "")
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+    const rows = finalRows.map(r => `
+      <tr>
+        <td>${esc(r.event_id)}</td>
+        <td>${esc(r.time || "")}</td>
+        <td>${esc(r.text_master || "")}</td>
+        <td>${esc(r.vote_A_source_role)}</td>
+        <td>${esc(r.vote_B_context_role)}</td>
+        <td>${esc(r.vote_C_diarized_role)}</td>
+        <td><b>${esc(r.final_role)}</b></td>
+      </tr>
+    `).join("");
+
+    return `
+      <div style="padding:12px">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th><th>Time</th><th>Text</th><th>A</th><th>B</th><th>C</th><th>Final</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  async function readUploadedFiles() {
+    const input = document.getElementById("files");
+    const files = Array.from(input.files || []);
+    const texts = [];
+    for (const f of files.slice(0,3)) {
+      texts.push(await f.text());
+    }
+    return texts;
+  }
+
+  function pickByWhich(map, which) {
+    if (which === "A") return map.A;
+    if (which === "B") return map.B;
+    if (which === "C") return map.C;
+    return "";
+  }
+
+  function setTextArea(id, objOrStr) {
+    const el = document.getElementById(id);
+    el.value = typeof objOrStr === "string" ? objOrStr : JSON.stringify(objOrStr, null, 2);
+  }
+
+  // ===== Main flow =====
+  async function runFlow() {
+    const apiKey = document.getElementById("apiKey").value.trim();
+    const model = document.getElementById("model").value.trim();
+    const referer = document.getElementById("referer").value;
+    const title = document.getElementById("title").value;
+    const source1Role = document.getElementById("source1Role").value;
+    const source2Role = document.getElementById("source2Role").value;
+
+    if (!apiKey || !apiKey.trim()) { 
+      alert("Enter OpenRouter API key (should start with 'sk-or-...')"); 
+      return; 
+    }
+    if (!model || !model.trim()) { 
+      alert("Enter model name"); 
+      return; 
+    }
+
+    // Debug: Log API key presence (but not the actual key for security)
+    console.log("API Key present:", !!apiKey, "Length:", apiKey.length, "Starts with sk-:", apiKey.startsWith("sk-"));
+    log(`Using API key: ${apiKey.substring(0, 10)}... (length: ${apiKey.length})`);
+    log(`Using model: ${model}`);
+
+    setRunState("Running…", "warn");
+    document.getElementById("runBtn").disabled = true;
+
+    try {
+      document.getElementById("log").value = "";
+      setTextArea("outClassifier", "");
+      setTextArea("outAligner", "");
+      setTextArea("outVoteA", "");
+      setTextArea("outVoteB", "");
+      setTextArea("outVoteC", "");
+      setTextArea("outAgg", "");
+      document.getElementById("finalHtmlBox").innerHTML = "";
+
+      const uploaded = await readUploadedFiles();
+      let tA = document.getElementById("tA").value.trim();
+      let tB = document.getElementById("tB").value.trim();
+      let tC = document.getElementById("tC").value.trim();
+
+      const arr = [tA, tB, tC];
+      for (let i=0, j=0; i<3 && j<uploaded.length; i++) {
+        if (!arr[i]) arr[i] = uploaded[j++].trim();
+      }
+      tA = arr[0];
+      tB = arr[1];
+      tC = arr[2];
+
+      if (!tA || !tB || !tC) { alert("Need 3 transcripts (A/B/C)"); throw new Error("Missing inputs"); }
+
+      log("Agent 0 (Classifier) → calling model…");
+      const cls = await openRouterChat({
+        apiKey, model, temperature: 0,
+        referer, title,
+        messages: promptClassifier(tA, tB, tC),
+      });
+      const clsObj = safeJsonParse(cls.content);
+      setTextArea("outClassifier", clsObj);
+
+      const map = { A: tA, B: tB, C: tC };
+      const diarized = pickByWhich(map, clsObj.diarized.which);
+      const source1 = pickByWhich(map, clsObj.source1.which);
+      const source2 = pickByWhich(map, clsObj.source2.which);
+
+      log("Agent 1 (Aligner) → calling model…");
+      const al = await openRouterChat({
+        apiKey, model, temperature: 0,
+        referer, title,
+        messages: promptAligner(diarized, source1, source2),
+      });
+      const events = safeJsonParse(al.content);
+      setTextArea("outAligner", events);
+
+      const eventsJson = JSON.stringify(events);
+
+      log("Agents 2-4 (Vote A/B/C) → calling models in PARALLEL (blind)…");
+
+      const [vA, vB, vC] = await Promise.all([
+        openRouterChat({
+          apiKey, model, temperature: 0,
+          referer, title,
+          messages: promptVoteA(eventsJson, source1Role, source2Role),
+        }),
+        openRouterChat({
+          apiKey, model, temperature: 0,
+          referer, title,
+          messages: promptVoteB(eventsJson),
+        }),
+        openRouterChat({
+          apiKey, model, temperature: 0,
+          referer, title,
+          messages: promptVoteC(eventsJson),
+        }),
+      ]);
+
+      const voteA = safeJsonParse(vA.content);
+      const voteB = safeJsonParse(vB.content);
+      const voteC = safeJsonParse(vC.content);
+
+      setTextArea("outVoteA", voteA);
+      setTextArea("outVoteB", voteB);
+      setTextArea("outVoteC", voteC);
+
+      log("Agent 5 (Aggregator) → merging votes locally…");
+      const aMap = new Map(voteA.map(x => [x.event_id, x.vote_A_source_role]));
+      const bMap = new Map(voteB.map(x => [x.event_id, x.vote_B_context_role]));
+      const cMap = new Map(voteC.map(x => [x.event_id, x.vote_C_diarized_role]));
+
+      const finalRows = events.map(e => {
+        const A = aMap.get(e.event_id) || "Unknown";
+        const B = bMap.get(e.event_id) || "Unknown";
+        const C = cMap.get(e.event_id) || "Unknown";
+        const final_role = computeFinalRole(A,B,C);
+        return { ...e, vote_A_source_role: A, vote_B_context_role: B, vote_C_diarized_role: C, final_role };
+      });
+
+      setTextArea("outAgg", finalRows);
+
+      document.getElementById("finalHtmlBox").innerHTML = buildHtmlTable(finalRows);
+      setRunState("Done", "ok");
+      log("Done.");
+    } catch (err) {
+      console.error(err);
+      setRunState("Error", "bad");
+      log("ERROR: " + (err?.message || String(err)));
+      alert(err?.message || String(err));
+    } finally {
+      document.getElementById("runBtn").disabled = false;
+    }
+  }
+
+  // ===== Event listeners =====
+  document.getElementById("runBtn").addEventListener("click", runFlow);
+
+  document.getElementById("resetBtn").addEventListener("click", () => {
+    ["tA","tB","tC","log","outClassifier","outAligner","outVoteA","outVoteB","outVoteC","outAgg"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = "";
+    });
+    document.getElementById("finalHtmlBox").innerHTML = "";
+    setRunState("Idle");
+    log("✓ Reset outputs.");
+  });
+
+  document.getElementById("clearStorageBtn").addEventListener("click", () => {
+    if (confirm("Clear all saved data from localStorage?")) {
+      clearStorage();
+      ["apiKey","model","referer","title","tA","tB","tC"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+      });
+      document.getElementById("source1Role").value = "Agent";
+      document.getElementById("source2Role").value = "Client";
+      alert("Saved data cleared.");
+    }
+  });
+
+  // ===== Initialize =====
+  window.addEventListener("DOMContentLoaded", () => {
+    loadFromStorage();
+    ["apiKey","model","referer","title","source1Role","source2Role","tA","tB","tC"].forEach(attachAutoSave);
+  });
+</script>
+</body>
+</html>

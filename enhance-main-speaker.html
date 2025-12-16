@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Виділення основного спікера</title>
+    <style>
+        :root {
+            --color-background: #fcfcf9;
+            --color-surface: #fffffd;
+            --color-text: #13343b;
+            --color-text-secondary: #626c71;
+            --color-primary: #21808d;
+            --color-primary-hover: #1d7480;
+            --color-border: rgba(94, 82, 64, 0.2);
+            --color-secondary: rgba(94, 82, 64, 0.12);
+            --color-secondary-hover: rgba(94, 82, 64, 0.2);
+            --color-success: #21808d;
+            --color-error: #c0152f;
+            --color-warning: #a84b2f;
+            --radius-base: 8px;
+            --radius-lg: 12px;
+            --space-8: 8px;
+            --space-12: 12px;
+            --space-16: 16px;
+            --space-24: 24px;
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04);
+            --font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --color-background: #1f2121;
+                --color-surface: #262828;
+                --color-text: #f5f5f5;
+                --color-text-secondary: rgba(167, 169, 169, 0.7);
+                --color-primary: #32b8c6;
+                --color-primary-hover: #2da6b2;
+                --color-border: rgba(119, 124, 124, 0.3);
+                --color-secondary: rgba(119, 124, 124, 0.15);
+                --color-secondary-hover: rgba(119, 124, 124, 0.25);
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-family-base);
+            background: var(--color-background);
+            color: var(--color-text);
+            padding: var(--space-24);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: var(--space-8);
+            color: var(--color-text);
+        }
+
+        .subtitle {
+            color: var(--color-text-secondary);
+            margin-bottom: var(--space-24);
+            font-size: 14px;
+        }
+
+        .card {
+            background: var(--color-surface);
+            border-radius: var(--radius-lg);
+            padding: var(--space-24);
+            margin-bottom: var(--space-16);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--color-border);
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: var(--space-16);
+            color: var(--color-text);
+        }
+
+        .upload-zone {
+            border: 2px dashed var(--color-border);
+            border-radius: var(--radius-base);
+            padding: 48px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: var(--space-16);
+            position: relative;
+        }
+
+        .upload-zone:hover {
+            border-color: var(--color-primary);
+            background: var(--color-secondary);
+        }
+
+        .upload-zone.dragover {
+            border-color: var(--color-primary);
+            background: var(--color-secondary);
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: var(--space-12);
+            opacity: 0.5;
+        }
+
+        .file-input {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .form-group {
+            margin-bottom: var(--space-16);
+        }
+
+        label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: var(--space-8);
+            font-size: 14px;
+            color: var(--color-text);
+        }
+
+        .range-container {
+            display: flex;
+            align-items: center;
+            gap: var(--space-12);
+        }
+
+        input[type="number"],
+        input[type="text"],
+        select {
+            width: 100%;
+            padding: var(--space-12);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-base);
+            background: var(--color-surface);
+            color: var(--color-text);
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            height: 8px;
+            border-radius: 4px;
+            background: var(--color-secondary);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--color-primary);
+            cursor: pointer;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--color-primary);
+            cursor: pointer;
+            border: none;
+        }
+
+        input[type="number"] {
+            width: 80px;
+            padding: var(--space-8) var(--space-12);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-base);
+            background: var(--color-surface);
+            color: var(--color-text);
+            font-size: 14px;
+        }
+
+        input[type="number"]:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: var(--radius-base);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            width: 100%;
+            margin-top: var(--space-8);
+            background: var(--color-primary);
+            color: white;
+        }
+
+        .btn:hover:not(:disabled) {
+            background: var(--color-primary-hover);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .progress {
+            display: none;
+            margin-top: var(--space-16);
+            padding: var(--space-16);
+            background: var(--color-secondary);
+            border-radius: var(--radius-base);
+        }
+
+        .progress.active {
+            display: block;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: var(--color-secondary);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: var(--space-8);
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--color-primary);
+            width: 0%;
+            transition: width 0.3s ease;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .result {
+            display: none;
+            margin-top: var(--space-16);
+        }
+
+        .result.active {
+            display: block;
+        }
+
+        .result-info {
+            background: var(--color-secondary);
+            padding: var(--space-16);
+            border-radius: var(--radius-base);
+            margin-bottom: var(--space-16);
+        }
+
+        .result-info-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: var(--space-8);
+            font-size: 14px;
+        }
+
+        .result-info-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .result-info-label {
+            color: var(--color-text-secondary);
+        }
+
+        .result-info-value {
+            font-weight: 500;
+            color: var(--color-text);
+        }
+
+        .audio-player {
+            width: 100%;
+            margin-top: var(--space-16);
+        }
+
+        .download-btn {
+            margin-top: var(--space-16);
+            background: var(--color-success);
+        }
+
+        .download-btn:hover:not(:disabled) {
+            background: var(--color-primary-hover);
+        }
+
+        .error {
+            display: none;
+            padding: var(--space-16);
+            background: rgba(192, 21, 47, 0.1);
+            border: 1px solid var(--color-error);
+            border-radius: var(--radius-base);
+            color: var(--color-error);
+            margin-top: var(--space-16);
+        }
+
+        .error.active {
+            display: block;
+        }
+
+        .file-info {
+            margin-top: var(--space-12);
+            padding: var(--space-12);
+            background: var(--color-secondary);
+            border-radius: var(--radius-base);
+            font-size: 13px;
+            color: var(--color-text-secondary);
+        }
+
+        .help-text {
+            font-size: 12px;
+            color: var(--color-text-secondary);
+            margin-top: var(--space-8);
+        }
+
+        .transcript-segment {
+            margin-bottom: var(--space-16);
+            padding: var(--space-12);
+            border-left: 3px solid var(--color-primary);
+            background: var(--color-secondary);
+            border-radius: var(--radius-base);
+        }
+
+        .transcript-segment.other-speaker {
+            border-left-color: var(--color-error);
+            opacity: 0.7;
+        }
+
+        .transcript-speaker {
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--color-primary);
+            margin-bottom: var(--space-8);
+        }
+
+        .transcript-segment.other-speaker .transcript-speaker {
+            color: var(--color-error);
+        }
+
+        .transcript-text {
+            font-size: 14px;
+            line-height: 1.6;
+            color: var(--color-text);
+        }
+
+        .transcript-time {
+            font-size: 11px;
+            color: var(--color-text-secondary);
+            margin-top: var(--space-8);
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Виділення основного спікера</h1>
+        <p class="subtitle">Завантажте аудіофайл для виділення основного спікера та приглушення інших</p>
+
+        <div class="card">
+            <div class="section-title">Завантаження аудіо</div>
+            
+            <div class="upload-zone" id="uploadZone">
+                <div class="upload-icon">📁</div>
+                <div>
+                    <strong>Натисніть або перетягніть файл сюди</strong>
+                    <div style="margin-top: 8px; font-size: 13px; color: var(--color-text-secondary);">
+                        Підтримувані формати: WAV, MP3, M4A, FLAC, OGG, AAC
+                    </div>
+                </div>
+                <input type="file" id="fileInput" class="file-input" accept="audio/*">
+            </div>
+
+            <div id="fileInfo" class="file-info" style="display: none;"></div>
+
+            <div class="form-group">
+                <label for="suppressionFactor">
+                    Коефіцієнт приглушення: <span id="suppressionValue">0.1</span>
+                    <span class="help-text">(0.0 = повне видалення, 1.0 = без змін)</span>
+                </label>
+                <div class="range-container">
+                    <input type="range" id="suppressionFactor" min="0" max="1" step="0.05" value="0.1">
+                    <input type="number" id="suppressionNumber" min="0" max="1" step="0.05" value="0.1">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="numSpeakers">
+                    Кількість спікерів
+                    <span class="help-text">(залиште порожнім для автоматичного визначення)</span>
+                </label>
+                <input type="number" id="numSpeakers" min="1" max="10" placeholder="Автоматично">
+            </div>
+
+            <div class="form-group">
+                <label for="llmMode">
+                    Режим LLM для виправлення спікерів:
+                </label>
+                <select id="llmMode" class="form-control">
+                    <option value="local" selected>Local (за замовчуванням)</option>
+                    <option value="smart">Smart</option>
+                    <option value="fast">Fast</option>
+                    <option value="smart-2">Smart 2</option>
+                </select>
+                <div class="help-text" style="margin-top: 4px; font-size: 12px; color: var(--color-text-secondary);">
+                    Виберіть модель LLM для виправлення призначень спікерів. Local - локальна модель (LM Studio).
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="transcriptionProvider">
+                    Провайдер транскрипції:
+                </label>
+                <select id="transcriptionProvider" class="form-control">
+                    <option value="whisper" selected>Whisper (за замовчуванням)</option>
+                    <option value="azure">Azure Speech Services</option>
+                    <option value="speechmatics">Speechmatics</option>
+                </select>
+                <div class="help-text" style="margin-top: 4px; font-size: 12px; color: var(--color-text-secondary);">
+                    Виберіть провайдера для транскрипції. Azure та Speechmatics потребують налаштування API ключів.
+                </div>
+            </div>
+
+            <button class="btn" id="processBtn" disabled>Обробити аудіо</button>
+
+            <div class="progress" id="progress">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div style="text-align: center; font-size: 13px; color: var(--color-text-secondary);">
+                    Обробка аудіо... Це може зайняти кілька хвилин
+                </div>
+            </div>
+
+            <div class="error" id="error"></div>
+        </div>
+
+        <div class="card result" id="result">
+            <div class="section-title">Результат обробки</div>
+            
+            <div class="result-info" id="resultInfo"></div>
+
+            <audio controls class="audio-player" id="audioPlayer"></audio>
+
+            <a id="downloadLink" class="btn download-btn" download style="text-decoration: none; display: none;">
+                ⬇️ Завантажити оброблений файл
+            </a>
+
+            <div style="margin-top: var(--space-24);">
+                <div class="section-title">Візуалізація маски</div>
+                <div style="background: var(--color-surface); padding: var(--space-16); border-radius: var(--radius-base); border: 1px solid var(--color-border);">
+                    <canvas id="maskChart" style="max-height: 300px;"></canvas>
+                </div>
+            </div>
+
+            <div style="margin-top: var(--space-24);">
+                <div class="section-title">Транскрипція з розділенням по спікерах</div>
+                <div id="transcriptContainer" style="background: var(--color-surface); padding: var(--space-16); border-radius: var(--radius-base); border: 1px solid var(--color-border); max-height: 400px; overflow-y: auto;">
+                    <div style="color: var(--color-text-secondary); text-align: center; padding: var(--space-24);">
+                        Транскрипція буде відображена після обробки
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const suppressionFactor = document.getElementById('suppressionFactor');
+        const suppressionNumber = document.getElementById('suppressionNumber');
+        const suppressionValue = document.getElementById('suppressionValue');
+        const numSpeakers = document.getElementById('numSpeakers');
+        const processBtn = document.getElementById('processBtn');
+        const progress = document.getElementById('progress');
+        const progressFill = document.getElementById('progressFill');
+        const result = document.getElementById('result');
+        const resultInfo = document.getElementById('resultInfo');
+        const audioPlayer = document.getElementById('audioPlayer');
+        const downloadLink = document.getElementById('downloadLink');
+        const error = document.getElementById('error');
+        const transcriptContainer = document.getElementById('transcriptContainer');
+        const maskChartCanvas = document.getElementById('maskChart');
+
+        let selectedFile = null;
+        let maskChart = null;
+
+        // Перевірка завантаження Chart.js
+        window.addEventListener('DOMContentLoaded', () => {
+            if (typeof Chart === 'undefined') {
+                console.warn('Chart.js не завантажено при ініціалізації сторінки. Спробуємо завантажити...');
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+                script.onload = () => {
+                    console.log('✅ Chart.js успішно завантажено');
+                };
+                script.onerror = () => {
+                    console.error('❌ Не вдалося завантажити Chart.js з CDN');
+                };
+                document.head.appendChild(script);
+            } else {
+                console.log('✅ Chart.js вже завантажено');
+            }
+        });
+
+        // Синхронізація слайдера та поля вводу
+        suppressionFactor.addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            suppressionNumber.value = value.toFixed(2);
+            suppressionValue.textContent = value.toFixed(2);
+        });
+
+        suppressionNumber.addEventListener('input', (e) => {
+            let value = parseFloat(e.target.value);
+            if (value < 0) value = 0;
+            if (value > 1) value = 1;
+            suppressionFactor.value = value;
+            suppressionValue.textContent = value.toFixed(2);
+        });
+
+        // Обробка завантаження файлу
+        uploadZone.addEventListener('click', () => fileInput.click());
+
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        function handleFileSelect(file) {
+            selectedFile = file;
+            fileInfo.style.display = 'block';
+            fileInfo.textContent = `📄 ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+            processBtn.disabled = false;
+            result.classList.remove('active');
+            error.classList.remove('active');
+        }
+
+        // Обробка форми
+        processBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+
+            // Показуємо прогрес
+            progress.classList.add('active');
+            progressFill.style.width = '30%';
+            result.classList.remove('active');
+            error.classList.remove('active');
+            processBtn.disabled = true;
+
+            try {
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+                formData.append('suppression_factor', suppressionFactor.value);
+                formData.append('return_json', 'true'); // Запитуємо JSON відповідь
+                formData.append('llm_mode', document.getElementById('llmMode').value);
+                formData.append('transcription_provider', document.getElementById('transcriptionProvider').value);
+                
+                if (numSpeakers.value) {
+                    formData.append('num_speakers', numSpeakers.value);
+                }
+
+                progressFill.style.width = '60%';
+
+                const response = await fetch('/api/enhance-main-speaker', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                progressFill.style.width = '90%';
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ error: 'Помилка обробки' }));
+                    throw new Error(errorData.error || `Помилка: ${response.status}`);
+                }
+
+                // Отримуємо JSON відповідь
+                const data = await response.json();
+
+                if (!data.success) {
+                    throw new Error(data.error || 'Помилка обробки');
+                }
+
+                const { main_speaker, segments_info, audio_file_base64, audio_filename } = data;
+                const { transcription_segments, mask_data, audio_duration } = segments_info;
+
+                // Створюємо URL для аудіо з base64
+                const binaryString = atob(audio_file_base64);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                const audioUrl = URL.createObjectURL(new Blob([bytes], { type: 'audio/wav' }));
+
+                // Відображаємо результат
+                resultInfo.innerHTML = `
+                    <div class="result-info-item">
+                        <span class="result-info-label">Основний спікер:</span>
+                        <span class="result-info-value">Спікер ${main_speaker || 'N/A'}</span>
+                    </div>
+                    <div class="result-info-item">
+                        <span class="result-info-label">Кількість сегментів:</span>
+                        <span class="result-info-value">${segments_info.total_segments || 'N/A'}</span>
+                    </div>
+                    <div class="result-info-item">
+                        <span class="result-info-label">Тривалість основного спікера:</span>
+                        <span class="result-info-value">${segments_info.main_speaker_duration ? parseFloat(segments_info.main_speaker_duration).toFixed(2) + ' сек' : 'N/A'}</span>
+                    </div>
+                    <div class="result-info-item">
+                        <span class="result-info-label">Відсоток часу:</span>
+                        <span class="result-info-value">${segments_info.main_speaker_percentage ? parseFloat(segments_info.main_speaker_percentage).toFixed(1) + '%' : 'N/A'}</span>
+                    </div>
+                `;
+
+                audioPlayer.src = audioUrl;
+                downloadLink.href = audioUrl;
+                downloadLink.download = audio_filename || `enhanced_${selectedFile.name.replace(/\.[^/.]+$/, '')}.wav`;
+                downloadLink.style.display = 'block';
+
+                // Відображаємо графік маски
+                if (mask_data && mask_data.length > 0) {
+                    displayMaskChart(mask_data, audio_duration, main_speaker);
+                }
+
+                // Відображаємо транскрипцію
+                if (transcription_segments && transcription_segments.length > 0) {
+                    displayTranscript(transcription_segments, main_speaker);
+                } else {
+                    transcriptContainer.innerHTML = '<div style="color: var(--color-text-secondary); text-align: center; padding: var(--space-24);">Транскрипція недоступна</div>';
+                }
+
+                progressFill.style.width = '100%';
+                setTimeout(() => {
+                    progress.classList.remove('active');
+                    progressFill.style.width = '0%';
+                }, 500);
+
+                result.classList.add('active');
+                processBtn.disabled = false;
+
+            } catch (err) {
+                console.error('Error:', err);
+                error.textContent = `Помилка: ${err.message}`;
+                error.classList.add('active');
+                progress.classList.remove('active');
+                progressFill.style.width = '0%';
+                processBtn.disabled = false;
+            }
+        });
+
+        function displayMaskChart(maskData, duration, mainSpeaker) {
+            // Перевірка, чи завантажено Chart.js
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js не завантажено. Спробуємо завантажити...');
+                maskChartCanvas.parentElement.innerHTML = '<div style="color: var(--color-text-secondary); text-align: center; padding: var(--space-16);">⚠️ Бібліотека для графіків не завантажилася. Перезавантажте сторінку.</div>';
+                
+                // Спробуємо завантажити Chart.js динамічно
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+                script.onload = () => {
+                    console.log('Chart.js завантажено успішно');
+                    // Повторно викликаємо функцію після завантаження
+                    displayMaskChart(maskData, duration, mainSpeaker);
+                };
+                script.onerror = () => {
+                    console.error('Не вдалося завантажити Chart.js');
+                    maskChartCanvas.parentElement.innerHTML = '<div style="color: var(--color-error); text-align: center; padding: var(--space-16);">❌ Помилка завантаження бібліотеки для графіків. Перевірте підключення до інтернету.</div>';
+                };
+                document.head.appendChild(script);
+                return;
+            }
+
+            // Підготовка даних для графіка
+            const labels = [];
+            const mainSpeakerData = [];
+            const otherSpeakersData = [];
+
+            // Створюємо точки кожні 0.5 секунди
+            const step = 0.5;
+            for (let t = 0; t <= duration; t += step) {
+                labels.push(t.toFixed(1));
+                
+                // Знаходимо сегмент для цього часу
+                const segment = maskData.find(s => s.start <= t && s.end >= t);
+                if (segment) {
+                    if (segment.is_main_speaker) {
+                        mainSpeakerData.push(1.0);
+                        otherSpeakersData.push(null);
+                    } else {
+                        mainSpeakerData.push(null);
+                        otherSpeakersData.push(segment.suppression_applied);
+                    }
+                } else {
+                    mainSpeakerData.push(null);
+                    otherSpeakersData.push(null);
+                }
+            }
+
+            // Знищуємо попередній графік, якщо він є
+            if (maskChart) {
+                maskChart.destroy();
+            }
+
+            // Перевірка наявності canvas
+            if (!maskChartCanvas) {
+                console.error('Canvas для графіка не знайдено');
+                return;
+            }
+
+            try {
+                const ctx = maskChartCanvas.getContext('2d');
+                if (!ctx) {
+                    throw new Error('Не вдалося отримати контекст canvas');
+                }
+                
+                maskChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: `Спікер ${mainSpeaker} (основний)`,
+                            data: mainSpeakerData,
+                            borderColor: '#21808d',
+                            backgroundColor: 'rgba(33, 128, 141, 0.2)',
+                            fill: true,
+                            stepped: 'after',
+                            tension: 0
+                        },
+                        {
+                            label: 'Інші спікери (приглушені)',
+                            data: otherSpeakersData,
+                            borderColor: '#c0152f',
+                            backgroundColor: 'rgba(192, 21, 47, 0.2)',
+                            fill: true,
+                            stepped: 'after',
+                            tension: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.parsed.y;
+                                    if (value === null) return 'Тиша';
+                                    if (value === 1.0) return 'Основний спікер (100%)';
+                                    return `Приглушено до ${(value * 100).toFixed(0)}%`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Час (секунди)'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Рівень звуку'
+                            },
+                            min: 0,
+                            max: 1,
+                            ticks: {
+                                stepSize: 0.2,
+                                callback: function(value) {
+                                    return (value * 100).toFixed(0) + '%';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            } catch (error) {
+                console.error('Помилка створення графіка:', error);
+                maskChartCanvas.parentElement.innerHTML = `<div style="color: var(--color-error); text-align: center; padding: var(--space-16);">❌ Помилка створення графіка: ${error.message}</div>`;
+            }
+        }
+
+        function displayTranscript(segments, mainSpeaker) {
+            let html = '';
+            
+            segments.forEach(seg => {
+                const isMainSpeaker = seg.speaker === mainSpeaker;
+                const speakerLabel = isMainSpeaker ? `Спікер ${seg.speaker} (основний)` : `Спікер ${seg.speaker}`;
+                const timeLabel = `${formatTime(seg.start)} - ${formatTime(seg.end)}`;
+                
+                html += `
+                    <div class="transcript-segment ${isMainSpeaker ? '' : 'other-speaker'}">
+                        <div class="transcript-speaker">${speakerLabel}</div>
+                        <div class="transcript-text">${seg.text || '(без тексту)'}</div>
+                        <div class="transcript-time">${timeLabel}</div>
+                    </div>
+                `;
+            });
+
+            transcriptContainer.innerHTML = html || '<div style="color: var(--color-text-secondary); text-align: center; padding: var(--space-24);">Транскрипція порожня</div>';
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+    </script>
+</body>
+</html>
+

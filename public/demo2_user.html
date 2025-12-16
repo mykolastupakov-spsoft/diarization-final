@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Call Processing</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 24px 16px 48px;
+            background-color: #0f172a;
+            color: #e5e7eb;
+        }
+        h1 {
+            font-size: 1.8rem;
+            margin: 0 0 4px;
+            color: #4ade80;
+        }
+        p.subtitle {
+            margin: 0 0 20px;
+            color: #9ca3af;
+            font-size: 0.95rem;
+        }
+        .card {
+            background: radial-gradient(circle at top left, rgba(74,222,128,0.15), transparent 60%),
+                        radial-gradient(circle at bottom right, rgba(56,189,248,0.15), transparent 60%),
+                        #020617;
+            border-radius: 18px;
+            padding: 20px 18px 18px;
+            border: 1px solid rgba(148,163,184,0.35);
+            box-shadow: 0 24px 60px rgba(15,23,42,0.9);
+        }
+        .upload-area {
+            border-radius: 14px;
+            border: 1px dashed rgba(148,163,184,0.7);
+            padding: 18px 16px;
+            background: rgba(15,23,42,0.85);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .upload-label {
+            font-size: 0.95rem;
+            color: #e5e7eb;
+            font-weight: 500;
+        }
+        .file-input-wrapper {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        .btn-primary {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 9px 16px;
+            border-radius: 999px;
+            border: none;
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: white;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 10px 25px rgba(34,197,94,0.35);
+            transition: transform 0.08s ease-out, box-shadow 0.08s ease-out, filter 0.12s;
+        }
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 14px 30px rgba(34,197,94,0.4);
+            filter: brightness(1.03);
+        }
+        .btn-primary:active {
+            transform: translateY(0);
+            box-shadow: 0 6px 16px rgba(34,197,94,0.35);
+            filter: brightness(0.98);
+        }
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: default;
+            box-shadow: none;
+            transform: none;
+        }
+        .file-name {
+            font-size: 0.9rem;
+            color: #cbd5f5;
+        }
+        .hint {
+            font-size: 0.8rem;
+            color: #9ca3af;
+        }
+        .steps {
+            margin-top: 18px;
+            border-radius: 14px;
+            padding: 14px 14px 10px;
+            background: rgba(15,23,42,0.85);
+            border: 1px solid rgba(148,163,184,0.35);
+        }
+        .steps-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #e5e7eb;
+        }
+        .step {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: #9ca3af;
+            margin: 4px 0;
+        }
+        .step-status {
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            background: #4b5563;
+            flex-shrink: 0;
+        }
+        .step-status.active {
+            background: #facc15;
+            box-shadow: 0 0 0 3px rgba(250,204,21,0.2);
+        }
+        .step-status.done {
+            background: #22c55e;
+            box-shadow: 0 0 0 3px rgba(34,197,94,0.2);
+        }
+        .step-label {
+            flex: 1;
+        }
+        .step-label strong {
+            color: #e5e7eb;
+            font-weight: 500;
+        }
+        .progress {
+            margin-top: 12px;
+        }
+        .progress-bar {
+            position: relative;
+            width: 100%;
+            height: 8px;
+            border-radius: 999px;
+            background: #020617;
+            overflow: hidden;
+            border: 1px solid rgba(30,64,175,0.7);
+        }
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #22c55e, #06b6d4);
+            transition: width 0.35s ease-out;
+        }
+        .progress-text {
+            margin-top: 4px;
+            font-size: 0.8rem;
+            color: #9ca3af;
+            display: flex;
+            justify-content: space-between;
+        }
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            background: rgba(15,23,42,0.9);
+            border: 1px solid rgba(148,163,184,0.5);
+            color: #e5e7eb;
+        }
+        .pill-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 999px;
+            background: #22c55e;
+            box-shadow: 0 0 0 3px rgba(34,197,94,0.28);
+        }
+        .result-section {
+            margin-top: 22px;
+            border-radius: 18px;
+            padding: 18px 16px 16px;
+            background: linear-gradient(145deg, rgba(22,163,74,0.1), rgba(15,23,42,0.96));
+            border: 1px solid rgba(34,197,94,0.6);
+        }
+        .result-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #bbf7d0;
+            margin-bottom: 6px;
+        }
+        .result-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .checkbox-wrapper input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: #22c55e;
+        }
+        .checkbox-wrapper label {
+            font-size: 0.9rem;
+            color: #e5e7eb;
+            cursor: pointer;
+        }
+        .result-table tbody tr.overlap {
+            background: rgba(250,204,21,0.15);
+            border-left: 3px solid #facc15;
+        }
+        .result-table tbody tr.overlap:hover {
+            background: rgba(250,204,21,0.25);
+        }
+        .overlap-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            background: rgba(250,204,21,0.3);
+            color: #facc15;
+            margin-left: 6px;
+            font-weight: 500;
+        }
+        .result-content {
+            margin-top: 8px;
+            padding: 12px 10px;
+            border-radius: 12px;
+            background: rgba(15,23,42,0.96);
+            border: 1px solid rgba(34,197,94,0.4);
+            max-height: 420px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 0.86rem;
+            line-height: 1.55;
+        }
+        .result-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        }
+        .result-table thead {
+            position: sticky;
+            top: 0;
+            background: rgba(15,23,42,0.98);
+            z-index: 10;
+        }
+        .result-table th {
+            padding: 10px 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #bbf7d0;
+            border-bottom: 2px solid rgba(34,197,94,0.5);
+            background: rgba(15,23,42,0.98);
+        }
+        .result-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid rgba(148,163,184,0.2);
+            color: #e5e7eb;
+        }
+        .result-table tbody tr:hover {
+            background: rgba(34,197,94,0.08);
+        }
+        .result-table td:first-child {
+            color: #9ca3af;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .result-table td:nth-child(2) {
+            color: #4ade80;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .result-table td:nth-child(3) {
+            color: #e5e7eb;
+            word-break: break-word;
+        }
+        .audio-block {
+            margin-top: 14px;
+            padding: 10px 10px 12px;
+            border-radius: 12px;
+            background: rgba(15,23,42,0.92);
+            border: 1px solid rgba(148,163,184,0.5);
+        }
+        .audio-title {
+            font-size: 0.9rem;
+            color: #e5e7eb;
+            margin-bottom: 6px;
+        }
+        audio {
+            width: 100%;
+        }
+        .error {
+            margin-top: 12px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            background: rgba(127,29,29,0.9);
+            color: #fee2e2;
+            font-size: 0.85rem;
+            border: 1px solid rgba(248,113,113,0.7);
+        }
+        .hidden {
+            display: none;
+        }
+        .note {
+            margin-top: 10px;
+            font-size: 0.78rem;
+            color: #6b7280;
+        }
+        .model-selector {
+            margin-top: 12px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .model-selector-label {
+            font-size: 0.9rem;
+            color: #e5e7eb;
+            font-weight: 500;
+        }
+        .model-radio-group {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        .model-radio {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .model-radio input[type="radio"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: #22c55e;
+        }
+        .model-radio label {
+            font-size: 0.9rem;
+            color: #e5e7eb;
+            cursor: pointer;
+        }
+        .model-radio:hover label {
+            color: #4ade80;
+        }
+        .model-info {
+            font-size: 0.75rem;
+            color: #9ca3af;
+            margin-top: 4px;
+        }
+        @media (max-width: 640px) {
+            body {
+                padding: 18px 12px 36px;
+            }
+            .card {
+                padding: 16px 14px 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Call Processing</h1>
+    <p class="subtitle">Upload an audio conversation, and the system will automatically analyze it and return a ready result.</p>
+
+    <div class="card">
+        <div class="upload-area">
+            <div class="upload-label">1. Upload Audio File</div>
+            <div class="file-input-wrapper">
+                <button id="uploadBtn" class="btn-primary">
+                    <span>Select Audio File</span>
+                </button>
+                <span id="fileName" class="file-name">No file selected</span>
+            </div>
+            <input type="file" id="fileInput" accept="audio/*" />
+            <div class="hint">Standard audio formats are supported (MP3, WAV, etc.). Maximum size depends on your browser.</div>
+            
+            <div class="model-selector">
+                <div class="model-selector-label">Processing Mode:</div>
+                <div class="model-radio-group">
+                    <div class="model-radio">
+                        <input type="radio" id="modeSmart" name="processingMode" value="smart" checked />
+                        <label for="modeSmart">Smart</label>
+                    </div>
+                    <div class="model-radio">
+                        <input type="radio" id="modeFast" name="processingMode" value="fast" />
+                        <label for="modeFast">Fast</label>
+                    </div>
+                </div>
+            </div>
+            <div class="model-info" id="modelInfo">
+                Smart: Uses Speechmatics for transcription and diarization (high accuracy)
+            </div>
+        </div>
+
+        <div class="steps" id="steps">
+            <div class="steps-title">Processing Steps</div>
+            <div class="step">
+                <span class="step-status" id="step-upload"></span>
+                <span class="step-label"><strong>Upload</strong>: sending file to server</span>
+            </div>
+            <div class="step">
+                <span class="step-status" id="step-diarization"></span>
+                <span class="step-label"><strong>Audio Processing</strong>: speaker recognition and transcription</span>
+            </div>
+            <div class="step">
+                <span class="step-status" id="step-analysis"></span>
+                <span class="step-label"><strong>Conversation Analysis</strong>: processing through LLM</span>
+            </div>
+            <div class="step">
+                <span class="step-status" id="step-final"></span>
+                <span class="step-label"><strong>Result Generation</strong>: preparing a convenient report</span>
+            </div>
+
+            <div class="progress">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text">
+                    <span id="progressText">Waiting for file…</span>
+                    <span id="progressPercent">0%</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="errorBox" class="error hidden"></div>
+
+        <div class="note">
+            After completion, you will see a player with the original audio and a text report of the conversation.
+        </div>
+    </div>
+
+    <div id="resultSection" class="result-section hidden">
+        <div class="pill">
+            <span class="pill-dot"></span>
+            <span>Pipeline completed successfully</span>
+        </div>
+        <h2 class="result-title">Final Call Analysis Result</h2>
+        <div class="result-controls">
+            <div class="checkbox-wrapper">
+                <input type="checkbox" id="showOverlaps" />
+                <label for="showOverlaps">Show overlaps</label>
+            </div>
+        </div>
+
+        <div id="audioBlock" class="audio-block hidden">
+            <div class="audio-title">Original Audio File</div>
+            <div id="audioInfo" style="font-size: 0.8rem; color:#9ca3af; margin-bottom:6px;"></div>
+            <audio id="originalAudio" controls></audio>
+        </div>
+
+        <div class="result-content" id="finalText"></div>
+    </div>
+
+    <script>
+        const SERVER_URL = 'http://100.67.135.103:5005';
+        const NODE_SERVER_URL = window.location.origin || 'http://localhost:3000';
+
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const fileNameSpan = document.getElementById('fileName');
+        const errorBox = document.getElementById('errorBox');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const progressPercentSpan = document.getElementById('progressPercent');
+        const resultSection = document.getElementById('resultSection');
+        const audioBlock = document.getElementById('audioBlock');
+        const audioInfo = document.getElementById('audioInfo');
+        const originalAudio = document.getElementById('originalAudio');
+        const finalText = document.getElementById('finalText');
+        const showOverlapsCheckbox = document.getElementById('showOverlaps');
+        const modeSmartRadio = document.getElementById('modeSmart');
+        const modeFastRadio = document.getElementById('modeFast');
+        const modelInfo = document.getElementById('modelInfo');
+
+        const stepUpload = document.getElementById('step-upload');
+        const stepDiarization = document.getElementById('step-diarization');
+        const stepAnalysis = document.getElementById('step-analysis');
+        const stepFinal = document.getElementById('step-final');
+
+        let selectedFile = null;
+        let processing = false;
+
+        function resetUI() {
+            errorBox.classList.add('hidden');
+            errorBox.textContent = '';
+            resultSection.classList.add('hidden');
+            finalText.textContent = '';
+            audioBlock.classList.add('hidden');
+            originalAudio.removeAttribute('src');
+            selectedFile = null;
+            processing = false;
+            uploadBtn.disabled = false;
+            fileNameSpan.textContent = 'No file selected';
+            setProgress(0, 'Waiting for file…');
+            setStepStatus(stepUpload, 'idle');
+            setStepStatus(stepDiarization, 'idle');
+            setStepStatus(stepAnalysis, 'idle');
+            setStepStatus(stepFinal, 'idle');
+        }
+
+        function setStepStatus(el, status) {
+            el.classList.remove('active', 'done');
+            if (status === 'active') el.classList.add('active');
+            if (status === 'done') el.classList.add('done');
+        }
+
+        function setProgress(percent, text) {
+            const clamped = Math.max(0, Math.min(100, percent));
+            progressFill.style.width = clamped + '%';
+            progressPercentSpan.textContent = clamped + '%';
+            if (text) progressText.textContent = text;
+        }
+
+        function showError(message) {
+            errorBox.textContent = message;
+            errorBox.classList.remove('hidden');
+        }
+
+        // Update model info when mode changes
+        modeSmartRadio.addEventListener('change', () => {
+            if (modeSmartRadio.checked) {
+                modelInfo.textContent = 'Smart: Uses Speechmatics for transcription and diarization (high accuracy)';
+            }
+        });
+        
+        modeFastRadio.addEventListener('change', () => {
+            if (modeFastRadio.checked) {
+                modelInfo.textContent = 'Fast: Uses Whisper + PyAnnote for transcription and diarization (faster processing)';
+            }
+        });
+
+        uploadBtn.addEventListener('click', () => {
+            if (processing) return;
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', async (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            resetUI();
+
+            selectedFile = file;
+            fileNameSpan.textContent = file.name + ' (' + (file.size / 1024 / 1024).toFixed(2) + ' MB)';
+
+            try {
+                processing = true;
+                uploadBtn.disabled = true;
+                setStepStatus(stepUpload, 'active');
+                setProgress(8, 'Encoding and sending file…');
+
+                const reader = new FileReader();
+                const base64Data = await new Promise((resolve, reject) => {
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.onerror = (e) => reject(e);
+                    reader.readAsDataURL(file);
+                });
+
+                await sendToServer(base64Data, file.name);
+            } catch (err) {
+                console.error('Upload error:', err);
+                showError('File upload error. Please try again or select a different file.');
+                processing = false;
+                uploadBtn.disabled = false;
+            } finally {
+                event.target.value = '';
+            }
+        });
+
+        async function sendToServer(base64Data, filename) {
+            try {
+                const processingMode = modeSmartRadio.checked ? 'smart' : 'fast';
+                
+                const response = await fetch(SERVER_URL + '/api/diarize', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        file: base64Data, 
+                        filename: filename,
+                        mode: processingMode
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Server error: ' + response.status);
+                }
+
+                const result = await response.json();
+
+                if (result.success === false) {
+                    throw new Error(result.error || 'Unknown error starting processing');
+                }
+
+                if (!result.job_id) {
+                    throw new Error('Server returned invalid response (no job_id)');
+                }
+
+                setStepStatus(stepUpload, 'done');
+                setStepStatus(stepDiarization, 'active');
+                setProgress(15, 'Audio sent. Starting processing…');
+
+                await startPolling(result.job_id);
+            } catch (error) {
+                console.error('sendToServer error:', error);
+                showError(error.message || 'Failed to send file to server.');
+                processing = false;
+                uploadBtn.disabled = false;
+            }
+        }
+
+        async function startPolling(jobId) {
+            const maxAttempts = 120;
+            const statusUrl = SERVER_URL + '/api/diarize/' + jobId + '/status';
+            let attempts = 0;
+
+            return new Promise((resolve, reject) => {
+                const interval = setInterval(async () => {
+                    attempts++;
+                    try {
+                        const response = await fetch(statusUrl);
+                        if (!response.ok) {
+                            throw new Error('Status check error: ' + response.status);
+                        }
+                        const statusData = await response.json();
+                        const status = statusData.status || 'processing';
+
+                        if (status === 'completed') {
+                            clearInterval(interval);
+                            setStepStatus(stepDiarization, 'done');
+                            setProgress(40, 'Audio processed successfully. Preparing transcription…');
+                            await getFormattedDialogue(jobId);
+                            resolve();
+                        } else if (status === 'failed' || status === 'error') {
+                            clearInterval(interval);
+                            reject(new Error('Processing completed with an error on the server.'));
+                        } else {
+                            const progressHint = 15 + Math.min(20, attempts);
+                            setProgress(progressHint, 'Processing audio… (attempt ' + attempts + ')');
+                        }
+
+                        if (attempts >= maxAttempts) {
+                            clearInterval(interval);
+                            reject(new Error('Server response timeout exceeded.'));
+                        }
+                    } catch (err) {
+                        clearInterval(interval);
+                        reject(err);
+                    }
+                }, 5000);
+            }).catch(err => {
+                console.error('Polling error:', err);
+                showError(err.message || 'An error occurred during audio processing.');
+                processing = false;
+                uploadBtn.disabled = false;
+            });
+        }
+
+        async function getFormattedDialogue(jobId) {
+            const formattedUrl = SERVER_URL + '/api/diarize/' + jobId + '/formatted';
+            try {
+                const response = await fetch(formattedUrl);
+                if (!response.ok) {
+                    throw new Error('Failed to get formatted dialogue: ' + response.status);
+                }
+
+                const formattedResponse = await response.json();
+                const formattedDialogue = formattedResponse.formatted_dialogue || formattedResponse;
+                window.formattedDialogue = typeof formattedDialogue === 'string'
+                    ? formattedDialogue
+                    : JSON.stringify(formattedDialogue, null, 2);
+
+                setProgress(45, 'Preparing for detailed conversation analysis…');
+
+                await sendAudioForSeparation();
+            } catch (err) {
+                console.error('getFormattedDialogue error:', err);
+                showError(err.message || 'Error getting transcription.');
+                processing = false;
+                uploadBtn.disabled = false;
+            }
+        }
+
+        async function sendAudioForSeparation() {
+            try {
+                const formData = new FormData();
+                formData.append('audio', selectedFile);
+
+                const response = await fetch(SERVER_URL + '/api/separate-audio', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error('Audio separation error: ' + response.status);
+                }
+
+                const result = await response.json();
+                const file1Link = result.file1;
+                const file2Link = result.file2;
+
+                setProgress(55, 'Audio separation completed. Transcribing channels…');
+
+                await transcribeSeparatedFiles(file1Link, file2Link);
+            } catch (err) {
+                console.error('sendAudioForSeparation error:', err);
+                showError(err.message || 'Failed to separate audio into channels.');
+                processing = false;
+                uploadBtn.disabled = false;
+            }
+        }
+
+        async function transcribeSeparatedFiles(file1Link, file2Link) {
+            try {
+                const processingMode = modeSmartRadio.checked ? 'smart' : 'fast';
+                
+                const file1Response = await fetch(file1Link);
+                const file1Blob = await file1Response.blob();
+                const file1 = new File([file1Blob], 'speaker_1.wav', { type: 'audio/wav' });
+
+                const file2Response = await fetch(file2Link);
+                const file2Blob = await file2Response.blob();
+                const file2 = new File([file2Blob], 'speaker_2.wav', { type: 'audio/wav' });
+
+                const formData1 = new FormData();
+                formData1.append('audio', file1);
+                formData1.append('mode', processingMode);
+
+                const transcribe1Response = await fetch(SERVER_URL + '/api/diarize-and-transcribe', {
+                    method: 'POST',
+                    body: formData1
+                });
+
+                if (!transcribe1Response.ok) {
+                    throw new Error('Channel 1 transcription error: ' + transcribe1Response.status);
+                }
+                window.File1Transcript = await transcribe1Response.json();
+
+                setProgress(65, 'Channel 1 processed. Transcribing channel 2…');
+
+                const formData2 = new FormData();
+                formData2.append('audio', file2);
+                formData2.append('mode', processingMode);
+
+                const transcribe2Response = await fetch(SERVER_URL + '/api/diarize-and-transcribe', {
+                    method: 'POST',
+                    body: formData2
+                });
+
+                if (!transcribe2Response.ok) {
+                    throw new Error('Channel 2 transcription error: ' + transcribe2Response.status);
+                }
+                window.File2Transcript = await transcribe2Response.json();
+
+                setStepStatus(stepAnalysis, 'active');
+                setProgress(75, 'Transcription ready. Analyzing conversation…');
+
+                await processDialogueWithLLM(window.formattedDialogue);
+            } catch (err) {
+                console.error('transcribeSeparatedFiles error:', err);
+                showError(err.message || 'Error transcribing separated files.');
+                processing = false;
+                uploadBtn.disabled = false;
+            }
+        }
+
+        async function processDialogueWithLLM(formattedDialogue) {
+            try {
+                // Використовуємо вже наявний сервіс LLM як у debug-версії,
+                // але без виводу проміжних результатів для користувача.
+                const lines = formattedDialogue.split('\n').filter(line => line.trim() !== '');
+                const totalLines = lines.length;
+                const dialogueWithRoles = [];
+
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    const progressLocal = i + 1;
+                    const ratio = progressLocal / totalLines;
+                    const mapped = 75 + Math.round(ratio * 10); // 75–85%
+                    setProgress(mapped, 'Analyzing phrases… (' + progressLocal + ' / ' + totalLines + ')');
+
+                    const prompt =
+                        "You are an expert in analyzing call center dialogues.\n\n" +
+                        "CONTEXT:\nYou are analyzing a dialogue from a call center. The dialogue below is provided as REFERENCE ONLY.\n\n" +
+                        "FULL DIALOGUE (for context only):\n" + formattedDialogue + "\n\n" +
+                        "SPECIFIC REPLICA TO ANALYZE:\n" + line + "\n\n" +
+                        "TASK:\n" +
+                        "1. Parse the replica line in format: \"MM:SS Speaker X: [text]\"\n" +
+                        "2. Extract the timestamp (MM:SS format)\n" +
+                        "3. Extract the speaker label (Speaker 0 or Speaker 1)\n" +
+                        "4. Extract the text content\n" +
+                        "5. Analyze the text content to determine the role:\n" +
+                        "   - Agent: call center employee\n" +
+                        "   - Client: customer\n" +
+                        "6. Replace 'Speaker 0' or 'Speaker 1' with 'Agent' or 'Client'\n" +
+                        "7. Return ONLY the modified line in format: MM:SS [role]: [text]\n\n" +
+                        "IMPORTANT:\n" +
+                        "- Use 'Agent' for call center employees\n" +
+                        "- Use 'Client' for customers\n" +
+                        "- Return ONLY the modified line, nothing else";
+
+                    const llmResponse = await fetch(NODE_SERVER_URL + '/api/llm/chat-completions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            messages: [{ role: 'user', content: prompt }],
+                            temperature: 0.1,
+                            max_tokens: 200
+                        })
+                    });
+
+                    if (llmResponse.ok) {
+                        const llmData = await llmResponse.json();
+                        const processedLine = (llmData.choices && llmData.choices[0] && llmData.choices[0].message && llmData.choices[0].message.content)
+                            ? llmData.choices[0].message.content.trim()
+                            : line;
+                        dialogueWithRoles.push(processedLine);
+                    } else {
+                        // Handle errors, especially 402 Payment Required
+                        const errorData = await llmResponse.json().catch(() => ({}));
+                        
+                        if (llmResponse.status === 402) {
+                            console.warn('⚠️ LLM API payment required (402). Using original line without role assignment.');
+                            // Use original line - continue processing without LLM role assignment
+                            dialogueWithRoles.push(line);
+                            
+                            // Show warning only once
+                            if (!window.llmPaymentWarningShown) {
+                                window.llmPaymentWarningShown = true;
+                                console.warn('⚠️ LLM API credits exhausted. Processing will continue without role assignment.');
+                            }
+                        } else {
+                            // For other errors, also use original line
+                            console.warn('⚠️ LLM request failed:', llmResponse.status, errorData);
+                            dialogueWithRoles.push(line);
+                        }
+                    }
+                }
+
+                const initialDialogue = dialogueWithRoles.join('\n');
+                window.initialDialogue = initialDialogue;
+
+                setStepStatus(stepAnalysis, 'done');
+                setStepStatus(stepFinal, 'active');
+                setProgress(88, 'Generating summary result…');
+
+                await sendToWebhooks();
+            } catch (err) {
+                console.error('processDialogueWithLLM error:', err);
+                showError(err.message || 'Error analyzing conversation.');
+                processing = false;
+                uploadBtn.disabled = false;
+            }
+        }
+
+        async function sendToWebhooks() {
+            try {
+                // Плавний прогрес від 88 до 97% поки чекаємо зовнішній сервіс
+                let progress = 88;
+                const target = 97;
+                const duration = 310000; // ~5 хв 10 сек (більше ніж timeout)
+                const steps = 80;
+                const intervalMs = duration / steps;
+                const increment = (target - progress) / steps;
+
+                const timer = setInterval(() => {
+                    progress += increment;
+                    if (progress >= target) {
+                        progress = target;
+                        clearInterval(timer);
+                    }
+                    setProgress(Math.round(progress), 'Getting result from external service…');
+                }, intervalMs);
+
+                // Додаємо timeout через AbortController (5 хвилин)
+                const timeoutMs = 300000; // 5 хвилин
+                
+                // POST запит з timeout
+                const postAbortController = new AbortController();
+                const postTimeoutId = setTimeout(() => postAbortController.abort(), timeoutMs);
+                
+                let postResponse;
+                try {
+                    postResponse = await fetch(NODE_SERVER_URL + '/api/webhook/diarization-send', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            file1Transcript: window.File1Transcript,
+                            File2Transcript: window.File2Transcript,
+                            'Original dialoge': window.initialDialogue
+                        }),
+                        signal: postAbortController.signal
+                    });
+                    clearTimeout(postTimeoutId);
+                } catch (fetchError) {
+                    clearTimeout(postTimeoutId);
+                    clearInterval(timer);
+                    if (fetchError.name === 'AbortError') {
+                        throw new Error('Request timeout: The external service took too long to respond. Please try again.');
+                    }
+                    throw fetchError;
+                }
+
+                if (!postResponse.ok) {
+                    clearInterval(timer);
+                    const errorText = await postResponse.text();
+                    let errorData;
+                    try {
+                        errorData = JSON.parse(errorText);
+                    } catch {
+                        errorData = { error: errorText };
+                    }
+                    throw new Error('Failed to send data to external service: ' + (errorData.details || errorData.error || errorText));
+                }
+
+                // GET запит з timeout
+                const getAbortController = new AbortController();
+                const getTimeoutId = setTimeout(() => getAbortController.abort(), timeoutMs);
+                
+                let getResponse;
+                try {
+                    getResponse = await fetch(NODE_SERVER_URL + '/api/webhook/diarization-get', {
+                        method: 'GET',
+                        signal: getAbortController.signal
+                    });
+                    clearTimeout(getTimeoutId);
+                } catch (fetchError) {
+                    clearTimeout(getTimeoutId);
+                    clearInterval(timer);
+                    if (fetchError.name === 'AbortError') {
+                        throw new Error('Request timeout: The external service took too long to respond. Please try again.');
+                    }
+                    throw fetchError;
+                }
+
+                clearInterval(timer);
+
+                if (!getResponse.ok) {
+                    throw new Error('Failed to get response from external service: ' + getResponse.status);
+                }
+
+                const getText = await getResponse.text();
+                let getResult = null;
+                if (getText) {
+                    try {
+                        getResult = JSON.parse(getText);
+                    } catch (e) {
+                        getResult = getText;
+                    }
+                }
+
+                setStepStatus(stepFinal, 'done');
+                setProgress(100, 'Done');
+
+                displayFinalResult(getResult);
+                processing = false;
+                uploadBtn.disabled = false;
+            } catch (err) {
+                console.error('sendToWebhooks error:', err);
+                showError(err.message || 'An error occurred during final result processing.');
+                processing = false;
+                uploadBtn.disabled = false;
+            }
+        }
+
+        function parseDialogueLine(line) {
+            // Pattern: "MM:SS Role: text" or "MM:SS Speaker X: text"
+            const match = line.match(/^(\d{1,2}:\d{2})\s+(Agent|Client|Speaker\s+\d+):\s*(.+)$/);
+            if (match) {
+                return {
+                    timestamp: match[1],
+                    role: match[2],
+                    replica: match[3].trim()
+                };
+            }
+            return null;
+        }
+
+        function timestampToSeconds(timestamp) {
+            const parts = timestamp.split(':');
+            if (parts.length !== 2) return 0;
+            const minutes = parseInt(parts[0], 10) || 0;
+            const seconds = parseInt(parts[1], 10) || 0;
+            return minutes * 60 + seconds;
+        }
+
+        function detectOverlaps(parsedLines) {
+            const overlaps = new Set();
+            const OVERLAP_THRESHOLD = 3; // seconds - if next replica starts within 3 seconds, it's an overlap
+            
+            for (let i = 0; i < parsedLines.length - 1; i++) {
+                const current = parsedLines[i];
+                const next = parsedLines[i + 1];
+                
+                // Only check if speakers are different
+                if (current.role !== next.role) {
+                    const currentTime = timestampToSeconds(current.timestamp);
+                    const nextTime = timestampToSeconds(next.timestamp);
+                    const timeDiff = nextTime - currentTime;
+                    
+                    // If next replica starts within threshold seconds, it's an overlap
+                    if (timeDiff >= 0 && timeDiff <= OVERLAP_THRESHOLD) {
+                        overlaps.add(i);
+                        overlaps.add(i + 1);
+                    }
+                }
+            }
+            
+            return overlaps;
+        }
+
+        function parseDialogueText(text) {
+            const lines = text.split('\n').filter(line => line.trim() !== '');
+            const parsed = [];
+            
+            // First, parse all lines
+            for (const line of lines) {
+                const parsedLine = parseDialogueLine(line.trim());
+                if (parsedLine) {
+                    parsed.push(parsedLine);
+                }
+            }
+            
+            // If no valid lines parsed, return empty array
+            if (parsed.length === 0) {
+                return parsed;
+            }
+            
+            // Merge consecutive lines from the same speaker
+            const merged = [];
+            let current = {
+                timestamp: parsed[0].timestamp,
+                role: parsed[0].role,
+                replica: parsed[0].replica
+            };
+            
+            for (let i = 1; i < parsed.length; i++) {
+                const next = parsed[i];
+                
+                // If same speaker as current, merge the replica
+                if (next.role === current.role) {
+                    current.replica += ' ' + next.replica;
+                } else {
+                    // Different speaker, save current and start new
+                    merged.push(current);
+                    current = {
+                        timestamp: next.timestamp,
+                        role: next.role,
+                        replica: next.replica
+                    };
+                }
+            }
+            
+            // Don't forget the last one
+            merged.push(current);
+            
+            return merged;
+        }
+
+        function createDialogueTable(parsedLines, showOverlaps = false) {
+            if (parsedLines.length === 0) {
+                return '<div style="color: #9ca3af; padding: 20px; text-align: center;">No dialogue data found</div>';
+            }
+
+            const overlaps = showOverlaps ? detectOverlaps(parsedLines) : new Set();
+
+            let tableHTML = '<table class="result-table"><thead><tr><th>Timestamp</th><th>Role</th><th>Replica</th></tr></thead><tbody>';
+            
+            for (let i = 0; i < parsedLines.length; i++) {
+                const line = parsedLines[i];
+                const isOverlap = overlaps.has(i);
+                const rowClass = isOverlap ? ' class="overlap"' : '';
+                
+                tableHTML += '<tr' + rowClass + '>';
+                tableHTML += '<td>' + escapeHtml(line.timestamp) + '</td>';
+                tableHTML += '<td>' + escapeHtml(line.role) + (isOverlap ? '<span class="overlap-badge">OVERLAP</span>' : '') + '</td>';
+                tableHTML += '<td>' + escapeHtml(line.replica) + '</td>';
+                tableHTML += '</tr>';
+            }
+            
+            tableHTML += '</tbody></table>';
+            return tableHTML;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function displayFinalResult(webhookResult) {
+            resultSection.classList.remove('hidden');
+
+            if (selectedFile) {
+                const audioURL = URL.createObjectURL(selectedFile);
+                originalAudio.src = audioURL;
+                audioInfo.textContent = 'File: ' + selectedFile.name + ' · ' + (selectedFile.size / 1024 / 1024).toFixed(2) + ' MB';
+                audioBlock.classList.remove('hidden');
+            }
+
+            let displayContent = '';
+
+            if (typeof webhookResult === 'string') {
+                displayContent = webhookResult;
+            } else if (webhookResult && typeof webhookResult === 'object') {
+                if (webhookResult.response && webhookResult.response.generations &&
+                    webhookResult.response.generations[0] && webhookResult.response.generations[0][0]) {
+                    displayContent = webhookResult.response.generations[0][0].text || '';
+                } else if (webhookResult.dialogue) {
+                    displayContent = webhookResult.dialogue;
+                } else if (webhookResult.result) {
+                    displayContent = webhookResult.result;
+                } else if (webhookResult.text) {
+                    displayContent = webhookResult.text;
+                } else {
+                    displayContent = JSON.stringify(webhookResult, null, 2);
+                }
+
+                if (displayContent.includes('```')) {
+                    displayContent = displayContent
+                        .replace(/```json\n?/g, '')
+                        .replace(/```\n?/g, '')
+                        .trim();
+                }
+            } else {
+                displayContent = 'Response received, but no data to display.';
+            }
+
+            if (!displayContent || displayContent.trim() === '' || displayContent === '□') {
+                displayContent = 'LLM returned an empty result.\n\nFull response:\n' +
+                    JSON.stringify(webhookResult, null, 2);
+            }
+
+            // Parse and display as table
+            window.parsedDialogueLines = parseDialogueText(displayContent);
+            window.originalDialogueContent = displayContent;
+            updateDialogueTable();
+        }
+
+        function updateDialogueTable() {
+            if (!window.parsedDialogueLines) return;
+            
+            const showOverlaps = showOverlapsCheckbox.checked;
+            
+            if (window.parsedDialogueLines.length > 0) {
+                finalText.innerHTML = createDialogueTable(window.parsedDialogueLines, showOverlaps);
+            } else {
+                // Fallback to plain text if parsing failed
+                finalText.textContent = window.originalDialogueContent || '';
+            }
+        }
+
+        // Add event listener for checkbox
+        showOverlapsCheckbox.addEventListener('change', updateDialogueTable);
+
+        // Початковий стан
+        resetUI();
+    </script>
+</body>
+</html>
+
+
