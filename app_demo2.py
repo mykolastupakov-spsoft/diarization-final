@@ -10,11 +10,14 @@ import torch
 import librosa
 import soundfile as sf
 import requests
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, send_file
 from flask_cors import CORS
 import time
 from werkzeug.utils import secure_filename
 from cascading_diarization import CascadingDiarizationController, DiarizationSegment
+import threading
+import uuid
+from datetime import datetime
 
 # Патч для torchaudio сумісності з speechbrain (завантажуємо ДО імпорту speechbrain)
 exec(open('patch_torchaudio.py').read())
@@ -48,6 +51,10 @@ PROCESSING_TIMEOUT = 300  # 5 хвилин
 # Дозволи для завантажень
 UPLOAD_FOLDER = 'temp_uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# Асинхронна обробка: словник для зберігання статусів завдань
+jobs = {}  # {job_id: {'status': 'pending'|'processing'|'completed'|'failed', 'result': {...}, 'error': '...', 'created_at': datetime}}
+jobs_lock = threading.Lock()
 
 # Глобальні змінні для моделей (завантажуються один раз)
 speaker_model = None
@@ -2690,46 +2697,34 @@ def health():
     })
 
 
-@app.route('/api/diarize', methods=['POST'])
-def api_diarize():
-    """API ендпоінт для діаризації та транскрипції"""
+def process_diarization_async(job_id, filepath, filename, num_speakers, language, segment_duration, overlap, include_transcription, use_separation):
+    """Фонова функція для обробки діаризації"""
     try:
-        if 'file' not in request.files:
-            return jsonify({'error': 'No file uploaded'}), 400
-        file = request.files['file']
-        if file.filename == '':
-            return jsonify({'error': 'No file selected'}), 400
-        # Отримуємо параметри
-        num_speakers = request.form.get('num_speakers', type=int)
-        language = request.form.get('language', type=str) or None
-        segment_duration = float(request.form.get('segment_duration', 1.5))
-        overlap = float(request.form.get('overlap', 0.5))
-        include_transcription = request.form.get('include_transcription', 'true').lower() == 'true'
-        use_separation = request.form.get('use_separation', 'false').lower() == 'true'
-        # Зберігаємо файл тимчасово
-        filepath = os.path.join(UPLOAD_FOLDER, file.filename)
-        file.save(filepath)
-        print(f"📁 Processing file: {file.filename}")
-        print(f"🔀 Use separation: {use_separation}")
+        with jobs_lock:
+            jobs[job_id]['status'] = 'processing'
+        
+        print(f"📁 [Job {job_id}] Processing file: {filename}")
+        print(f"🔀 [Job {job_id}] Use separation: {use_separation}")
         # Крок 1: Завжди виконуємо стандартну діаризацію спочатку
-        print("🔍 Step 1: Standard diarization...")
+        print(f"🔍 [Job {job_id}] Step 1: Standard diarization...")
         embeddings, timestamps = extract_speaker_embeddings(
             filepath, 
             segment_duration=segment_duration, 
             overlap=overlap
         )
-        print("👥 Performing standard diarization...")
+        print(f"👥 [Job {job_id}] Performing standard diarization...")
         standard_diarization_segments = diarize_audio(embeddings, timestamps, num_speakers)
-        print("✅ Step 1 finished: Standard diarization completed")
+        print(f"✅ [Job {job_id}] Step 1 finished: Standard diarization completed")
         # Якщо використовуємо розділення спікерів
         if use_separation:
-            print("🔀 Step 1: Separating speakers...")
+            print(f"🔀 [Job {job_id}] Step 1: Separating speakers...")
             separation_result = separate_speakers(filepath)
             if not separation_result.get('success'):
-                return jsonify({
-                    'success': False,
-                    'error': f"Separation failed: {separation_result.get('error', 'Unknown error')}"
-                }), 500
+                with jobs_lock:
+                    jobs[job_id]['status'] = 'failed'
+                    jobs[job_id]['error'] = f"Separation failed: {separation_result.get('error', 'Unknown error')}"
+                return
+            
             # Діаризуємо кожен розділений трек окремо
             all_diarization_segments = []
             separation_output_dir = separation_result['output_dir']
@@ -2737,7 +2732,7 @@ def api_diarize():
                 speaker_path = speaker_info['path']
                 speaker_name = speaker_info['name']
                 speaker_index = speaker_info['index']
-                print(f"🔍 Processing {speaker_name}...")
+                print(f"🔍 [Job {job_id}] Processing {speaker_name}...")
                 # Витягуємо ембеддинги для цього треку
                 embeddings, timestamps = extract_speaker_embeddings(
                     speaker_path,
@@ -2752,7 +2747,7 @@ def api_diarize():
                         seg['speaker'] = speaker_index  # Використовуємо індекс з розділення
                         all_diarization_segments.append(seg)
                 else:
-                    print(f"⚠️  No embeddings extracted for {speaker_name}")
+                    print(f"⚠️  [Job {job_id}] No embeddings extracted for {speaker_name}")
             # Сортуємо всі сегменти за часом
             all_diarization_segments.sort(key=lambda x: x['start'])
             # Зливаємо сусідні сегменти одного спікера
@@ -2779,17 +2774,18 @@ def api_diarize():
                     'start': round(current_start, 2),
                     'end': round(prev_end, 2)
                 })
-            print(f"✅ Combined diarization from {len(separation_result['speakers'])} separated tracks: {len(diarization_segments)} segments")
+            print(f"✅ [Job {job_id}] Combined diarization from {len(separation_result['speakers'])} separated tracks: {len(diarization_segments)} segments")
             # Очищаємо тимчасові файли розділення
             try:
                 import shutil
                 if os.path.exists(separation_output_dir):
                     shutil.rmtree(separation_output_dir)
             except Exception as e:
-                print(f"⚠️  Could not clean up separation directory: {e}")
+                print(f"⚠️  [Job {job_id}] Could not clean up separation directory: {e}")
         else:
             # Використовуємо результати стандартної діаризації
             diarization_segments = standard_diarization_segments
+        
         result = {
             'success': True,
             'diarization': {
@@ -2798,20 +2794,18 @@ def api_diarize():
             }
         }
         # Додаємо транскрипцію, якщо потрібно
-        print(f"📝 Include transcription: {include_transcription}")
+        print(f"📝 [Job {job_id}] Include transcription: {include_transcription}")
         if include_transcription:
-            print("📝 Transcribing audio...")
+            print(f"📝 [Job {job_id}] Transcribing audio...")
             try:
                 transcription, transcription_segments, words = transcribe_audio(filepath, language)
-                print(f"📊 Transcription result: transcription={bool(transcription)}, segments={len(transcription_segments) if transcription_segments else 0}, words={len(words) if words else 0}")
+                print(f"📊 [Job {job_id}] Transcription result: transcription={bool(transcription)}, segments={len(transcription_segments) if transcription_segments else 0}, words={len(words) if words else 0}")
                 if words and len(words) > 0:
-                    print(f"✅ Transcription completed: {len(words)} words extracted")
-                    print(f"📊 First 5 words: {words[:5]}")
+                    print(f"✅ [Job {job_id}] Transcription completed: {len(words)} words extracted")
                 else:
-                    print("⚠️  Warning: No words extracted from transcription")
-                    print(f"📊 Transcription data: transcription={transcription[:100] if transcription else 'None'}..., segments={transcription_segments[:2] if transcription_segments else 'None'}")
+                    print(f"⚠️  [Job {job_id}] Warning: No words extracted from transcription")
             except Exception as e:
-                print(f"❌ Error in transcribe_audio: {e}")
+                print(f"❌ [Job {job_id}] Error in transcribe_audio: {e}")
                 import traceback
                 traceback.print_exc()
                 transcription, transcription_segments, words = None, [], []
@@ -2822,38 +2816,31 @@ def api_diarize():
             }
             # Об'єднуємо діаризацію та транскрипцію
             if words and len(words) > 0:
-                print("🔗 Combining diarization and transcription...")
-                print(f"📊 Input: {len(diarization_segments)} diarization segments, {len(words)} words")
+                print(f"🔗 [Job {job_id}] Combining diarization and transcription...")
+                print(f"📊 [Job {job_id}] Input: {len(diarization_segments)} diarization segments, {len(words)} words")
                 try:
                     # Скидаємо кеш перед обробкою
                     global _llm_iterations_cache
                     _llm_iterations_cache = []
-                    print(f"🔄 Reset LLM iterations cache")
+                    print(f"🔄 [Job {job_id}] Reset LLM iterations cache")
                     combined = combine_diarization_and_transcription(
                         diarization_segments, 
                         words
                     )
-                    print(f"📊 After combine_diarization_and_transcription: {len(combined) if combined else 0} segments")
+                    print(f"📊 [Job {job_id}] After combine_diarization_and_transcription: {len(combined) if combined else 0} segments")
                     # Отримуємо llm_iterations з кешу (якщо він є)
                     llm_iterations = _llm_iterations_cache if '_llm_iterations_cache' in globals() else []
-                    print(f"📊 LLM iterations from cache: {len(llm_iterations)}")
-                    if combined:
-                        num_speakers = len(set(seg.get('speaker', 0) for seg in combined))
-                        print(f"📊 Unique speakers in combined: {num_speakers}")
-                    else:
-                        print("⚠️  Combined segments is None or empty")
+                    print(f"📊 [Job {job_id}] LLM iterations from cache: {len(llm_iterations)}")
                     result['combined'] = {
                         'segments': combined if combined else [],
                         'num_speakers': len(set(seg.get('speaker', 0) for seg in combined)) if combined else 0,
                         'num_segments': len(combined) if combined else 0,
-                        'llm_iterations': llm_iterations  # Інформація про LLM ітерації для дебаг консолі
+                        'llm_iterations': llm_iterations
                     }
-                    print(f"✅ Combined result prepared: {len(combined) if combined else 0} segments, {len(llm_iterations)} LLM iterations")
+                    print(f"✅ [Job {job_id}] Combined result prepared: {len(combined) if combined else 0} segments, {len(llm_iterations)} LLM iterations")
                 except Exception as e:
-                    print(f"❌ Error in combine_diarization_and_transcription: {e}")
+                    print(f"❌ [Job {job_id}] Error in combine_diarization_and_transcription: {e}")
                     import traceback
-                    error_traceback = traceback.format_exc()
-                    print(f"📋 Combine error traceback:\n{error_traceback}")
                     traceback.print_exc()
                     result['combined'] = {
                         'segments': [],
@@ -2862,36 +2849,938 @@ def api_diarize():
                         'llm_iterations': []
                     }
             else:
-                print("⚠️  Warning: Cannot combine - no words available")
+                print(f"⚠️  [Job {job_id}] Warning: Cannot combine - no words available")
                 result['combined'] = {
                     'segments': [],
                     'num_speakers': 0,
                     'num_segments': 0,
-                    'llm_iterations': []  # Додаємо порожній список для llm_iterations
+                    'llm_iterations': []
                 }
         # Видаляємо тимчасовий файл
         try:
             os.remove(filepath)
         except:
             pass
-        print("✅ Processing complete!")
-        return jsonify(result)
+        
+        # Зберігаємо результат
+        with jobs_lock:
+            jobs[job_id]['status'] = 'completed'
+            jobs[job_id]['result'] = result
+        
+        print(f"✅ [Job {job_id}] Processing complete!")
     except Exception as e:
-        print(f"❌ Error in api_diarize: {e}")
+        print(f"❌ [Job {job_id}] Error in process_diarization_async: {e}")
+        import traceback
+        traceback.print_exc()
+        with jobs_lock:
+            jobs[job_id]['status'] = 'failed'
+            jobs[job_id]['error'] = str(e)
+        # Видаляємо тимчасовий файл у разі помилки
+        try:
+            if filepath and os.path.exists(filepath):
+                os.remove(filepath)
+        except:
+            pass
+
+
+@app.route('/api/diarize', methods=['POST', 'OPTIONS'])
+def api_diarize():
+    """API ендпоінт для діаризації та транскрипції (асинхронний)"""
+    # Обробка OPTIONS для preflight запитів (CORS)
+    if request.method == 'OPTIONS':
+        response = jsonify({})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        return response
+    
+    # Генеруємо job_id ДО try блоку
+    job_id = str(uuid.uuid4())
+    filepath = None
+    
+    try:
+        filename = None
+        
+        # Перевіряємо Content-Type для визначення формату запиту
+        content_type = request.content_type or ''
+        
+        # Обробка JSON запитів (base64 файл)
+        if 'application/json' in content_type:
+            data = request.get_json() or {}
+            print(f"📥 JSON request received. Keys: {list(data.keys())}")
+            
+            if 'file' not in data:
+                return jsonify({'success': False, 'error': 'No file uploaded in JSON'}), 400
+            
+            file_base64 = data.get('file', '')
+            filename = data.get('filename', 'audio.wav')
+            mode = data.get('mode', 'fast')
+            
+            if not file_base64:
+                return jsonify({'success': False, 'error': 'File data is empty'}), 400
+            
+            # Декодуємо base64
+            try:
+                import base64
+                # Видаляємо data URI префікс якщо є
+                if ',' in file_base64:
+                    file_base64 = file_base64.split(',', 1)[1]
+                
+                # Очищаємо base64
+                file_base64 = file_base64.replace('\n', '').replace('\r', '').replace(' ', '')
+                
+                # Конвертуємо base64url в стандартний base64
+                file_base64 = file_base64.replace('-', '+').replace('_', '/')
+                
+                # Додаємо padding якщо потрібно
+                missing_padding = len(file_base64) % 4
+                if missing_padding:
+                    file_base64 += '=' * (4 - missing_padding)
+                
+                audio_data = base64.b64decode(file_base64)
+                print(f"✅ Decoded base64: {len(audio_data)} bytes")
+            except Exception as e:
+                print(f"❌ Base64 decode error: {e}")
+                return jsonify({'success': False, 'error': f'Invalid base64 data: {str(e)}'}), 400
+            
+            # Отримуємо параметри з JSON
+            num_speakers = data.get('num_speakers', type=int) if 'num_speakers' in data else None
+            language = data.get('language') or None
+            segment_duration = float(data.get('segment_duration', 1.5))
+            overlap = float(data.get('overlap', 0.5))
+            include_transcription = data.get('include_transcription', True)
+            use_separation = data.get('use_separation', False)
+            
+            # Створюємо завдання ДО декодування файлу
+            with jobs_lock:
+                jobs[job_id] = {
+                    'status': 'pending',
+                    'result': None,
+                    'error': None,
+                    'created_at': datetime.now(),
+                    'include_transcription': include_transcription
+                }
+            
+            print(f"✅ [Job {job_id}] Job created, returning job_id IMMEDIATELY")
+            
+            # Повертаємо job_id ОДРАЗУ (ДО декодування base64!)
+            response = jsonify({
+                'success': True,
+                'job_id': job_id,
+                'status': 'pending',
+                'message': 'Processing started. Use GET /api/diarize/{job_id}/status to check progress.'
+            })
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            
+            # Декодуємо base64 та зберігаємо файл в фоні ПОСЛЯ відправки відповіді
+            def decode_and_process():
+                try:
+                    import base64
+                    # Видаляємо data URI префікс якщо є
+                    file_base64_clean = file_base64
+                    if ',' in file_base64_clean:
+                        file_base64_clean = file_base64_clean.split(',', 1)[1]
+                    
+                    # Очищаємо base64
+                    file_base64_clean = file_base64_clean.replace('\n', '').replace('\r', '').replace(' ', '')
+                    
+                    # Конвертуємо base64url в стандартний base64
+                    file_base64_clean = file_base64_clean.replace('-', '+').replace('_', '/')
+                    
+                    # Додаємо padding якщо потрібно
+                    missing_padding = len(file_base64_clean) % 4
+                    if missing_padding:
+                        file_base64_clean += '=' * (4 - missing_padding)
+                    
+                    audio_data = base64.b64decode(file_base64_clean)
+                    print(f"✅ [Job {job_id}] Decoded base64: {len(audio_data)} bytes")
+                    
+                    # Зберігаємо файл тимчасово
+                    filename_clean = secure_filename(filename)
+                    filepath_local = os.path.join(UPLOAD_FOLDER, filename_clean)
+                    with open(filepath_local, 'wb') as f:
+                        f.write(audio_data)
+                    print(f"💾 [Job {job_id}] Saved file: {filepath_local} ({len(audio_data)} bytes)")
+                    
+                    # Запускаємо обробку
+                    process_diarization_async(job_id, filepath_local, filename_clean, num_speakers, language, segment_duration, overlap, include_transcription, use_separation)
+                except Exception as e:
+                    print(f"❌ [Job {job_id}] Error in decode_and_process: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    with jobs_lock:
+                        jobs[job_id]['status'] = 'failed'
+                        jobs[job_id]['error'] = str(e)
+            
+            # Запускаємо в окремому потоці
+            thread = threading.Thread(target=decode_and_process)
+            thread.daemon = True
+            thread.start()
+            
+            return response
+            
+        # Обробка multipart/form-data запитів (legacy, синхронна)
+        elif 'multipart/form-data' in content_type:
+            if 'file' not in request.files:
+                return jsonify({'success': False, 'error': 'No file uploaded'}), 400
+            file = request.files['file']
+            if file.filename == '':
+                return jsonify({'success': False, 'error': 'No file selected'}), 400
+            
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(UPLOAD_FOLDER, filename)
+            file.save(filepath)
+            
+            # Отримуємо параметри з form
+            num_speakers = request.form.get('num_speakers', type=int)
+            language = request.form.get('language', type=str) or None
+            segment_duration = float(request.form.get('segment_duration', 1.5))
+            overlap = float(request.form.get('overlap', 0.5))
+            include_transcription = request.form.get('include_transcription', 'true').lower() == 'true'
+            use_separation = request.form.get('use_separation', 'false').lower() == 'true'
+            
+            # Створюємо завдання
+            with jobs_lock:
+                jobs[job_id] = {
+                    'status': 'pending',
+                    'result': None,
+                    'error': None,
+                    'created_at': datetime.now(),
+                    'include_transcription': include_transcription
+                }
+            
+            # Повертаємо job_id ОДРАЗУ
+            response = jsonify({
+                'success': True,
+                'job_id': job_id,
+                'status': 'pending',
+                'message': 'Processing started. Use GET /api/diarize/{job_id}/status to check progress.'
+            })
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            
+            # Запускаємо обробку в фоні
+            def process_multipart():
+                try:
+                    process_diarization_async(job_id, filepath, filename, num_speakers, language, segment_duration, overlap, include_transcription, use_separation)
+                except Exception as e:
+                    print(f"❌ [Job {job_id}] Error in process_multipart: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    with jobs_lock:
+                        jobs[job_id]['status'] = 'failed'
+                        jobs[job_id]['error'] = str(e)
+            
+            thread = threading.Thread(target=process_multipart)
+            thread.daemon = True
+            thread.start()
+            
+            return response
+        else:
+            return jsonify({'success': False, 'error': f'Unsupported Content-Type: {content_type}. Expected application/json or multipart/form-data'}), 400
+    except Exception as e:
+        print(f"❌ [Job {job_id}] Error in api_diarize: {e}")
         import traceback
         error_traceback = traceback.format_exc()
         print(f"📋 Full traceback:\n{error_traceback}")
         traceback.print_exc()
         # Видаляємо тимчасовий файл у разі помилки
         try:
-            if 'filepath' in locals():
+            if filepath and os.path.exists(filepath):
                 os.remove(filepath)
         except Exception as cleanup_error:
             print(f"⚠️  Could not clean up file: {cleanup_error}")
+        # Оновлюємо статус завдання
+        with jobs_lock:
+            if job_id in jobs:
+                jobs[job_id]['status'] = 'failed'
+                jobs[job_id]['error'] = str(e)
         return jsonify({
             'success': False,
             'error': str(e),
             'traceback': error_traceback if app.debug else None
+        }), 500
+
+
+@app.route('/api/diarize/<job_id>/status', methods=['GET', 'OPTIONS'])
+def get_diarize_status(job_id):
+    """Перевірка статусу завдання діаризації"""
+    if request.method == 'OPTIONS':
+        response = jsonify({})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Methods', 'GET, OPTIONS')
+        return response
+    
+    with jobs_lock:
+        if job_id not in jobs:
+            return jsonify({
+                'success': False,
+                'error': 'Job not found',
+                'code': 'JOB_NOT_FOUND'
+            }), 404
+        
+        job = jobs[job_id]
+        
+        if job['status'] == 'completed':
+            result = job['result']
+            response = jsonify({
+                'success': True,
+                'status': 'completed',
+                **result
+            })
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            return response, 200
+        elif job['status'] == 'failed':
+            response = jsonify({
+                'success': False,
+                'status': 'failed',
+                'error': job.get('error', 'Unknown error')
+            })
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            return response, 200
+        else:
+            response = jsonify({
+                'success': True,
+                'status': job['status'],
+                'message': 'Processing in progress...'
+            })
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            return response, 200
+
+
+def remove_filler_words(text):
+    """
+    Видаляє filler words (Uh., Um.) з тексту як окремі слова, не частини інших слів.
+    
+    Args:
+        text: текст для очищення
+    
+    Returns:
+        очищений текст без filler words
+    """
+    import re
+    # Видаляємо "Uh." та "Um." як окремі слова (з word boundaries)
+    # Також обробляємо варіанти з пробілами та пунктуацією
+    # \b - word boundary, щоб не видаляти частини інших слів
+    text = re.sub(r'\bUh\.\s*', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bUm\.\s*', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bUh\s+', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bUm\s+', '', text, flags=re.IGNORECASE)
+    # Видаляємо подвійні пробіли, які могли залишитися
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip()
+
+
+def format_dialogue_from_segments(segments):
+    """
+    Форматує сегменти діалогу у читабельний текст з таймстемпами та спікерами.
+    Формат кожної репліки в одному рядку:
+        MM:SS Speaker X: [text]
+    
+    Між репліками - перенос рядка (\n) для зручного розбиття в Shortcut.
+    
+    Args:
+        segments: список сегментів [{'speaker': int, 'start': float, 'end': float, 'text': str}]
+    
+    Returns:
+        formatted_text: відформатований діалог, де кожна репліка в одному рядку
+    """
+    if not segments:
+        return "Error: No dialogue segments found"
+    
+    formatted_replicas = []
+    
+    for seg in segments:
+        # Конвертуємо час з секунд у MM:SS
+        start_time = seg.get('start', 0)
+        minutes = int(start_time // 60)
+        seconds = int(start_time % 60)
+        time_str = f"{minutes:02d}:{seconds:02d}"
+        
+        # Отримуємо спікера та текст
+        speaker = seg.get('speaker', 0)
+        text = seg.get('text', '').strip()
+        
+        if not text:
+            continue
+        
+        # Видаляємо filler words (Uh., Um.) перед форматуванням
+        text = remove_filler_words(text)
+        
+        if not text:  # Якщо після видалення filler words текст став порожнім
+            continue
+        
+        # Форматуємо одну репліку в одному рядку: MM:SS Speaker X: [text]
+        replica = f"{time_str} Speaker {speaker}: {text}"
+        formatted_replicas.append(replica)
+    
+    # Об'єднуємо всі репліки переносом рядка (для зручного розбиття в Shortcut)
+    return "\n".join(formatted_replicas)
+
+
+@app.route('/api/diarize/<job_id>/formatted', methods=['GET', 'OPTIONS'])
+def get_diarize_formatted(job_id):
+    """Отримує відформатований діалог у читабельному форматі"""
+    if request.method == 'OPTIONS':
+        response = jsonify({})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Methods', 'GET, OPTIONS')
+        return response
+    
+    with jobs_lock:
+        if job_id not in jobs:
+            return jsonify({
+                'success': False,
+                'error': 'Job not found',
+                'code': 'JOB_NOT_FOUND'
+            }), 404
+        
+        job = jobs[job_id]
+        
+        if job['status'] == 'completed':
+            result = job.get('result', {})
+            combined = result.get('combined', {})
+            segments = combined.get('segments', [])
+            
+            if not segments:
+                return jsonify({
+                    'success': False,
+                    'error': 'No dialogue segments found in result',
+                    'code': 'NO_SEGMENTS'
+                }), 200
+            
+            # Форматуємо діалог
+            formatted_dialogue = format_dialogue_from_segments(segments)
+            
+            response = jsonify({
+                'success': True,
+                'status': 'completed',
+                'formatted_dialogue': formatted_dialogue
+            })
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            return response, 200
+        elif job['status'] == 'failed':
+            response = jsonify({
+                'success': False,
+                'status': 'failed',
+                'error': job.get('error', 'Unknown error'),
+                'code': job.get('code', 'PROCESSING_ERROR')
+            })
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            return response, 200
+        else:
+            response = jsonify({
+                'success': True,
+                'status': job['status'],
+                'message': 'Processing in progress...'
+            })
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            return response, 200
+
+
+def separate_speakers_with_speechbrain(audio_path, output_dir):
+    """
+    Розділяє спікерів за допомогою SpeechBrain SepformerSeparation.
+    Використовує той самий підхід, що і в speechbrain_separation.py для якісної нарізки.
+    
+    Args:
+        audio_path: шлях до оригінального аудіо файлу
+        output_dir: директорія для збереження розділених файлів
+    
+    Returns:
+        dict: {
+            'success': bool,
+            'speaker_files': {speaker_id: {'path': str, 'speaker_label': str}},
+            'error': str (якщо помилка)
+        }
+    """
+    import sys
+    
+    try:
+        # Імпортуємо необхідні бібліотеки
+        try:
+            import pyannote_patch  # noqa: F401
+            from speechbrain.pretrained import SepformerSeparation as Separator
+            import torch
+            import torchaudio
+        except ImportError as e:
+            print(f"⚠️ SpeechBrain separation not available: {e}, falling back to simple extraction")
+            sys.stdout.flush()
+            return {'success': False, 'error': f'SpeechBrain separation not available: {e}'}
+        
+        # Визначаємо device
+        if torch.backends.mps.is_available():
+            device = "mps"
+        elif torch.cuda.is_available():
+            device = "cuda"
+        else:
+            device = "cpu"
+        
+        print(f"🔀 [SpeechBrain] Using device: {device}")
+        sys.stdout.flush()
+        
+        # Завантажуємо модель
+        cache_dir = os.path.expanduser(
+            os.getenv("SPEECHBRAIN_CACHE_DIR", "~/.cache/speechbrain/sepformer-wsj02mix")
+        )
+        
+        print(f"📦 [SpeechBrain] Loading sepformer-wsj02mix model...")
+        sys.stdout.flush()
+        
+        try:
+            # Використовуємо той самий підхід, що і в separate_speakers
+            model = Separator.from_hparams(
+                source="speechbrain/sepformer-wsj02mix",
+                savedir="pretrained_models/sepformer-wsj02mix",
+                run_opts={"device": device},
+            )
+            print(f"✅ [SpeechBrain] Model loaded successfully")
+            sys.stdout.flush()
+        except Exception as e:
+            print(f"⚠️ [SpeechBrain] Failed to load model: {e}, falling back to simple extraction")
+            sys.stdout.flush()
+            return {'success': False, 'error': f'Failed to load model: {e}'}
+        
+        # Завантажуємо аудіо через librosa (підтримує більше форматів, включаючи m4a)
+        try:
+            # Використовуємо librosa для завантаження (підтримує m4a, mp3, тощо)
+            audio_data, sample_rate = librosa.load(audio_path, sr=None, mono=False)
+            
+            # Конвертуємо в torch tensor
+            if len(audio_data.shape) == 1:
+                # Mono audio - додаємо вимір каналу
+                waveform = torch.from_numpy(audio_data).unsqueeze(0).float()
+            else:
+                # Multi-channel audio - shape [channels, samples]
+                waveform = torch.from_numpy(audio_data).float()
+            
+            print(f"✅ [SpeechBrain] Loaded via librosa: shape={waveform.shape}, sr={sample_rate}")
+            sys.stdout.flush()
+        except Exception as load_error:
+            print(f"❌ [SpeechBrain] Audio loading failed with librosa: {load_error}")
+            import traceback
+            traceback.print_exc()
+            sys.stdout.flush()
+            return {'success': False, 'error': f'Audio loading failed: {load_error}'}
+        
+        # Конвертуємо в mono якщо потрібно
+        if waveform.shape[0] > 1:
+            waveform = waveform.mean(dim=0, keepdim=True)
+        
+        # Resample до 8kHz (SpeechBrain вимагає 8kHz)
+        if sample_rate != 8000:
+            print(f"🔄 [SpeechBrain] Resampling from {sample_rate}Hz to 8000Hz")
+            sys.stdout.flush()
+            resampler = torchaudio.transforms.Resample(sample_rate, 8000)
+            waveform = resampler(waveform)
+            sample_rate = 8000
+        
+        total_samples = waveform.shape[1]
+        
+        # Налаштування chunking (як в speechbrain_separation.py)
+        max_chunk_seconds = float(os.getenv("SPEECHBRAIN_CHUNK_SECONDS", "30"))
+        max_chunk_samples = int(max_chunk_seconds * sample_rate)
+        max_chunk_samples = max(max_chunk_samples, sample_rate * 5)  # мінімум 5 секунд
+        
+        print(f"🔍 [SpeechBrain] Waveform shape: {waveform.shape}, chunk size: {max_chunk_samples} samples")
+        sys.stdout.flush()
+        
+        # Функція для обробки chunk
+        def separate_chunk(chunk_tensor: torch.Tensor):
+            chunk_tensor = chunk_tensor.to(device)
+            with torch.no_grad():
+                result = model.separate_batch(chunk_tensor)
+            return result.cpu()
+        
+        # Запускаємо separation з chunking для довгих файлів
+        print(f"🔄 [SpeechBrain] Running speaker separation...")
+        sys.stdout.flush()
+        
+        if total_samples > max_chunk_samples:
+            print(f"📦 [SpeechBrain] Processing in chunks (total: {total_samples} samples)")
+            sys.stdout.flush()
+            chunk_outputs = []
+            for start in range(0, total_samples, max_chunk_samples):
+                end = min(start + max_chunk_samples, total_samples)
+                print(f"   🔄 [SpeechBrain] Separating chunk {start}:{end} ({start/sample_rate:.1f}s - {end/sample_rate:.1f}s)")
+                sys.stdout.flush()
+                chunk = waveform[:, start:end]
+                chunk_outputs.append(separate_chunk(chunk))
+            est_sources = torch.cat(chunk_outputs, dim=1)
+        else:
+            waveform = waveform.to(device)
+            est_sources = separate_chunk(waveform)
+        
+        # Обробляємо результат (як в speechbrain_separation.py)
+        if est_sources.dim() == 3:
+            est_sources = est_sources[0]  # [time, num_speakers]
+        
+        if est_sources.dim() == 2:
+            if est_sources.shape[0] == model.hparams.num_spks:
+                # shape [num_speakers, time]
+                sources_tensor = est_sources
+            elif est_sources.shape[1] == model.hparams.num_spks:
+                sources_tensor = est_sources.transpose(0, 1)
+            else:
+                raise ValueError(f"Unexpected est_sources shape: {est_sources.shape}")
+        else:
+            raise ValueError(f"Unsupported est_sources dimension: {est_sources.dim()}")
+        
+        sources_tensor = sources_tensor.cpu()
+        
+        num_speakers = sources_tensor.shape[0]
+        print(f"✅ [SpeechBrain] Found {num_speakers} speakers")
+        sys.stdout.flush()
+        
+        # Застосовуємо сильне приглушення слабких сигналів
+        print(f"🔇 [SpeechBrain] Applying noise gate to suppress weak signals...")
+        sys.stdout.flush()
+        
+        def apply_noise_gate(audio_tensor, threshold=0.05, ratio=10.0, attack=0.01, release=0.1):
+            """Застосовує noise gate для приглушення слабких сигналів."""
+            # Конвертуємо в numpy якщо потрібно
+            if isinstance(audio_tensor, torch.Tensor):
+                audio_np = audio_tensor.numpy()
+            else:
+                audio_np = audio_tensor
+            
+            # Обчислюємо енергію сигналу (RMS)
+            if len(audio_np.shape) == 1:
+                # Mono
+                energy = np.abs(audio_np)
+            else:
+                # Multi-channel - беремо середнє
+                energy = np.abs(audio_np).mean(axis=0)
+            
+            # Обчислюємо RMS в склянному вікні (для плавності)
+            window_size = int(sample_rate * 0.05)  # 50ms вікно
+            if window_size < 1:
+                window_size = 1
+            
+            # Обчислюємо RMS
+            rms = np.sqrt(np.convolve(energy ** 2, np.ones(window_size) / window_size, mode='same'))
+            rms_normalized = rms / (np.max(rms) + 1e-8)  # Нормалізуємо до 0-1
+            
+            # Створюємо gate mask
+            gate_mask = np.ones_like(rms_normalized)
+            
+            # Застосовуємо threshold
+            below_threshold = rms_normalized < threshold
+            gate_mask[below_threshold] = 1.0 / ratio  # Сильне приглушення слабких сигналів
+            
+            # Плавні переходи (attack/release)
+            attack_samples = int(sample_rate * attack)
+            release_samples = int(sample_rate * release)
+            
+            # Застосовуємо плавні переходи
+            smoothed_mask = np.copy(gate_mask)
+            for i in range(1, len(gate_mask)):
+                if gate_mask[i] > gate_mask[i-1]:
+                    # Attack - швидко відкриваємо
+                    start = max(0, i - attack_samples)
+                    smoothed_mask[start:i] = np.linspace(gate_mask[i-1], gate_mask[i], i - start)
+                elif gate_mask[i] < gate_mask[i-1]:
+                    # Release - повільно закриваємо
+                    end = min(len(gate_mask), i + release_samples)
+                    smoothed_mask[i:end] = np.linspace(gate_mask[i], gate_mask[i-1], end - i)
+            
+            gate_mask = smoothed_mask
+            
+            # Застосовуємо mask до аудіо
+            if len(audio_np.shape) == 1:
+                gated_audio = audio_np * gate_mask
+            else:
+                gated_audio = audio_np * gate_mask[np.newaxis, :]
+            
+            return gated_audio
+        
+        # Застосовуємо noise gate до кожного спікера
+        gated_sources = []
+        for idx in range(num_speakers):
+            source_tensor = sources_tensor[idx]
+            source_np = source_tensor.squeeze().numpy()
+            
+            # Застосовуємо noise gate з сильним приглушенням
+            gated_audio = apply_noise_gate(
+                source_np, 
+                threshold=0.15,  # Поріг 15% від максимуму
+                ratio=20.0,  # Сильне приглушення (20:1)
+                attack=0.01,  # Швидка атака
+                release=0.1  # Повільне відпускання
+            )
+            
+            gated_sources.append(gated_audio)
+        
+        print(f"✅ [SpeechBrain] Noise gate applied (threshold=0.15, ratio=20:1)")
+        sys.stdout.flush()
+        
+        # Створюємо output directory
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Зберігаємо файли для кожного спікера
+        speaker_files = {}
+        for idx in range(num_speakers):
+            speaker_id = idx
+            speaker_name = f"SPEAKER_{idx:02d}"
+            output_path = os.path.join(output_dir, f"speaker_{speaker_id}.wav")
+            
+            gated_audio = gated_sources[idx]
+            sf.write(output_path, gated_audio, sample_rate)
+            
+            speaker_files[speaker_id] = {
+                'path': output_path,
+                'speaker_label': speaker_name
+            }
+            
+            duration = len(gated_audio) / sample_rate
+            print(f"✅ [SpeechBrain] Saved speaker {speaker_id} ({speaker_name}): {duration:.2f}s")
+            sys.stdout.flush()
+        
+        return {
+            'success': True,
+            'speaker_files': speaker_files,
+            'speaker_map': {f"SPEAKER_{i:02d}": i for i in range(num_speakers)}
+        }
+        
+    except Exception as e:
+        print(f"❌ [SpeechBrain] Error in separation: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.stdout.flush()
+        return {'success': False, 'error': str(e)}
+
+
+@app.route('/api/separate-audio', methods=['POST', 'OPTIONS'])
+def api_separate_audio():
+    """
+    Новий ендпоїнт для розділення аудіо на окремі голоси.
+    Приймає аудіо файл, розбиває його на два голоси за допомогою SpeechBrain separation,
+    і повертає два аудіо треки в JSON з полями file1, file2.
+    
+    Returns:
+        JSON з полями:
+        - file1: base64 encoded аудіо або URL до файлу
+        - file2: base64 encoded аудіо або URL до файлу
+        - success: bool
+    """
+    import sys
+    import base64
+    import uuid
+    import shutil
+    
+    # Обробка OPTIONS для preflight запитів (CORS)
+    if request.method == 'OPTIONS':
+        response = jsonify({})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        return response
+    
+    try:
+        # Перевіряємо, чи є файл
+        if 'audio' not in request.files:
+            return jsonify({
+                'success': False,
+                'error': 'No audio file provided',
+                'code': 'NO_FILE'
+            }), 400
+        
+        audio_file = request.files['audio']
+        if audio_file.filename == '':
+            return jsonify({
+                'success': False,
+                'error': 'Empty filename',
+                'code': 'EMPTY_FILENAME'
+            }), 400
+        
+        print(f"🎵 [Separate Audio] Received file: {audio_file.filename}")
+        sys.stdout.flush()
+        
+        # Зберігаємо тимчасовий файл
+        job_id = str(uuid.uuid4())
+        file_extension = os.path.splitext(audio_file.filename)[1] or '.wav'
+        temp_filename = f"separate_{job_id}{file_extension}"
+        temp_path = os.path.join(UPLOAD_FOLDER, temp_filename)
+        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+        audio_file.save(temp_path)
+        
+        print(f"💾 [Separate Audio] Saved to: {temp_path}")
+        sys.stdout.flush()
+        
+        # Створюємо тимчасову директорію для розділених файлів
+        output_dir = os.path.join(UPLOAD_FOLDER, f"separated_{job_id}")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Виконуємо розділення за допомогою SpeechBrain
+        print(f"🔀 [Separate Audio] Starting SpeechBrain separation...")
+        sys.stdout.flush()
+        
+        separation_result = separate_speakers_with_speechbrain(temp_path, output_dir)
+        
+        if not separation_result.get('success'):
+            # Видаляємо тимчасовий файл
+            try:
+                os.remove(temp_path)
+            except:
+                pass
+            return jsonify({
+                'success': False,
+                'error': separation_result.get('error', 'Separation failed'),
+                'code': 'SEPARATION_FAILED'
+            }), 500
+        
+        speaker_files = separation_result['speaker_files']
+        
+        # Перевіряємо, чи є принаймні два спікери
+        if len(speaker_files) < 2:
+            # Видаляємо тимчасові файли
+            try:
+                os.remove(temp_path)
+                shutil.rmtree(output_dir)
+            except:
+                pass
+            return jsonify({
+                'success': False,
+                'error': f'Found only {len(speaker_files)} speaker(s), need at least 2',
+                'code': 'INSUFFICIENT_SPEAKERS'
+            }), 400
+        
+        # Беремо перші два спікери
+        speaker_ids = sorted(speaker_files.keys())[:2]
+        speaker_0_file = speaker_files[speaker_ids[0]]['path']
+        speaker_1_file = speaker_files[speaker_ids[1]]['path']
+        
+        print(f"✅ [Separate Audio] Separation completed: speaker {speaker_ids[0]} and {speaker_ids[1]}")
+        sys.stdout.flush()
+        
+        # Видаляємо тимчасовий оригінальний файл
+        try:
+            os.remove(temp_path)
+        except:
+            pass
+        
+        # Створюємо URL-и для завантаження файлів
+        base_url = request.host_url.rstrip('/')
+        file1_url = f"{base_url}/api/separate-audio-file/{job_id}/0"
+        file2_url = f"{base_url}/api/separate-audio-file/{job_id}/1"
+        
+        # Переміщуємо файли в постійну директорію для завантаження
+        download_dir = os.path.join(UPLOAD_FOLDER, 'separated_audio')
+        os.makedirs(download_dir, exist_ok=True)
+        
+        file1_download_path = os.path.join(download_dir, f"{job_id}_speaker_0.wav")
+        file2_download_path = os.path.join(download_dir, f"{job_id}_speaker_1.wav")
+        
+        shutil.copy2(speaker_0_file, file1_download_path)
+        shutil.copy2(speaker_1_file, file2_download_path)
+        
+        # Видаляємо тимчасову директорію з розділеними файлами
+        try:
+            shutil.rmtree(output_dir)
+        except:
+            pass
+        
+        # Повертаємо результат з URL-ами
+        response_data = {
+            'success': True,
+            'file1': file1_url,
+            'file2': file2_url
+        }
+        
+        print(f"📤 [Separate Audio] Returning separated audio files")
+        sys.stdout.flush()
+        
+        response = jsonify(response_data)
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response, 200
+        
+    except Exception as e:
+        print(f"❌ [Separate Audio] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.stdout.flush()
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'code': 'PROCESSING_ERROR'
+        }), 500
+
+
+@app.route('/api/separate-audio-file/<job_id>/<int:speaker_id>', methods=['GET', 'OPTIONS'])
+def get_separate_audio_file(job_id, speaker_id):
+    """
+    Ендпоїнт для завантаження розділеного аудіо файлу.
+    Після завантаження файл автоматично видаляється.
+    
+    Args:
+        job_id: ID завдання розділення
+        speaker_id: ID спікера (0 або 1)
+    """
+    import sys
+    
+    # Обробка OPTIONS для preflight запитів (CORS)
+    if request.method == 'OPTIONS':
+        response = jsonify({})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'GET, OPTIONS')
+        return response
+    
+    try:
+        # Знаходимо файл
+        download_dir = os.path.join(UPLOAD_FOLDER, 'separated_audio')
+        download_filename = f"{job_id}_speaker_{speaker_id}.wav"
+        download_path = os.path.join(download_dir, download_filename)
+        
+        # Перевіряємо, чи файл існує
+        if not os.path.exists(download_path):
+            print(f"❌ [Separate Audio Download] File not found: {download_path}")
+            sys.stdout.flush()
+            return jsonify({
+                'success': False,
+                'error': f'Audio file for speaker {speaker_id} not found',
+                'code': 'FILE_NOT_FOUND'
+            }), 404
+        
+        print(f"📥 [Separate Audio Download] Serving file: {download_path} for job {job_id}, speaker {speaker_id}")
+        sys.stdout.flush()
+        
+        # Відправляємо файл
+        response = send_file(
+            download_path,
+            mimetype='audio/wav',
+            as_attachment=True,
+            download_name=f"speaker_{speaker_id}.wav"
+        )
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        
+        # Видаляємо файл після відправки (в фоні, щоб не блокувати відповідь)
+        def delete_file_after_delay():
+            import time
+            time.sleep(2)  # Затримка, щоб файл точно відправився
+            try:
+                if os.path.exists(download_path):
+                    os.remove(download_path)
+                    print(f"🗑️ [Separate Audio Download] Deleted file: {download_path}")
+                    sys.stdout.flush()
+            except Exception as e:
+                print(f"⚠️ [Separate Audio Download] Failed to delete file {download_path}: {e}")
+                sys.stdout.flush()
+        
+        thread = threading.Thread(target=delete_file_after_delay)
+        thread.daemon = True
+        thread.start()
+        
+        return response, 200
+        
+    except Exception as e:
+        print(f"❌ [Separate Audio Download] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.stdout.flush()
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'code': 'PROCESSING_ERROR'
         }), 500
 
 
@@ -3057,6 +3946,206 @@ def process_audio():
                 os.remove(filepath)
         except:
             pass
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'code': 'PROCESSING_ERROR'
+        }), 500
+
+
+@app.route('/api/diarize-and-transcribe', methods=['POST', 'OPTIONS'])
+def api_diarize_and_transcribe():
+    """
+    Ендпоїнт для діаризації та транскрипції аудіо файлу.
+    Приймає аудіо файл, виконує діаризацію та транскрипцію,
+    повертає транскрипт з розділенням по спікерам.
+    
+    Returns:
+        JSON з полями:
+        - success: bool
+        - transcript: список рядків у форматі "Таймстемп - Спікер номер - Репліка"
+    """
+    import sys
+    
+    # Обробка OPTIONS для preflight запитів (CORS)
+    if request.method == 'OPTIONS':
+        response = jsonify({})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        return response
+    
+    try:
+        # Перевіряємо, чи є файл
+        if 'audio' not in request.files:
+            return jsonify({
+                'success': False,
+                'error': 'No audio file provided',
+                'code': 'NO_FILE'
+            }), 400
+        
+        audio_file = request.files['audio']
+        if audio_file.filename == '':
+            return jsonify({
+                'success': False,
+                'error': 'Empty filename',
+                'code': 'EMPTY_FILENAME'
+            }), 400
+        
+        # Отримуємо параметри (опціонально)
+        processing_mode = request.form.get('mode', 'fast')  # 'smart' або 'fast'
+        num_speakers = request.form.get('num_speakers', None)
+        if num_speakers:
+            try:
+                num_speakers = int(num_speakers)
+            except:
+                num_speakers = None
+        
+        print(f"🎵 [Diarize & Transcribe] Received file: {audio_file.filename}, mode: {processing_mode}")
+        sys.stdout.flush()
+        
+        # Зберігаємо тимчасовий файл
+        job_id = str(uuid.uuid4())
+        file_extension = os.path.splitext(audio_file.filename)[1] or '.wav'
+        temp_filename = f"diarize_{job_id}{file_extension}"
+        temp_path = os.path.join(UPLOAD_FOLDER, temp_filename)
+        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+        audio_file.save(temp_path)
+        
+        print(f"💾 [Diarize & Transcribe] Saved to: {temp_path}")
+        sys.stdout.flush()
+        
+        try:
+            # Крок 1: Виконуємо діаризацію
+            print(f"🔍 [Diarize & Transcribe] Step 1: Performing speaker diarization...")
+            sys.stdout.flush()
+            
+            # Використовуємо SpeechBrain для діаризації
+            embeddings, timestamps = extract_speaker_embeddings(
+                temp_path,
+                segment_duration=1.5,
+                overlap=0.5
+            )
+            
+            if embeddings is None or len(embeddings) == 0:
+                raise ValueError("Failed to extract speaker embeddings")
+            
+            # Виконуємо діаризацію
+            diarization_segments = diarize_audio(embeddings, timestamps, num_speakers=num_speakers)
+            
+            if not diarization_segments:
+                raise ValueError("Diarization failed - no segments found")
+            
+            print(f"✅ [Diarize & Transcribe] Found {len(diarization_segments)} diarization segments")
+            sys.stdout.flush()
+            
+            # Крок 2: Транскрибуємо аудіо
+            print(f"📝 [Diarize & Transcribe] Step 2: Transcribing audio...")
+            sys.stdout.flush()
+            
+            transcription_text, transcription_segments, words = transcribe_audio(
+                temp_path,
+                language=None  # Авто-визначення мови
+            )
+            
+            if not words:
+                raise ValueError("Transcription failed - no words found")
+            
+            print(f"✅ [Diarize & Transcribe] Transcribed {len(words)} words")
+            sys.stdout.flush()
+            
+            # Крок 3: Об'єднуємо діаризацію з транскрипцією
+            print(f"🔗 [Diarize & Transcribe] Step 3: Combining diarization with transcription...")
+            sys.stdout.flush()
+            
+            # Використовуємо простий спосіб об'єднання
+            used_word_indices = set()
+            combined_segments = []
+            
+            # Сортуємо сегменти діаризації за часом початку
+            sorted_diar_segments = sorted(diarization_segments, key=lambda x: x['start'])
+            
+            for diar_seg in sorted_diar_segments:
+                # Знаходимо слова, які потрапляють в цей сегмент
+                segment_words = []
+                for word_idx, word in enumerate(words):
+                    if word_idx in used_word_indices:
+                        continue
+                    
+                    word_start = word.get('start', 0)
+                    word_end = word.get('end', 0)
+                    word_center = (word_start + word_end) / 2.0
+                    
+                    # Перевіряємо, чи слово потрапляє в сегмент
+                    if (word_center >= diar_seg['start'] and word_center <= diar_seg['end']) or \
+                       (word_start < diar_seg['end'] and word_end > diar_seg['start']):
+                        segment_words.append((word_idx, word.get('word', '')))
+                
+                # Якщо знайшли слова для цього сегменту, додаємо їх
+                if segment_words:
+                    text = ' '.join([w[1] for w in segment_words]).strip()
+                    if text:
+                        # Позначаємо слова як використані
+                        for word_idx, _ in segment_words:
+                            used_word_indices.add(word_idx)
+                        
+                        combined_segments.append({
+                            'speaker': diar_seg['speaker'],
+                            'start': diar_seg['start'],
+                            'end': diar_seg['end'],
+                            'text': text
+                        })
+            
+            print(f"✅ [Diarize & Transcribe] Combined {len(combined_segments)} segments")
+            sys.stdout.flush()
+            
+            # Крок 4: Форматуємо результат
+            print(f"📋 [Diarize & Transcribe] Step 4: Formatting transcript...")
+            sys.stdout.flush()
+            
+            transcript_lines = []
+            for seg in combined_segments:
+                start_time = seg['start']
+                minutes = int(start_time // 60)
+                seconds = int(start_time % 60)
+                timestamp = f"{minutes:02d}:{seconds:02d}"
+                speaker_num = seg['speaker']
+                text = seg['text']
+                
+                transcript_lines.append(f"{timestamp} - Спікер {speaker_num} - {text}")
+            
+            # Видаляємо тимчасовий файл
+            try:
+                os.remove(temp_path)
+            except:
+                pass
+            
+            # Повертаємо результат
+            response_data = {
+                'success': True,
+                'transcript': transcript_lines
+            }
+            
+            print(f"📤 [Diarize & Transcribe] Returning transcript with {len(transcript_lines)} lines")
+            sys.stdout.flush()
+            
+            response = jsonify(response_data)
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            return response, 200
+            
+        except Exception as processing_error:
+            # Видаляємо тимчасовий файл при помилці
+            try:
+                os.remove(temp_path)
+            except:
+                pass
+            raise processing_error
+        
+    except Exception as e:
+        print(f"❌ [Diarize & Transcribe] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.stdout.flush()
         return jsonify({
             'success': False,
             'error': str(e),
