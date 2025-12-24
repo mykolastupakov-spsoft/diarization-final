@@ -924,6 +924,170 @@ app.get('/api/speechmatics/jobs/:jobId/transcript', async (req, res) => {
   }
 });
 
+/**
+ * Endpoint 1: Create Speechmatics diarization job
+ * Accepts audio file, creates job, returns job_id for async polling
+ */
+app.post('/api/speechmatics/diarize', upload.single('file'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'Audio file is required (field name: file)' });
+  }
+
+  const tempPath = req.file.path;
+  const requestId = `diarize-${Date.now()}`;
+  const SPEECHMATICS_V2_URL = 'https://asr.api.speechmatics.com/v2';
+  
+  try {
+    console.log(`[${requestId}] 🎤 Starting Speechmatics diarization for file: ${req.file.originalname}`);
+
+    /* ---------- Upload file and create job ---------- */
+    console.log(`[${requestId}] 📤 Uploading audio and creating Speechmatics job...`);
+    
+    // Speechmatics v2 API: upload file directly with job config
+    const FormData = require('form-data');
+    const formData = new FormData();
+    
+    // Add file
+    formData.append('data_file', fsSync.createReadStream(tempPath), {
+      filename: req.file.originalname,
+      contentType: req.file.mimetype || 'audio/mp4'
+    });
+    
+    // Add job config
+    const jobConfig = {
+      type: 'transcription',
+      transcription_config: {
+        language: req.body?.language || 'en',
+        diarization: 'speaker',
+        operating_point: req.body?.operating_point || 'standard'
+      }
+    };
+    formData.append('config', JSON.stringify(jobConfig));
+    const jobHeaders = {
+      ...getSpeechmaticsHeaders(),
+      ...formData.getHeaders()
+    };
+
+    const jobRes = await axios.post(
+      `${SPEECHMATICS_V2_URL}/jobs`,
+      formData,
+      {
+        headers: jobHeaders,
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity
+      }
+    );
+    const jobId = jobRes.data.id || jobRes.data.job_id;
+    console.log(`[${requestId}] ✅ Job created, job_id: ${jobId}`);
+
+    /* ---------- Return job_id for async polling ---------- */
+    res.json({
+      success: true,
+      job_id: jobId,
+      status: 'pending',
+      message: 'Job created successfully. Use GET /api/speechmatics/diarize/:jobId/status to check status, and GET /api/speechmatics/diarize/:jobId/tsv to get TSV result.'
+    });
+
+  } catch (error) {
+    console.error(`[${requestId}] ❌ Error:`, error.message);
+    speechmaticsErrorResponse(res, error, 'Speechmatics job creation failed');
+  } finally {
+    // Cleanup temp file
+    if (tempPath) {
+      fs.unlink(tempPath).catch(err => {
+        console.warn(`[${requestId}] ⚠️ Failed to cleanup temp file: ${err.message}`);
+      });
+    }
+  }
+});
+
+/**
+ * Endpoint 2: Get job status
+ * Returns current status of the diarization job
+ */
+app.get('/api/speechmatics/diarize/:jobId/status', async (req, res) => {
+  const jobId = req.params.jobId;
+  const requestId = `status-${jobId}`;
+  const SPEECHMATICS_V2_URL = 'https://asr.api.speechmatics.com/v2';
+  
+  try {
+    const statRes = await axios.get(
+      `${SPEECHMATICS_V2_URL}/jobs/${jobId}`,
+      { headers: getSpeechmaticsHeaders() }
+    );
+    
+    // Speechmatics v2 API returns status in job.status or status field
+    const status = statRes.data.job?.status || statRes.data.status;
+    
+    res.json({
+      success: true,
+      job_id: jobId,
+      status: status,
+      data: statRes.data
+    });
+  } catch (error) {
+    console.error(`[${requestId}] ❌ Error:`, error.message);
+    speechmaticsErrorResponse(res, error, 'Failed to get job status');
+  }
+});
+
+/**
+ * Endpoint 3: Get TSV result for completed job
+ * Returns TSV transcript for a completed diarization job
+ * Format: Time Start\tTime End\tSpeaker\tPhrase
+ */
+app.get('/api/speechmatics/diarize/:jobId/tsv', async (req, res) => {
+  const jobId = req.params.jobId;
+  const requestId = `tsv-${jobId}`;
+  const SPEECHMATICS_V2_URL = 'https://asr.api.speechmatics.com/v2';
+  
+  try {
+    /* ---------- Check job status first ---------- */
+    console.log(`[${requestId}] 📊 Checking job status...`);
+    const statRes = await axios.get(
+      `${SPEECHMATICS_V2_URL}/jobs/${jobId}`,
+      { headers: getSpeechmaticsHeaders() }
+    );
+    
+    const status = statRes.data.job?.status || statRes.data.status;
+    
+    if (status !== 'done' && status !== 'completed') {
+      return res.status(400).json({
+        error: `Job is not completed yet. Current status: ${status}`,
+        job_id: jobId,
+        status: status,
+        message: 'Please wait for the job to complete before requesting TSV result.'
+      });
+    }
+    
+    /* ---------- Get transcript ---------- */
+    console.log(`[${requestId}] 📥 Fetching transcript...`);
+    const transRes = await axios.get(
+      `${SPEECHMATICS_V2_URL}/jobs/${jobId}/transcript`,
+      {
+        headers: getSpeechmaticsHeaders(),
+        params: { format: 'json-v2' }
+      }
+    );
+    const transcript = transRes.data;
+    console.log(`[${requestId}] ✅ Transcript received`);
+
+    /* ---------- Convert to TSV ---------- */
+    console.log(`[${requestId}] 🔄 Converting to TSV format...`);
+    const tsvString = convertTranscriptToTSV(transcript, requestId);
+    const segmentCount = (tsvString.split('\n').length - 1); // Subtract header
+    console.log(`[${requestId}] ✅ TSV conversion complete, ${segmentCount} segments`);
+
+    /* ---------- Return plain text TSV ---------- */
+    res.set('Content-Type', 'text/plain; charset=utf-8');
+    res.send(tsvString);
+
+  } catch (error) {
+    console.error(`[${requestId}] ❌ Error:`, error.message);
+    speechmaticsErrorResponse(res, error, 'Failed to get TSV result');
+  }
+});
+
 function getSpeechmaticsHeaders(extraHeaders = {}) {
   const apiKey = process.env.SPEECHMATICS_API_KEY;
   if (!apiKey) {
@@ -945,6 +1109,87 @@ function speechmaticsErrorResponse(res, error, fallbackMessage) {
     error: fallbackMessage,
     details
   });
+}
+
+/**
+ * Helper function to convert Speechmatics transcript to TSV format
+ * @param {Object} transcript - Speechmatics transcript JSON
+ * @param {string} requestId - Request ID for logging
+ * @returns {string} TSV formatted string
+ */
+function convertTranscriptToTSV(transcript, requestId = 'unknown') {
+  const tsvRows = ['Time Start\tTime End\tSpeaker\tPhrase'];
+  
+  // Handle different transcript formats
+  let segments = [];
+  
+  if (transcript.segments && Array.isArray(transcript.segments)) {
+    // Direct segments format
+    segments = transcript.segments;
+  } else if (transcript.results && Array.isArray(transcript.results)) {
+    // Results array format - need to group words into segments
+    const words = [];
+    transcript.results.forEach(result => {
+      if (result.type === 'word' && result.alternatives && result.alternatives.length > 0) {
+        const alt = result.alternatives[0];
+        words.push({
+          word: alt.content || '',
+          start: result.start_time || 0,
+          end: result.end_time || result.start_time || 0,
+          speaker: alt.speaker || 'SPEAKER_00',
+          confidence: alt.confidence || 0
+        });
+      }
+    });
+    
+    // Group words into segments by speaker
+    let currentSegment = null;
+    words.forEach(word => {
+      if (!currentSegment || currentSegment.speaker !== word.speaker) {
+        if (currentSegment) {
+          segments.push(currentSegment);
+        }
+        currentSegment = {
+          speaker: word.speaker,
+          text: word.word,
+          start_time: word.start,
+          end_time: word.end
+        };
+      } else {
+        currentSegment.text += ' ' + word.word;
+        currentSegment.end_time = word.end;
+      }
+    });
+    if (currentSegment) {
+      segments.push(currentSegment);
+    }
+  } else if (transcript.job && transcript.job.results && transcript.job.results.segments) {
+    // Nested format
+    segments = transcript.job.results.segments;
+  } else {
+    // Log transcript structure for debugging
+    console.warn(`[${requestId}] ⚠️ Unknown transcript format. Keys: ${Object.keys(transcript).join(', ')}`);
+    console.warn(`[${requestId}] ⚠️ Transcript sample:`, JSON.stringify(transcript).substring(0, 500));
+  }
+  
+  if (segments.length === 0) {
+    console.warn(`[${requestId}] ⚠️ No segments found in transcript`);
+  }
+  
+  // Convert segments to TSV rows
+  segments.forEach(seg => {
+    const start = seg.start_time || seg.start || 0;
+    const end = seg.end_time || seg.end || start;
+    const speaker = seg.speaker || seg.speaker_id || 'UNKNOWN';
+    // Clean text: remove tabs and newlines, replace with spaces
+    const text = (seg.text || '').replace(/\t/g, ' ').replace(/\n/g, ' ').trim();
+    
+    if (text) { // Only add non-empty segments
+      tsvRows.push(`${start}\t${end}\t${speaker}\t${text}`);
+    }
+  });
+  
+  return tsvRows.join('\n');
 }
 
 // API routes must be defined BEFORE static files middleware
@@ -14027,29 +14272,23 @@ app.post('/api/llm/chat-completions', async (req, res) => {
   let useLocal = false;
   
   try {
-    // Determine which LLM to use based on demo mode
-    const hasLocalConfig = process.env.DEMO_LOCAL_LLM_MODE === 'local';
-    const isLocalMode = process.env.DEMO_LLM_MODE === 'local';
-    useLocal = hasLocalConfig || isLocalMode;
-    
-    if (useLocal) {
-      // Use local LLM (LM Studio)
+    const overrideModeRaw = req.body?.mode || req.body?.llmMode;
+    const overrideMode = typeof overrideModeRaw === 'string' ? overrideModeRaw : '';
+    const normalizedOverrideMode = overrideMode === 'smart2' ? 'smart-2' : overrideMode;
+    const forceLocal = normalizedOverrideMode === 'local';
+
+    if (forceLocal) {
+      useLocal = true;
       apiUrl = `${LOCAL_LLM_BASE_URL}/v1/chat/completions`;
       apiKey = LOCAL_LLM_API_KEY;
       model = LOCAL_LLM_MODEL;
-      console.log('🤖 [LLM-PROXY] Using LOCAL LLM:', { apiUrl, model });
+      console.log('🤖 [LLM-PROXY] Using LOCAL LLM:', { apiUrl, model, forced: true });
     } else {
-      // Use cloud LLM (OpenRouter)
-      const llmMode = process.env.DEMO_LLM_MODE || 'smart';
+      useLocal = false;
       apiUrl = 'https://openrouter.ai/api/v1/chat/completions';
       apiKey = process.env.OPENROUTER_API_KEY;
-      
-      // Get model based on mode (use getModelId function for consistency)
-      // Normalize smart2 to smart-2 for compatibility
-      const normalizedMode = llmMode === 'smart2' ? 'smart-2' : llmMode;
-      model = getModelId(normalizedMode);
-      
-      console.log('☁️  [LLM-PROXY] Using CLOUD LLM:', { apiUrl, model, mode: llmMode, normalizedMode });
+      model = process.env.SMART_MODEL_ID || process.env.OPENROUTER_SMART_MODEL_ID || 'google/gemini-3.0-pro';
+      console.log('☁️  [LLM-PROXY] Using CLOUD LLM:', { apiUrl, model, forced: true });
     }
     
     // Prepare request body
@@ -14057,6 +14296,8 @@ app.post('/api/llm/chat-completions', async (req, res) => {
       ...req.body,
       model: req.body.model || model // Use provided model or fallback to configured model
     };
+    delete requestBody.mode;
+    delete requestBody.llmMode;
     
     // Prepare headers
     const headers = {
@@ -14204,6 +14445,43 @@ app.post('/api/llm/chat-completions', async (req, res) => {
       details: error.response?.data || undefined,
       code: error.code || 'LLM_REQUEST_FAILED',
       status: statusCode
+    });
+  }
+});
+
+// Proxy endpoint for LOCAL LLM chat completions (forced local)
+app.post('/api/llm/chat-completions-local', async (req, res) => {
+  try {
+    const apiUrl = `${LOCAL_LLM_BASE_URL}/v1/chat/completions`;
+    const apiKey = LOCAL_LLM_API_KEY;
+    const model = LOCAL_LLM_MODEL;
+
+    console.log('🤖 [LLM-PROXY] Using LOCAL LLM (forced):', { apiUrl, model });
+
+    const requestBody = {
+      ...req.body,
+      model: req.body.model || model
+    };
+
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+
+    if (apiKey) {
+      headers['Authorization'] = `Bearer ${apiKey}`;
+    }
+
+    const response = await axios.post(apiUrl, requestBody, {
+      headers: headers,
+      timeout: 300000
+    });
+
+    res.json(response.data);
+  } catch (error) {
+    console.error('❌ [LLM-PROXY] Local Error:', error.message);
+    return res.status(500).json({
+      success: false,
+      error: error.message
     });
   }
 });
@@ -17249,4 +17527,3 @@ server.listen(PORT, async () => {
   console.log(`   Local:  http://localhost:${PORT}`);
   console.log(`   Public: ${tunnelUrl || PUBLIC_URL || 'Not available (localhost only)'}`);
 });
-
