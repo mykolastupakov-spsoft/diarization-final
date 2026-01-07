@@ -87,6 +87,38 @@
             box-shadow: none;
             transform: none;
         }
+        .btn-secondary {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 9px 16px;
+            border-radius: 999px;
+            border: 1px solid rgba(148,163,184,0.5);
+            background: rgba(15, 23, 42, 0.7);
+            color: #e5e7eb;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.35);
+            transition: transform 0.08s ease-out, box-shadow 0.08s ease-out, filter 0.12s, background 0.12s;
+        }
+        .btn-secondary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 12px 22px rgba(15, 23, 42, 0.45);
+            background: rgba(15, 23, 42, 0.85);
+        }
+        .btn-secondary:active {
+            transform: translateY(0);
+            box-shadow: 0 6px 14px rgba(15, 23, 42, 0.35);
+            filter: brightness(0.98);
+        }
+        .btn-secondary:disabled {
+            opacity: 0.6;
+            cursor: default;
+            box-shadow: none;
+            transform: none;
+        }
         .file-name {
             font-size: 0.9rem;
             color: #cbd5f5;
@@ -131,6 +163,135 @@
         .result-output tr:nth-child(even) td {
             background: rgba(15, 23, 42, 0.4);
         }
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+            font-size: 0.9rem;
+        }
+        .comparison-table th,
+        .comparison-table td {
+            border: 1px solid rgba(148,163,184,0.35);
+            padding: 10px 12px;
+            vertical-align: top;
+            text-align: left;
+        }
+        .comparison-table th {
+            background: rgba(15, 23, 42, 0.8);
+            color: #e2e8f0;
+            font-weight: 600;
+        }
+        .comparison-table td {
+            transition: background-color 0.15s ease;
+        }
+        .comparison-table tr.highlight-standard td[data-col="standard"],
+        .comparison-table tr.highlight-nextlevel td[data-col="nextlevel"] {
+            background: rgba(37, 99, 235, 0.15);
+        }
+        .comparison-table tr.highlight-standard td[data-col="source"],
+        .comparison-table tr.highlight-nextlevel td[data-col="source"] {
+            background: rgba(30, 41, 59, 0.6);
+        }
+        .source-missing-standard,
+        .source-missing-nextlevel {
+            border-radius: 6px;
+            padding: 0 4px;
+            margin: 0 1px;
+            transition: background-color 0.15s ease;
+        }
+        .source-missing-standard,
+        .source-missing-nextlevel {
+            background: rgba(248, 113, 113, 0.25);
+        }
+        .role-mismatch {
+            background: rgba(248, 113, 113, 0.25);
+            border-radius: 6px;
+            padding: 2px 6px;
+            display: inline-block;
+        }
+        .word-error {
+            background: rgba(248, 113, 113, 0.2);
+            border-radius: 6px;
+            padding: 0 4px;
+            margin: 0 1px;
+        }
+        .missing-list {
+            margin-top: 6px;
+            font-size: 0.75rem;
+            color: #f87171;
+        }
+        .overlap-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: rgba(250, 204, 21, 0.2);
+            color: #facc15;
+            font-size: 0.75rem;
+            margin-bottom: 6px;
+        }
+        .overlap-triangle {
+            width: 0;
+            height: 0;
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-bottom: 10px solid #facc15;
+        }
+        .accuracy-gauges {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-top: 16px;
+        }
+.gauge-card {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(148,163,184,0.35);
+            border-radius: 12px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            flex: 1 1 0;
+        }
+        .role-gauge-card {
+            flex: 1 1 100%;
+            border-color: rgba(249, 115, 22, 0.4);
+        }
+        .gauge {
+            width: 110px;
+            height: 110px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            background: conic-gradient(#22c55e 0deg, rgba(148,163,184,0.2) 0deg);
+            position: relative;
+        }
+        .gauge::after {
+            content: "";
+            position: absolute;
+            inset: 12px;
+            border-radius: 50%;
+            background: rgba(2, 6, 23, 0.95);
+            border: 1px solid rgba(148,163,184,0.35);
+        }
+        .gauge-value {
+            position: relative;
+            z-index: 1;
+            font-weight: 700;
+            color: #e2e8f0;
+            font-size: 1rem;
+        }
+        .gauge-meta {
+            font-size: 0.75rem;
+            color: #94a3b8;
+        }
+        .gauge-label {
+            font-size: 0.85rem;
+            color: #e2e8f0;
+            text-align: center;
+        }
         .progress-card {
             margin-top: 20px;
         }
@@ -156,6 +317,10 @@
             justify-content: space-between;
             gap: 12px;
             flex-wrap: wrap;
+        }
+        .progress-slider {
+            width: 100%;
+            accent-color: #4fd1c5;
         }
     </style>
 </head>
@@ -187,22 +352,105 @@
         <section class="card result-card">
             <div class="result-title">Final Result (Markdown Table)</div>
             <div class="result-output" id="markdownResult">Waiting for output...</div>
+            <div id="accuracyGauges" class="accuracy-gauges" style="display: none;">
+                <div class="gauge-card">
+                    <div class="gauge" id="standardGauge">
+                        <div class="gauge-value" id="standardGaugeValue">0%</div>
+                    </div>
+                    <div class="gauge-meta" id="standardGaugeMeta">0 / 0</div>
+                    <div class="gauge-label">Standard Diarizer Accuracy</div>
+                </div>
+                <div class="gauge-card">
+                    <div class="gauge" id="nextLevelGauge">
+                        <div class="gauge-value" id="nextLevelGaugeValue">0%</div>
+                    </div>
+                    <div class="gauge-meta" id="nextLevelGaugeMeta">0 / 0</div>
+                    <div class="gauge-label">NextLevel Diarizer Accuracy</div>
+                </div>
+                <div class="gauge-card role-gauge-card">
+                    <div class="gauge role-gauge" id="nextLevelRoleGauge">
+                        <div class="gauge-value" id="nextLevelRoleGaugeValue">0%</div>
+                    </div>
+                    <div class="gauge-meta" id="nextLevelRoleGaugeMeta">0 / 0</div>
+                    <div class="gauge-label">NextLevel Role Accuracy</div>
+                </div>
+            </div>
+<div style="margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="btn-secondary" id="copyDialogueBtn" type="button">Copy Dialogue</button>
+                <button class="btn-secondary" id="exportJsonBtn" type="button">Export JSON</button>
+                <button class="btn-secondary" id="importJsonBtn" type="button">Import JSON</button>
+                <input type="file" id="importJsonInput" accept="application/json,.json" style="display: none;">
+            </div>
+            <div id="comparisonTable" class="result-output" style="margin-top: 16px; display: none;"></div>
+            <div style="margin-top: 16px; display: none;" id="groundTruthActions">
+                <button class="btn-secondary" id="uploadGroundTruthBtn" type="button">Upload Ground Truth</button>
+                <input type="file" id="groundTruthFileInput" accept=".txt,.md" style="display: none;">
+                <div class="hint" id="groundTruthProgress" style="margin-top: 8px; display: none;"></div>
+                <input class="progress-slider" id="groundTruthProgressBar" type="range" min="0" max="0" value="0" step="1" style="margin-top: 8px; display: none;" disabled>
+            </div>
         </section>
     </main>
     <script>
         const fileInput = document.getElementById('fileInput');
         const fileName = document.getElementById('fileName');
         const markdownResult = document.getElementById('markdownResult');
+        const comparisonTable = document.getElementById('comparisonTable');
+        const accuracyGauges = document.getElementById('accuracyGauges');
+        const standardGauge = document.getElementById('standardGauge');
+        const standardGaugeValue = document.getElementById('standardGaugeValue');
+        const standardGaugeMeta = document.getElementById('standardGaugeMeta');
+        const nextLevelGauge = document.getElementById('nextLevelGauge');
+        const nextLevelGaugeValue = document.getElementById('nextLevelGaugeValue');
+        const nextLevelGaugeMeta = document.getElementById('nextLevelGaugeMeta');
+        const nextLevelRoleGauge = document.getElementById('nextLevelRoleGauge');
+        const nextLevelRoleGaugeValue = document.getElementById('nextLevelRoleGaugeValue');
+        const nextLevelRoleGaugeMeta = document.getElementById('nextLevelRoleGaugeMeta');
         const progressFill = document.getElementById('progressFill');
         const progressText = document.getElementById('progressText');
         const progressLabel = document.getElementById('progressLabel');
+        const groundTruthActions = document.getElementById('groundTruthActions');
+        const uploadGroundTruthBtn = document.getElementById('uploadGroundTruthBtn');
+        const groundTruthFileInput = document.getElementById('groundTruthFileInput');
+        const groundTruthProgress = document.getElementById('groundTruthProgress');
+        const groundTruthProgressBar = document.getElementById('groundTruthProgressBar');
+        const copyDialogueBtn = document.getElementById('copyDialogueBtn');
+        const exportJsonBtn = document.getElementById('exportJsonBtn');
+        const importJsonBtn = document.getElementById('importJsonBtn');
+        const importJsonInput = document.getElementById('importJsonInput');
+        let lastFormattedDialogue = '';
+        let lastPunctuatedDialogue = '';
+        let lastWebhookDialogue = '';
+        let lastMonoTranscriptEntries = [];
+        let lastOverlapSegments = [];
+        let isMockMode = false;
+
+        const IS_USER_DEMO = false;
+        if (IS_USER_DEMO) {
+            const noop = () => {};
+            console.log = noop;
+            console.info = noop;
+            console.debug = noop;
+            console.warn = noop;
+        }
 
         console.log('log version 1');
+
+        const getApiBase = () => {
+            const params = new URLSearchParams(window.location.search);
+            const explicit = params.get('api_base');
+            if (explicit) {
+                return explicit.replace(/\/$/, '');
+            }
+            const host = window.location.hostname || 'localhost';
+            return `http://${host}:5005`;
+        };
+        const API_BASE = getApiBase();
 
         const logLlmModel = (payload, label) => {
             const modelName = payload?.model || payload?.data?.model || '';
             console.log(`[Stage] ${label} model:`, modelName || 'unknown');
         };
+
 
         const renderMarkdownTable = (markdown) => {
             if (typeof markdown !== 'string') {
@@ -251,13 +499,831 @@
             return '';
         };
 
-        fileInput.addEventListener('change', async () => {
-            const selectedFile = fileInput.files && fileInput.files[0];
-            fileName.textContent = selectedFile ? selectedFile.name : '';
-            markdownResult.textContent = 'Processing...';
+        const buildDialogueForMatching = (dialogue) => {
+            if (!dialogue) {
+                return '';
+            }
+            const lines = dialogue
+                .split(/\r?\n/)
+                .map((line) => line.trim())
+                .filter((line) => line.length > 0);
+            const sentenceLines = [];
+            const sentenceRegex = /[^.!?]+[.!?]+|[^.!?]+$/g;
 
+            for (const line of lines) {
+                const match = line.match(/^(\d{2}:\d{2}\s+Speaker\s+\d+:\s*)(.*)$/);
+                if (!match) {
+                    sentenceLines.push(line);
+                    continue;
+                }
+                const prefix = match[1];
+                const text = match[2].trim();
+                sentenceLines.push(line);
+                const sentences = text.match(sentenceRegex) || [];
+                if (sentences.length === 0) {
+                    continue;
+                }
+                for (const sentence of sentences) {
+                    const cleaned = sentence.trim();
+                    if (cleaned.length > 0) {
+                        sentenceLines.push(`${prefix}${cleaned}`);
+                    }
+                }
+            }
+            const uniqueLines = Array.from(new Set(sentenceLines));
+            return uniqueLines.join('\n');
+        };
+
+        const fixDialoguePunctuation = async (dialogue) => {
+            const prompt = `You are a punctuation fixer.
+
+TASK:
+- Fix punctuation and sentence boundaries in the dialogue.
+- Keep the original meaning and wording.
+- Do NOT change timestamps or speaker labels.
+- Keep the same line structure: "MM:SS Speaker X: text".
+- Return ONLY the corrected dialogue text, nothing else.`;
+
+            const response = await fetch('/api/llm/chat-completions-local', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    messages: [
+                        { role: 'user', content: `${prompt}\n\nDIALOGUE:\n${dialogue}` }
+                    ]
+                })
+            });
+            const payload = await response.json();
+            logLlmModel(payload, 'Punctuation Service');
+            return (payload?.choices?.[0]?.message?.content || '').trim();
+        };
+
+        const markdownToDialogue = (markdown) => {
+            if (!markdown) {
+                return '';
+            }
+            const lines = markdown
+                .split(/\r?\n/)
+                .map((line) => line.trim())
+                .filter((line) => line.startsWith('|') && !line.includes('---') && !line.includes('timestamp'));
+            const dialogueLines = [];
+
+            for (const line of lines) {
+                const columns = line
+                    .split('|')
+                    .map((cell) => cell.trim())
+                    .filter((cell) => cell.length > 0);
+                if (columns.length < 3) {
+                    continue;
+                }
+                const time = columns[0];
+                const role = columns[1];
+                const message = columns.slice(2).join(' | ').trim();
+                if (!time || !role || !message) {
+                    continue;
+                }
+                dialogueLines.push(`${time} ${role}: ${message}`);
+            }
+
+            return dialogueLines.join('\n');
+        };
+
+        const parseDialogueEntries = (dialogue) => {
+            if (!dialogue) {
+                return [];
+            }
+            return dialogue
+                .split(/\r?\n/)
+                .map((line) => line.trim())
+                .filter((line) => line.length > 0)
+                .map((line) => {
+                    const dashMatch = line.match(/^(\d{2}:\d{2})\s*-\s*([^\-\n]+?)\s*-\s*(.+)$/);
+                    if (dashMatch) {
+                        const [, time, role, text] = dashMatch;
+                        return {
+                            time,
+                            role: role.trim(),
+                            text: text.trim()
+                        };
+                    }
+                    const colonMatch = line.match(/^(\d{2}:\d{2})\s+([^:]+):\s*(.*)$/);
+                    if (!colonMatch) {
+                        return null;
+                    }
+                    const [, time, role, text] = colonMatch;
+                    return {
+                        time,
+                        role: role.trim(),
+                        text: text.trim()
+                    };
+                })
+                .filter(Boolean);
+        };
+
+        const parseTimeStringSeconds = (value) => {
+            if (!value) {
+                return null;
+            }
+            const match = value.match(/^(\d{2}):(\d{2})$/);
+            if (!match) {
+                return null;
+            }
+            const minutes = Number(match[1]);
+            const seconds = Number(match[2]);
+            if (Number.isNaN(minutes) || Number.isNaN(seconds)) {
+                return null;
+            }
+            return minutes * 60 + seconds;
+        };
+
+        const findRoleForUtterance = (utterance, entries) => {
+            if (!utterance || entries.length === 0) {
+                return '';
+            }
+            const needle = utterance.trim().toLowerCase();
+            const match = entries.find((entry) => {
+                const hay = entry.text.toLowerCase();
+                return hay.includes(needle) || needle.includes(hay);
+            });
+            return match?.role || '';
+        };
+
+        const findRoleForUtteranceNormalized = (utterance, entries) => {
+            if (!utterance || entries.length === 0) {
+                return '';
+            }
+            const needle = normalizeForCompare(utterance);
+            if (!needle) {
+                return '';
+            }
+            const needleTokens = needle.split(' ');
+            let bestRole = '';
+            let bestScore = 0;
+            for (const entry of entries) {
+                const hay = normalizeForCompare(entry.text);
+                if (!hay) {
+                    continue;
+                }
+                if (hay === needle || hay.includes(needle) || needle.includes(hay)) {
+                    return entry.role || '';
+                }
+                const hayTokens = hay.split(' ');
+                const needleSet = new Set(needleTokens);
+                const haySet = new Set(hayTokens);
+                let overlap = 0;
+                for (const token of needleSet) {
+                    if (haySet.has(token)) {
+                        overlap += 1;
+                    }
+                }
+                const union = needleSet.size + haySet.size - overlap;
+                if (union === 0) {
+                    continue;
+                }
+                const jaccard = overlap / union;
+                const lengthRatio = Math.min(needleTokens.length, hayTokens.length) / Math.max(needleTokens.length, hayTokens.length);
+                const score = jaccard * lengthRatio;
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestRole = entry.role || '';
+                }
+            }
+            return bestScore >= 0.35 ? bestRole : '';
+        };
+
+        const findTimeForUtterance = (utterance, entries) => {
+            if (!utterance || entries.length === 0) {
+                return null;
+            }
+            const needle = utterance.trim().toLowerCase();
+            const match = entries.find((entry) => {
+                const hay = entry.text.toLowerCase();
+                return hay.includes(needle) || needle.includes(hay);
+            });
+            return match?.time || null;
+        };
+
+        const COMPOUND_EQUIVALENTS = [
+            ['all right', 'alright'],
+            ['al ready', 'already'],
+            ['any more', 'anymore'],
+            ['any one', 'anyone'],
+            ['any time', 'anytime'],
+            ['as well', 'aswell'],
+            ['back up', 'backup'],
+            ['base ball', 'baseball'],
+            ['break down', 'breakdown'],
+            ['can not', 'cannot'],
+            ['check in', 'checkin'],
+            ['check out', 'checkout'],
+            ['come back', 'comeback'],
+            ['day to day', 'daytoday'],
+            ['dead line', 'deadline'],
+            ['down load', 'download'],
+            ['down time', 'downtime'],
+            ['drop down', 'dropdown'],
+            ['every one', 'everyone'],
+            ['every thing', 'everything'],
+            ['face book', 'facebook'],
+            ['in to', 'into'],
+            ['log in', 'login'],
+            ['log out', 'logout'],
+            ['make up', 'makeup'],
+            ['on line', 'online'],
+            ['pick up', 'pickup'],
+            ['set up', 'setup'],
+            ['shut down', 'shutdown'],
+            ['sign in', 'signin'],
+            ['sign up', 'signup'],
+            ['step by step', 'stepbystep'],
+            ['top up', 'topup'],
+            ['up load', 'upload'],
+            ['up date', 'update'],
+            ['no one', 'noone'],
+            ['no body', 'nobody'],
+            ['some one', 'someone'],
+            ['some thing', 'something'],
+            ['every day', 'everyday'],
+            ['any where', 'anywhere'],
+            ['every where', 'everywhere'],
+            ['right now', 'rightnow'],
+            ['real time', 'realtime'],
+            ['time out', 'timeout'],
+            ['user name', 'username'],
+            ['pass word', 'password'],
+            ['now a days', 'nowadays'],
+            ['in side', 'inside'],
+            ['out side', 'outside'],
+            ['under stand', 'understand'],
+            ['with out', 'without'],
+            ['at least', 'atleast'],
+            ['in stead', 'instead'],
+            ['to gether', 'together'],
+            ['over all', 'overall'],
+            ['fore cast', 'forecast'],
+            ['work out', 'workout'],
+            ['over time', 'overtime'],
+            ['no where', 'nowhere'],
+            ['some where', 'somewhere'],
+            ['any body', 'anybody'],
+            ['every body', 'everybody'],
+            ['some body', 'somebody'],
+            ['note book', 'notebook'],
+            ['hard ware', 'hardware'],
+            ['soft ware', 'software'],
+            ['data base', 'database'],
+            ['web site', 'website'],
+            ['data set', 'dataset'],
+            ['data center', 'datacenter'],
+            ['e mail', 'email'],
+            ['voice mail', 'voicemail'],
+            ['mail box', 'mailbox'],
+            ['post code', 'postcode'],
+            ['long term', 'longterm'],
+            ['short term', 'shortterm'],
+            ['desk top', 'desktop'],
+            ['lap top', 'laptop'],
+            ['key board', 'keyboard'],
+            ['head phone', 'headphone'],
+            ['ear phone', 'earphone'],
+            ['micro phone', 'microphone'],
+            ['web cam', 'webcam'],
+            ['hot spot', 'hotspot'],
+            ['re connect', 'reconnect'],
+            ['re boot', 'reboot'],
+            ['call back', 'callback'],
+            ['call in', 'callin'],
+            ['call out', 'callout'],
+            ['hold on', 'holdon'],
+            ['hang up', 'hangup'],
+            ['check up', 'checkup'],
+            ['follow up', 'followup'],
+            ['turn over', 'turnover'],
+            ['pay back', 'payback'],
+            ['pay out', 'payout'],
+            ['pay in', 'payin'],
+            ['cash back', 'cashback'],
+            ['charge back', 'chargeback'],
+            ['charge off', 'chargeoff'],
+            ['write off', 'writeoff'],
+            ['past due', 'pastdue'],
+            ['due date', 'duedate'],
+            ['late fee', 'latefee'],
+            ['over draft', 'overdraft'],
+            ['over draw', 'overdraw'],
+            ['balance', 'bal ance'],
+            ['account', 'ac count'],
+            ['account number', 'accountnumber'],
+            ['routing number', 'routingnumber'],
+            ['credit card', 'creditcard'],
+            ['debit card', 'debitcard'],
+            ['card holder', 'cardholder'],
+            ['card number', 'cardnumber'],
+            ['pin number', 'pinnumber'],
+            ['pin code', 'pincode'],
+            ['pass code', 'passcode'],
+            ['security code', 'securitycode'],
+            ['security number', 'securitynumber'],
+            ['social security', 'socialsecurity'],
+            ['id number', 'idnumber'],
+            ['customer id', 'customerid'],
+            ['customer service', 'customerservice'],
+            ['auto pay', 'autopay'],
+            ['direct deposit', 'directdeposit'],
+            ['wire transfer', 'wiretransfer'],
+            ['bank account', 'bankaccount'],
+            ['checking account', 'checkingaccount'],
+            ['savings account', 'savingsaccount'],
+            ['money transfer', 'moneytransfer'],
+            ['money order', 'moneyorder'],
+            ['over night', 'overnight']
+        ];
+
+        const normalizeForCompare = (text) => {
+            if (!text) {
+                return '';
+            }
+            let normalized = text.toLowerCase();
+            for (const [spaced, joined] of COMPOUND_EQUIVALENTS) {
+                const spacedPattern = new RegExp(`\\b${spaced.replace(/\s+/g, '\\\\s+')}\\b`, 'g');
+                normalized = normalized.replace(spacedPattern, joined);
+            }
+            return normalized
+                .replace(/[^a-z0-9\s]/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+        };
+
+        const normalizeToken = (text) => {
+            return String(text || '')
+                .toLowerCase()
+                .replace(/[^a-z0-9]/g, '')
+                .trim();
+        };
+
+        const tokenizeWithOriginal = (text) => {
+            const rawTokens = String(text || '').match(/[A-Za-z0-9']+/g) || [];
+            const tokens = [];
+            if (rawTokens.length === 0) {
+                return tokens;
+            }
+            const compoundMap = COMPOUND_EQUIVALENTS.map(([spaced, joined]) => ({
+                spaced: spaced.split(' '),
+                joined
+            }));
+
+            let index = 0;
+            while (index < rawTokens.length) {
+                let matched = false;
+                for (const compound of compoundMap) {
+                    const slice = rawTokens.slice(index, index + compound.spaced.length);
+                    if (slice.length !== compound.spaced.length) {
+                        continue;
+                    }
+                    const normalizedSlice = slice.map((token) => normalizeToken(token));
+                    if (normalizedSlice.join(' ') === compound.spaced.join(' ')) {
+                        tokens.push({
+                            raw: slice.join(' '),
+                            norm: compound.joined
+                        });
+                        index += compound.spaced.length;
+                        matched = true;
+                        break;
+                    }
+                }
+                if (!matched) {
+                    const raw = rawTokens[index];
+                    const norm = normalizeToken(raw);
+                    if (norm) {
+                        tokens.push({ raw, norm });
+                    }
+                    index += 1;
+                }
+            }
+            return tokens;
+        };
+
+        const highlightTokens = (tokens, extraWords) => {
+            if (!tokens || tokens.length === 0) {
+                return '';
+            }
+            const extras = Array.isArray(extraWords) ? [...extraWords] : [];
+            return tokens
+                .map((token) => {
+                    const normalized = token.norm;
+                    const index = extras.indexOf(normalized);
+                    if (index !== -1) {
+                        extras.splice(index, 1);
+                        return `<span class="word-error">${token.raw}</span>`;
+                    }
+                    return token.raw;
+                })
+                .join(' ');
+        };
+
+        const highlightSourceTokens = (tokens, missingStandard, missingNext) => {
+            const standardMissing = Array.isArray(missingStandard) ? [...missingStandard] : [];
+            const nextMissing = Array.isArray(missingNext) ? [...missingNext] : [];
+            return tokens
+                .map((token) => {
+                    const normalized = token.norm;
+                    const classes = [];
+                    const standardIndex = standardMissing.indexOf(normalized);
+                    if (standardIndex !== -1) {
+                        standardMissing.splice(standardIndex, 1);
+                        classes.push('source-missing-standard');
+                    }
+                    const nextIndex = nextMissing.indexOf(normalized);
+                    if (nextIndex !== -1) {
+                        nextMissing.splice(nextIndex, 1);
+                        classes.push('source-missing-nextlevel');
+                    }
+                    if (classes.length > 0) {
+                    let dataError = '';
+                    if (classes.includes('source-missing-standard') && classes.includes('source-missing-nextlevel')) {
+                        dataError = 'both';
+                    } else if (classes.includes('source-missing-standard')) {
+                        dataError = 'standard';
+                    } else if (classes.includes('source-missing-nextlevel')) {
+                        dataError = 'nextlevel';
+                    }
+                    return `<span class="${classes.join(' ')}" data-error="${dataError}">${token.raw}</span>`;
+                    }
+                    return token.raw;
+                })
+                .join(' ');
+        };
+
+        const formatTimestamp = (value) => {
+            if (value === null || value === undefined) {
+                return '-';
+            }
+            const minutes = Math.floor(value / 60);
+            const seconds = Math.floor(value % 60);
+            return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        };
+
+        const renderComparisonTable = (matches) => {
+            if (!Array.isArray(matches) || matches.length === 0) {
+                comparisonTable.style.display = 'none';
+                comparisonTable.innerHTML = '';
+                accuracyGauges.style.display = 'none';
+                return;
+            }
+            let lastTimestamp = null;
+            const rows = matches
+                .map((item) => {
+                    const nextStart = item?.nextlevel?.start ?? null;
+                    const standardStart = item?.standard?.start ?? null;
+                    let timestampValue = nextStart;
+                    if (standardStart !== null && (timestampValue === null || standardStart < timestampValue)) {
+                        timestampValue = standardStart;
+                    }
+                    if (lastTimestamp !== null && timestampValue !== null && timestampValue < lastTimestamp) {
+                        const fallback = standardStart;
+                        if (fallback !== null && fallback >= lastTimestamp) {
+                            timestampValue = fallback;
+                        }
+                    }
+                    if (timestampValue !== null && timestampValue !== undefined) {
+                        lastTimestamp = timestampValue;
+                    }
+                    const timestamp = formatTimestamp(timestampValue);
+                    const sourcePhrase = item?.source?.phrase || '';
+                    const sourceRole = item?.source?.role || '';
+                    const sourceTokens = tokenizeWithOriginal(sourcePhrase);
+                    const standardTokens = item?.standard?.tokens || [];
+                    const nextLevelTokens = item?.nextlevel?.tokens || [];
+                    const standardExtra = item?.standard?.extra_words || [];
+                    const nextLevelExtra = item?.nextlevel?.extra_words || [];
+                    const standardMissing = item?.standard?.missing_words || [];
+                    const nextLevelMissing = item?.nextlevel?.missing_words || [];
+                    const standardPhrase = highlightTokens(standardTokens, standardExtra) || (item?.standard?.phrase || '');
+                    const nextLevelPhrase = highlightTokens(nextLevelTokens, nextLevelExtra) || (item?.nextlevel?.phrase || '');
+                    const overlap = item?.nextlevel?.overlap;
+                    const overlapBadge = overlap
+                        ? `<div class="overlap-badge"><span class="overlap-triangle"></span>Overlap</div>`
+                        : '';
+                    const sourceHighlighted = highlightSourceTokens(sourceTokens, standardMissing, nextLevelMissing);
+                    const standardRole = item?.standard?.role || '';
+                    const nextLevelRole = item?.nextlevel?.role || '';
+                    const normalizedSourceRole = normalizeToken(sourceRole);
+                    const standardRoleMismatch = normalizedSourceRole && normalizeToken(standardRole) && normalizeToken(standardRole) !== normalizedSourceRole;
+                    const nextLevelRoleMismatch = normalizedSourceRole && normalizeToken(nextLevelRole) && normalizeToken(nextLevelRole) !== normalizedSourceRole;
+                    const standardMissingLine = standardMissing.length
+                        ? `<div class="missing-list">missing: ${standardMissing.join(', ')}</div>`
+                        : '';
+                    const nextLevelMissingLine = nextLevelMissing.length
+                        ? `<div class="missing-list">missing: ${nextLevelMissing.join(', ')}</div>`
+                        : '';
+                    return `
+                        <tr>
+                            <td data-col="timestamp">${timestamp ?? '-'}</td>
+                            <td data-col="source">${sourceRole || '-'}</td>
+                            <td data-col="source"><div>${sourceHighlighted || sourcePhrase || '-'}</div></td>
+                            <td data-col="standard"><span class="${standardRoleMismatch ? 'role-mismatch' : ''}">${standardRole || '-'}</span></td>
+                            <td data-col="standard">
+                                <div>${standardPhrase || '-'}</div>
+                                ${standardMissingLine}
+                            </td>
+                            <td data-col="nextlevel"><span class="${nextLevelRoleMismatch ? 'role-mismatch' : ''}">${nextLevelRole || '-'}</span></td>
+                            <td data-col="nextlevel">
+                                ${overlapBadge}
+                                <div>${nextLevelPhrase || '-'}</div>
+                                ${nextLevelMissingLine}
+                            </td>
+                        </tr>
+                    `;
+                })
+                .join('');
+
+            comparisonTable.innerHTML = `
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Source Truth Role</th>
+                            <th>Source Truth Phrase</th>
+                            <th>Standard Role</th>
+                            <th>Standard Phrase</th>
+                            <th>NextLevel Role</th>
+                            <th>NextLevel Phrase</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            `;
+            comparisonTable.style.display = 'block';
+            comparisonTable.dataset.matches = JSON.stringify(matches);
+
+            const errorWords = comparisonTable.querySelectorAll('span[data-error]');
+            errorWords.forEach((word) => {
+                word.addEventListener('mouseenter', () => {
+                    const row = word.closest('tr');
+                    if (!row) {
+                        return;
+                    }
+                    row.classList.remove('highlight-standard', 'highlight-nextlevel');
+                    const type = word.getAttribute('data-error');
+                    if (type === 'standard') {
+                        row.classList.add('highlight-standard');
+                    } else if (type === 'nextlevel') {
+                        row.classList.add('highlight-nextlevel');
+                    } else if (type === 'both') {
+                        row.classList.add('highlight-standard', 'highlight-nextlevel');
+                    }
+                });
+                word.addEventListener('mouseleave', () => {
+                    const row = word.closest('tr');
+                    if (!row) {
+                        return;
+                    }
+                    row.classList.remove('highlight-standard', 'highlight-nextlevel');
+                });
+            });
+        };
+
+                                        const computeAccuracy = (matches, key) => {
+            let correct = 0;
+            let total = 0;
+            matches.forEach((item) => {
+                const sourcePhrase = item?.source?.phrase || '';
+                const diarizer = item?.[key] || {};
+                const missing = diarizer.missing_words || [];
+                const extra = diarizer.extra_words || [];
+                const sourceWordCount = normalizeForCompare(sourcePhrase).split(' ').filter(Boolean).length;
+                const overlapFlag = item?.nextlevel?.overlap;
+                const overlapCount = overlapFlag === true || overlapFlag === false ? 1 : 0;
+                const overlapCorrect = overlapCount ? (overlapFlag ? 0 : 1) : 0;
+                const entryTotal = sourceWordCount + extra.length + overlapCount;
+                const entryCorrect = Math.max(0, sourceWordCount - missing.length) + overlapCorrect;
+                total += entryTotal;
+                correct += entryCorrect;
+            });
+            const percent = total > 0 ? Math.round((correct / total) * 100) : 0;
+            return { correct, total, percent };
+        };
+
+        const computeRoleAccuracy = (matches) => {
+            let correct = 0;
+            let total = 0;
+            matches.forEach((item) => {
+                const sourceRole = normalizeToken(item?.source?.role || '');
+                if (!sourceRole) {
+                    return;
+                }
+                const nextLevelRole = normalizeToken(item?.nextlevel?.role || '');
+                total += 1;
+                if (nextLevelRole && nextLevelRole === sourceRole) {
+                    correct += 1;
+                }
+            });
+            const percent = total > 0 ? Math.round((correct / total) * 100) : 0;
+            return { correct, total, percent };
+        };
+
+                                        const renderAccuracyGauges = (matches) => {
+            const standard = computeAccuracy(matches, 'standard');
+            const nextLevel = computeAccuracy(matches, 'nextlevel');
+            const roleAccuracy = computeRoleAccuracy(matches);
+            const setGauge = (gauge, valueEl, metaEl, stats, color) => {
+                const degrees = Math.round((stats.percent / 100) * 360);
+                gauge.style.background = `conic-gradient(${color} ${degrees}deg, rgba(148,163,184,0.2) ${degrees}deg)`;
+                valueEl.textContent = `${stats.percent}%`;
+                metaEl.textContent = `${stats.correct} / ${stats.total}`;
+            };
+
+            setGauge(standardGauge, standardGaugeValue, standardGaugeMeta, standard, '#38bdf8');
+            setGauge(nextLevelGauge, nextLevelGaugeValue, nextLevelGaugeMeta, nextLevel, '#22c55e');
+            setGauge(nextLevelRoleGauge, nextLevelRoleGaugeValue, nextLevelRoleGaugeMeta, roleAccuracy, '#f97316');
+            accuracyGauges.style.display = 'flex';
+        };
+
+        const parseTimestampSeconds = (value) => {
+            if (!value) {
+                return null;
+            }
+            const match = value.match(/^(\d{2}):(\d{2})$/);
+            if (!match) {
+                return null;
+            }
+            const minutes = Number(match[1]);
+            const seconds = Number(match[2]);
+            if (Number.isNaN(minutes) || Number.isNaN(seconds)) {
+                return null;
+            }
+            return minutes * 60 + seconds;
+        };
+
+        const parseMonoTranscriptLines = (lines, source) => {
+            if (!Array.isArray(lines)) {
+                return [];
+            }
+            const entries = [];
+            for (const line of lines) {
+                const match = String(line).match(/^(\d{2}:\d{2})\s*-\s*([^-\n]+?)\s*-\s*(.+)$/);
+                if (!match) {
+                    continue;
+                }
+                const [, time, role, text] = match;
+                const start = parseTimestampSeconds(time);
+                if (start === null) {
+                    continue;
+                }
+                entries.push({
+                    start,
+                    end: null,
+                    role: role.trim(),
+                    text: text.trim(),
+                    source
+                });
+            }
+            const estimateDuration = (text) => {
+                const tokenCount = String(text || '').split(/\s+/).filter(Boolean).length;
+                const approx = tokenCount * 0.25;
+                return Math.max(0.3, Math.min(3.2, approx || 0));
+            };
+            for (let i = 0; i < entries.length; i += 1) {
+                const next = entries[i + 1];
+                const current = entries[i];
+                const estimated = estimateDuration(current.text);
+                if (next) {
+                    current.end = Math.min(next.start, current.start + estimated);
+                } else {
+                    current.end = current.start + estimated;
+                }
+            }
+            return entries;
+        };
+
+            const computeOverlaps = (entries, overlapRanges = []) => {
+            const sorted = [...entries].sort((a, b) => a.start - b.start);
+            const overlapTolerance = 0.1;
+            const minOverlap = 0.25;
+            const minSegmentDuration = 0.4;
+            const hasExternalOverlaps = Array.isArray(overlapRanges) && overlapRanges.length > 0;
+            for (let i = 0; i < sorted.length; i += 1) {
+                const current = sorted[i];
+                current.overlap = false;
+                if (current.end === null) {
+                    continue;
+                }
+                const currentDuration = current.end - current.start;
+                if (currentDuration < minSegmentDuration) {
+                    continue;
+                }
+                if (!hasExternalOverlaps) {
+                    continue;
+                }
+                const matchesExternal = overlapRanges.some((range) => {
+                    const rangeStart = Number(range?.start);
+                    const rangeEnd = Number(range?.end);
+                    if (!Number.isFinite(rangeStart) || !Number.isFinite(rangeEnd)) {
+                        return false;
+                    }
+                    const overlapStart = Math.max(current.start, rangeStart);
+                    const overlapEnd = Math.min(current.end, rangeEnd);
+                    const overlapDuration = overlapEnd - overlapStart;
+                    return overlapDuration > overlapTolerance && overlapDuration >= minOverlap;
+                });
+                current.overlap = matchesExternal;
+            }
+            return sorted;
+        };
+
+
+        const scoreMatch = (sourceText, targetText) => {
+            const sourceTokens = normalizeForCompare(sourceText).split(' ').filter(Boolean);
+            const targetTokens = normalizeForCompare(targetText).split(' ').filter(Boolean);
+            if (sourceTokens.length === 0 || targetTokens.length === 0) {
+                return 0;
+            }
+            const targetSet = new Set(targetTokens);
+            let hit = 0;
+            for (const token of sourceTokens) {
+                if (targetSet.has(token)) {
+                    hit += 1;
+                }
+            }
+            return hit;
+        };
+
+        const findBestTranscriptMatch = (phrase, entries, referenceStart = null) => {
+            if (!phrase || entries.length === 0) {
+                return null;
+            }
+            let best = null;
+            let bestScore = -1;
+            let bestDistance = Infinity;
+            const hasRef = typeof referenceStart === 'number' && !Number.isNaN(referenceStart);
+
+            for (const entry of entries) {
+                const score = scoreMatch(phrase, entry.text);
+                if (score <= 0) {
+                    continue;
+                }
+                if (score > bestScore) {
+                    bestScore = score;
+                    best = entry;
+                    bestDistance = hasRef ? Math.abs(entry.start - referenceStart) : Infinity;
+                    continue;
+                }
+                if (score === bestScore) {
+                    if (hasRef) {
+                        const distance = Math.abs(entry.start - referenceStart);
+                        if (distance < bestDistance) {
+                            best = entry;
+                            bestDistance = distance;
+                        }
+                    } else if (best && entry.start < best.start) {
+                        best = entry;
+                    }
+                }
+            }
+            return best;
+        };
+
+
+        const diffWords = (sourceText, targetText) => {
+            const sourceTokens = normalizeForCompare(sourceText).split(' ').filter(Boolean);
+            const targetTokens = normalizeForCompare(targetText).split(' ').filter(Boolean);
+            const sourceCounts = new Map();
+            const targetCounts = new Map();
+
+            for (const token of sourceTokens) {
+                sourceCounts.set(token, (sourceCounts.get(token) || 0) + 1);
+            }
+            for (const token of targetTokens) {
+                targetCounts.set(token, (targetCounts.get(token) || 0) + 1);
+            }
+
+            const missing = [];
+            for (const [token, count] of sourceCounts.entries()) {
+                const targetCount = targetCounts.get(token) || 0;
+                const diff = count - targetCount;
+                for (let i = 0; i < diff; i += 1) {
+                    missing.push(token);
+                }
+            }
+
+            const extra = [];
+            for (const [token, count] of targetCounts.entries()) {
+                const sourceCount = sourceCounts.get(token) || 0;
+                const diff = count - sourceCount;
+                for (let i = 0; i < diff; i += 1) {
+                    extra.push(token);
+                }
+            }
+
+            return { missing, extra };
+        };
+
+        const createProgressController = () => {
             let stepsDone = 0;
             let stepsTotal = 0;
+
             const renderProgress = (label) => {
                 const percent = stepsTotal > 0 ? Math.min(100, Math.round((stepsDone / stepsTotal) * 100)) : 0;
                 progressFill.style.width = `${percent}%`;
@@ -272,6 +1338,653 @@
                 stepsDone += 1;
                 renderProgress(label);
             };
+
+            return {
+                addSteps,
+                completeStep,
+                renderProgress,
+                getTotals: () => ({ stepsDone, stepsTotal })
+            };
+        };
+
+        const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+        const runMockFlow = async () => {
+            const mockFileName = 'testdemopage.wav';
+            const formattedDialogue = `00:00 Speaker 0: Hello, thank you for calling after us. Hi, I'm having trouble with my internet connection. It keeps dropping. I'm sorry to hear that. May I have your account number to look up your details?
+00:12 Speaker 0: Sure, it's 7 -4 -2859 -32 -SO.
+00:16 Speaker 1: Thank you.
+00:16 Speaker 0: I see a recent outage in your area. It might be possible. Oh, I didn't know that. Do you know when it'll be fixed? The tech team estimates restoration within the next two hours. All right, thanks. In the meantime, is there anything I can do to improve the connection? Yes, try rebooting your modem by unplugging it for 30 seconds and plugging it back in. Okay,
+00:37 Speaker 1: I'll do that right now. Great. Let me know if the connection stabilizes after the reboot.
+00:42 Speaker 0: Thank you for the help. You're welcome. I'll keep the ticket open for an hour to ensure the issue stays resolved. Sounds good. I appreciate the assistance today.
+00:53 Speaker 1: Thank you for calling Acme Support. Have a great day.`;
+            const llmResults = [
+                `Format: MM:SS [Agent]: [text]\n\n\`\`\`json\n"MM:00.00 Speaker 0: Hello, thank you for calling after us. Hi, I'm having trouble with my internet connection. It keeps dropping. I'm sorry to hear that. May I have your account number to look up your details?"\n\`\`\``,
+                `\`\`\`python\ndef analyze_dialogue(reference_dialogue):\n    \"\"\"Analyzes the dialogue and extracts relevant information.\"\"\"\n\n    # Parse the replica line in format: \"MM:SS Speaker X: [text]\"\n    replica_line = reference_dialogue.split(\" Speaker \")[1]\n\n    # Extract the timestamp (MM:SS format)\n    match = re.match(r\"(\\d{3} \\d{2} \\d{3} \\d{4}\", replica_line)\n    if match:\n        timestamp = int(match.group(1))\n        # Extract the speaker label (Speaker 0 or Speaker 1)\n        speaker_label = match.group(0)\n        # Extract the text content\n        text = replica_line[match.end():].strip()\n    else:\n        text = replica_line\n\n    # Analyze the text content in the context of the full dialogue to determine the role using the role definitions, filtering rules, characteristics, and examples above\n    # Analyze the text content in the context of the full dialogue to determine the role using the role definitions, filtering rules, characteristics, and examples above\n    # Analyze the text content in the context of the full dialogue to determine the role using the role definitions, filtering rules, characteristics, and examples above\n\n    # Replace 'Speaker 0' or 'Speaker 1' with 'Agent' or 'Client' based on your analysis\n    modified_line = f\"{timestamp}:{text}\"\n\n    # Return ONLY the modified line in the same single-line format:\n    return modified_line\n\nreference_dialogue = \"\"\"\n00:00 Speaker 0: Hello, thank you for calling after us. Hi, I'm having trouble with my internet connection. It keeps dropping. I'm sorry to hear that. May I have your account number to look up your details?\n00:12 Speaker 0: Thank you.\n00:16 Speaker 1: Thank you.\n00:16 Speaker 0: I see a recent outage in your area. It might be possible. Oh, I didn't know that. Do you know when it'll be fixed? The tech team estimates restoration within the next two hours. All right, thanks. In the meantime, is there anything I can do to improve the connection? Yes, try rebooting your modem by unplugging it for 30 seconds and plugging it back in. Okay,\n00:37 Speaker 1: I'll do that now. Great. Let me know if the connection stabilizes after the reboot.\n00:42 Speaker 0: Thank you for the help. You're welcome. I'll keep the ticket open for an hour to ensure the issue stays resolved. Sounds good. I appreciate the assistance today.\n00:53 Speaker 1: Thank you for calling Acme Support. Have a great day.\n\"\"\"\n\n# Analyze the dialogue and extract information\nmodified_line = analyze_dialogue(reference_dialogue)\n\n# Print the modified dialogue\nprint(modified_line)\n\`\`\`\n\nOutput:\n\n\`\`\`\n3058:16 Speaker 0: Thank you for the help. You're welcome. I'll keep the ticket open for an hour to ensure the issue stays resolved. Sounds good. I appreciate the assistance today.\n\`\`\``,
+                `Okay, let's analyze the dialogue and create the JSON output.\n\n**Analysis of the Specific Replica:**\n\n\`00:16 Speaker 1: Thank you.\`\n\n* **Timestamp:** \`MM:SS\` (no specific value)\n* **Speaker Label:** \`Client\`\n* **Text Content:** \`Thank you.\`\n\n**Modified Output:**\n\n\`00:16 Client: Thank you.\`\n\n**Explanation of Role Determination and Filtering:**\n\n*   **Rule: \"MM:SS\"**: This is explicitly the timestamp in the dialogue.\n*   **Rule: \"Client\":**  The text content \"Thank you\" is consistent with the client's role (customer).\n*   **Rule: \"Agent\":**  The dialogue is focused on the call center employee's role.\n\n**Final Output:**\n\n\`\`\`json\n\"00:16 Client: Thank you.\"\n\`\`\``,
+                `\`\`\`python\nimport re\n\nFULL_DIALOGUE = \"\"\"\n00:00 Speaker 0: Hello, thank you for calling after us. Hi, I'm having trouble with my internet connection. It keeps dropping. I'm sorry to hear that. May I have your account number to look up your details?\n00:12 Speaker 0: Thank you.\n00:16 Speaker 1: Thank you.\n00:16 Speaker 0: I see a recent outage in your area. It might be possible. Oh, I didn't know that. Do you know when it’ll be fixed? The tech team estimates restoration within the next two hours. All right, thanks. In the meantime, is there anything I can do to improve the connection? Yes, try rebooting your modem by unplugging it for 30 seconds and plugging it back in. Okay,\n00:37 Speaker 1: I'll do that right now. Great. Let me know if the connection stabilizes after the reboot.\n00:42 Speaker 0: Thank you for the help. You're welcome. I'll keep the ticket open for an hour to ensure the issue stays resolved. Sounds good. I appreciate the assistance today.\n00:53 Speaker 1: Thank you for calling Acme Support. Have a great day.\n\"\"\"\n\ndef analyze_dialogue(full_dialogue):\n    \"\"\"\n    Analyzes the dialogue to extract the relevant information.\n    \"\"\"\n\n    # Parsing the replica line using regex\n    replica_line = re.match(r\"MM:SS Speaker\\s*([^\\n]+)\", full_dialogue)\n    if replica_line:\n        timestamp = replica_line.group(1).strip()\n        speaker = replica_line[0]\n        role = \"Agent\" if speaker == \"Speaker 0\" else \"Client\"\n\n        # Extracting the text content\n        text = full_dialogue[replica_line.end():].strip()\n\n        # Analyze the text content using role definitions\n        if speaker == \"Speaker 0\":\n            role_analysis = (\n                \"The customer is reporting a problem with their internet connection and asking for assistance. They are understanding of the issue and requesting to be updated on the status.\"\n            )\n        elif speaker == \"Client\":\n            role_analysis = (\n                \"The customer is complaining about their internet problem and requesting a solution. They are acknowledging the issue but may want more detailed instructions.\"\n            )\n\n        # Replace 'Speaker 0' or 'Client' with 'Agent' or 'Client' based on analysis\n        if role == \"Agent\":\n            speaker = \"Agent\"\n        elif role == \"Client\":\n            speaker = \"Client\"\n\n        # Replace 'Speaker 0' or 'Client' with 'Agent' or 'Client' based on analysis\n        if role == \"Agent\":\n            speaker = \"Agent\"\n        elif role == \"Client\":\n            speaker = \"Client\"\n\n        # Return the modified line in the same format\n        return f\"{timestamp}: {role}\"\n\n    else:\n        return \"\"\n\n\nprint(analyze_dialogue(FULL_DIALOGUE))\n\`\`\``,
+                `00:37 Speaker 1: I'll do that right now. Great. Let me know if the connection stabilizes after the reboot.\nMM:37\nAgent\nI'll do that right now. Great. Let me know if the connection stabilizes after the reboot.`,
+                `\`\`\`python\ndef analyze_dialogue_replica(reference_dialogue):\n    \"\"\"\n    Analyzes the dialogue replica and extracts relevant information.\n    \"\"\"\n\n    reference_dialogue = reference_dialogue.lower()  # Convert to lowercase for consistent matching\n\n    # 1. Extract the timestamp (MM:SS format)\n    timestamp = reference_dialogue.split(':')[-1]\n\n    # 2. Extract the speaker label (Agent or Client)\n    speaker = reference_dialogue.split(':')[-1].split(' ')[0]\n\n    # 3. Extract the text content\n    text = reference_dialogue.split(':')[-1].strip()\n\n    # 4. Analyze the text content in the context of the full dialogue\n    # This is done by considering the entire conversation.  We need to analyze the dialogue\n    # to determine the role based on the context, and then compare with the specified rules.\n\n    # 5. Replace 'Speaker 0' or 'Speaker 1' with 'Agent' or 'Client' based on your analysis\n    # This is done by matching the role labels with the provided rules.\n\n    modified_line = f\"{timestamp}:{speaker}: {text}\"\n    return modified_line\n\n# Reference dialogue (for context)\nreference_dialogue = \"\"\"\n00:00 Speaker 0: Hello, thank you for calling after us. Hi, I'm having trouble with my internet connection. It keeps dropping. I'm sorry to hear that. May I have your account number to look up your details?\n00:12 Speaker 0: Thank you.\n00:16 Speaker 0: I see a recent outage in your area. It might be possible. Oh, I didn't know that. Do you know when it'll be fixed? The tech team estimates restoration within the next two hours. All right, thanks. In the meantime, is there anything I can do to improve the connection? Yes, try rebooting your modem by unplugging it for 30 seconds and plugging it back in. Okay,\n00:37 Speaker 1: I'll do that right now. Great. Let me know if the connection stabilizes after the reboot.\n00:42 Speaker 0: Thank you for the help. You're welcome. I'll keep the ticket open for an hour to ensure the issue stays resolved. Sounds good. I appreciate the assistance today.\n00:53 Speaker 1: Thank you for calling Acme Support. Have a great day.\n\"\"\"\n\n# Analyze the dialogue replica\nmodified_line = analyze_dialogue_replica(reference_dialogue)\n\n# Print the modified line\nprint(modified_line)\n\`\`\`\n\nKey improvements and explanations:\n\n* **Explicit Role Extraction:**  The code now directly extracts the \`Speaker\` label and the text content using \`split(':')[-1]\`. This is much more reliable than relying solely on the original dialogue.\n* **Contextual Analysis:** The \`analyze_dialogue_replica\` function is now more focused on understanding the conversation.  The comments explain *why* this is needed, and the logic behind the role extraction.\n* **Clearer Formatting:**  The output is formatted as requested: \`MM:SS [role]: [text]\`.\n* **Docstring:** A descriptive docstring for the function explaining its purpose and inputs.\n* **Lowercasing:** Converts the dialogue to lowercase to ensure consistent matching.\n\nThis revised response directly addresses the problem description and provides a much more robust and accurate solution.  It's also easier to understand and maintain.`,
+                `\`\`\`python\ndef analyze_dialogue(reference_dialogue):\n    \"\"\"Analyzes the dialogue and extracts relevant information.\"\"\"\n\n    # Extract the specific replica line from the reference\n    replica_line = reference_dialogue.split(\"Speaker \")[1].strip()\n\n    # Extract the timestamp\n    timestamp = replica_line.split(\":\")[0]\n\n    # Extract the speaker label\n    speaker = replica_line.split(\"Speaker \")[0]\n\n    # Extract the text content\n    text = replica_line.split(\":\")[-1].strip()\n\n    # Analyze the text content in the context of the full dialogue\n    if \"I will guide you step by step.\" in text:\n        role = \"Agent\"\n    elif \"Please open the admin panel and enter the IP address.\" in text:\n        role = \"Client\"\n    elif \"Let me know when you are done.\" in text:\n        role = \"Agent\"\n    elif \"The tech team estimates restoration within the next two hours.\" in text:\n        role = \"Client\"\n\n    # Replace 'Speaker 0' or 'Speaker 1' with 'Agent' or 'Client'\n    modified_line = f\"{timestamp}:{role} {text}\"\n\n    return modified_line\n\n# Reference dialogue\nreference_dialogue = \"\"\"\n00:00 Speaker 0: Hello, thank you for calling after us. Hi, I'm having trouble with my internet connection. It keeps dropping. I'm sorry to hear that. May I have your account number to look up your details?\n00:12 Speaker 0: Thank you.\n00:16 Speaker 0: I see a recent outage in your area. It might be possible. Oh, I didn't know that. Do you know when it'll be fixed? The tech team estimates restoration within the next two hours. All right, thanks. In the meantime, is there anything I can do to improve the connection? Yes, try rebooting your modem by unplugging it for 30 seconds and plugging it back in. Okay,\n00:37 Speaker 1: Thank you for calling Acme Support. Have a great day.\n\"\"\"\n\n# Analyze the dialogue\nmodified_line = analyze_dialogue(reference_dialogue)\n\n# Print the modified line\nprint(modified_line)\n\`\`\`\n\nOutput:\n\n\`\`\`\nMM:00:37: Agent {Please restart your modem by unplugging it for 30 seconds and plugging it back in.}\n\`\`\``
+            ];
+            const initialDialogueLog = `${llmResults.join('\n')}\nOkay, let's analyze the dialogue and create the JSON output.\n\n**Analysis of the Specific Replica:**\n\n\`00:16 Speaker 1: Thank you.\`\n\n* **Timestamp:** \`MM:SS\` (no specific value)\n* **Speaker Label:** \`Client\`\n* **Text Content:** \`Thank you.\`\n\n**Modified Output:**\n\n\`00:16 Client: Thank you.\`\n\n**Explanation of Role Determination and Filtering:**\n\n*   **Rule: \"MM:SS\"**: This is explicitly the timestamp in the dialogue.\n*   **Rule: \"Client\":**  The text content \"Thank you\" is consistent with the client's role (customer).\n*   **Rule: \"Agent\":**  The dialogue is focused on the call center employee's role.\n\n**Final Output:**\n\n\`\`\`json\n\"00:16 Client: Thank you.\"\n\`\`\`\n\`\`\`python\nimport re\n\nFULL_DIALOGUE = \"\"\"\n00:00 Speaker 0: Hello, thank you for calling after us. Hi, I'm having trouble with my internet connection. It keeps dropping. I'm sorry to hear that. May I have your account number to look up your details?\n00:12 Speaker 0: Thank you.\n00:16 Speaker 1: Thank you.\n00:16 Speaker 0: I see a recent outage in your area. It might be possible. Oh, I didn't know that. Do you know when it’ll be fixed? The tech team estimates restoration within the next two hours. All right, thanks. In the meantime, is there anything I can do to improve the connection? Yes, try rebooting your modem by unplugging it for 30 seconds and plugging it back in. Okay,\n00:37 Speaker 1: I'll do that right now. Great. Let me know if the connection stabilizes after the reboot.\n00:42 Speaker 0: Thank you for the help. You're welcome. I'll keep the ticket open for an hour to ensure the issue stays resolved. Sounds good. I appreciate the assistance today.\n00:53 Speaker 1: Thank you for calling Acme Support. Have a great day.\n\"\"\"\n\ndef analyze_dialogue(full_dialogue):\n    \"\"\"\n    Analyzes the dialogue to extract the relevant information.\n    \"\"\"\n\n    # Parsing the replica line using regex\n    replica_line = re.match(r\"MM:SS Speaker\\s*([^\\n]+)\", full_dialogue)\n    if replica_line:\n        timestamp = replica_line.group`;
+            const webhookMarkdown = `| timestamp | role   | message                                                                       |\n|-----------|--------|-------------------------------------------------------------------------------|\n| 00:00     | Agent  | Hello, thank you for calling Acme.                                            |\n| 00:00     | Client | Hi, I'm having trouble with my internet connection. It keeps dropping.       |\n| 00:00     | Agent  | I'm sorry to hear that. May I have your account number to look up your details?|\n| 00:12     | Client | Thank you.                                                                    |\n| 00:16     | Agent  | Thank you.                                                                    |\n| 00:16     | Agent  | I see a recent outage in your area. It might be responsible.                |\n| 00:16     | Client | Oh, I didn't know that. Do you know when it'll be fixed?                    |\n| 00:16     | Agent  | The tech team estimates restoration within the next two hours.               |\n| 00:16     | Client | All right, thanks. In the meantime, is there anything I can do to improve the connection?|\n| 00:16     | Agent  | Yes, try rebooting your modem by unplugging it for 30 seconds and plugging it back in.|\n| 00:16     | Client | Okay,                                                                         |\n| 00:37     | Client | I'll do that right now.                                                       |\n| 00:37     | Agent  | Great. Let me know if the connection stabilizes after the reboot.            |\n| 00:42     | Client | Thank you for the help.                                                       |\n| 00:42     | Agent  | You're welcome. I'll keep the ticket open for an hour to ensure the issue stays resolved.|\n| 00:42     | Client | Sounds good. I appreciate the assistance today.                              |\n| 00:53     | Agent  | Thank you for calling Acme Support. Have a great day.                         |`;
+
+            const progress = createProgressController();
+            fileName.textContent = mockFileName;
+            markdownResult.textContent = 'Processing...';
+            progress.renderProgress('Waiting for file');
+            isMockMode = true;
+
+            console.log('[Stage] Base64 encoding started');
+            progress.addSteps(1);
+            await sleep(150);
+            console.log('Base64 encoding status: success');
+            console.log('Audio filename:', mockFileName);
+            progress.completeStep('Base64 encoded');
+
+            console.log('[Stage] Diarize request started');
+            progress.addSteps(1);
+            await sleep(150);
+            console.log('[Stage] Diarize response received');
+            console.log('bb593262-50ce-4795-b7ca-2c016d58e4cc');
+            progress.completeStep('Diarize request completed');
+
+            const maxPolls = 3;
+            progress.addSteps(maxPolls);
+            for (let attempt = 0; attempt < maxPolls; attempt += 1) {
+                console.log(`[Stage] Status poll attempt ${attempt + 1}/120`);
+                await sleep(150);
+                progress.completeStep(`Status poll ${attempt + 1}/120`);
+            }
+
+            console.log('diarize result: completed');
+            progress.renderProgress('Diarize status completed');
+
+            console.log('[Stage] Formatted dialogue request started');
+            progress.addSteps(1);
+            await sleep(150);
+            console.log('[Stage] Formatted dialogue response received');
+            console.log('formatted_dialogue:', formattedDialogue);
+            console.log('dialogue with roles count:', 7);
+            lastFormattedDialogue = formattedDialogue;
+            progress.completeStep('Formatted dialogue received');
+
+            console.log('[Stage] Punctuation fix request started');
+            progress.addSteps(1);
+            await sleep(150);
+            console.log('[Stage] Punctuation fix response received');
+            lastPunctuatedDialogue = formattedDialogue;
+            console.log('punctuated_dialogue:', lastPunctuatedDialogue);
+            progress.completeStep('Punctuation fix completed');
+
+            progress.addSteps(llmResults.length);
+            for (let index = 0; index < llmResults.length; index += 1) {
+                console.log(`[Stage] Analysis request started: ${index + 1}/${llmResults.length}`);
+                await sleep(120);
+                console.log(`[Stage] Analysis response received: ${index + 1}/${llmResults.length}`);
+                logLlmModel({ model: 'default' }, 'Replica Analysis');
+                console.log(`[Stage] Analysis result: ${index + 1}/${llmResults.length}`, llmResults[index]);
+                console.log(`Processed ${index + 1} of ${llmResults.length}`);
+                progress.completeStep(`Replica Analysis ${index + 1}/${llmResults.length}`);
+            }
+
+            console.log('initial dialogue 1:', initialDialogueLog);
+
+            console.log('[Stage] Single-speaker split started');
+            progress.addSteps(1);
+            await sleep(150);
+            console.log(`file1: ${API_BASE}/api/separate-audio-file/05d6bafd-f883-4f66-939e-8cca89b4364a/0`);
+            console.log(`file2: ${API_BASE}/api/separate-audio-file/05d6bafd-f883-4f66-939e-8cca89b4364a/1`);
+            progress.completeStep('Audio split completed');
+
+            progress.addSteps(2);
+            console.log('[Stage] File1Transcript upload started');
+            await sleep(150);
+            console.log('[Stage] File1Transcript upload completed (status 200)');
+            const mockFile1Transcript = {
+                success: true,
+                transcript: [
+                    '00:00 - Спікер 0 - Hello, thank you for calling after you support. How can I insist you today?',
+                    '00:03 - Спікер 1 - May',
+                    '00:06 - Спікер 0 - I have your account?',
+                    '00:08 - Спікер 1 - Thank',
+                    '00:15 - Спікер 0 - you. I see a recent outage in your area.',
+                    '00:18 - Спікер 1 - Tech',
+                    '00:23 - Спікер 0 - team at the front.',
+                    '00:26 - Спікер 1 - Yeah,',
+                    '00:31 - Спікер 0 - try rebooting your modem by unplugging it to the right side of the plug -in',
+                    '00:35 - Спікер 1 - package. Great,',
+                    '00:38 - Спікер 0 - let me know if the connection stabilizes after the reboot.',
+                    '00:44 - Спікер 0 - You\'re welcome. I\'ll keep the ticket open for an hour, so the issue is safe.',
+                    '00:49 - Спікер 1 - Thanks for',
+                    '00:53 - Спікер 0 - calling after me. Have a great day.'
+                ]
+            };
+            console.log('File1Transcript:', JSON.stringify(mockFile1Transcript));
+            lastMonoTranscriptEntries = computeOverlaps(
+                parseMonoTranscriptLines(mockFile1Transcript.transcript, 'file1'),
+                lastOverlapSegments
+            );
+            progress.completeStep('File1Transcript transcript ready');
+
+            console.log('[Stage] File2Transcript upload started');
+            await sleep(150);
+            console.log('[Stage] File2Transcript upload completed (status 200)');
+            const mockFile2Transcript = {
+                success: true,
+                transcript: [
+                    '00:00 - Спікер 0 - Hi, I\'m having',
+                    '00:01 - Спікер 1 - trouble with my internet connection. It keeps dropping.',
+                    '00:05 - Спікер 0 - I\'m sorry to hear that. Count number two, look up your detail. Sure,',
+                    '00:12 - Спікер 1 - it\'s 7 -4 -2859 -32, so.',
+                    '00:15 - Спікер 0 - Oh,',
+                    '00:19 - Спікер 1 - I didn\'t know that. Do you know when it\'ll be fixed? It\'s',
+                    '00:23 - Спікер 0 - for me to make frustration in the next two hours. All right,',
+                    '00:27 - Спікер 1 - thanks. In the meantime, is there anything I can do to improve the connection?',
+                    '00:31 - Спікер 0 - I\'m pretty much looking at the very few things I can find out. Okay,',
+                    '00:36 - Спікер 1 - I\'ll do that right now.',
+                    '00:38 - Спікер 0 - Let me know if the connection is correct. It',
+                    '00:42 - Спікер 1 - looks like it\'s working better now. Thank you for the help.',
+                    '00:45 - Спікер 0 - I\'ll keep that. Sounds',
+                    '00:49 - Спікер 1 - good. I appreciate the assistance today. Thank you for',
+                    '00:53 - Спікер 0 - calling acting support. Have a great day.'
+                ]
+            };
+            // --- MOCK OVERLAP TEST ---
+            const mockEntries = computeOverlaps([
+                ...parseMonoTranscriptLines(mockFile1Transcript.transcript, 'file1'),
+                ...parseMonoTranscriptLines(mockFile2Transcript.transcript, 'file2')
+            ], lastOverlapSegments);
+
+            console.log('MOCK overlap count:', mockEntries.filter(e => e.overlap).length);
+            console.log('MOCK overlaps (first 5):', mockEntries.filter(e => e.overlap).slice(0, 5));
+
+            console.log('File2Transcript:', JSON.stringify(mockFile2Transcript));
+            lastMonoTranscriptEntries = computeOverlaps([
+                ...lastMonoTranscriptEntries.filter((entry) => entry.source !== 'file1'),
+                ...parseMonoTranscriptLines(mockFile2Transcript.transcript, 'file2')
+            ], lastOverlapSegments);
+            progress.completeStep('File2Transcript transcript ready');
+
+            console.log('[Stage] Final webhook request started');
+            progress.addSteps(1);
+            await sleep(150);
+            console.log('[Stage] Final webhook response received');
+            console.log('[Stage] Final webhook status:', 200);
+            console.log('Final webhook response:', `\`\`\`markdown\n${webhookMarkdown}\n\`\`\``);
+            console.log('[Stage] Webhook markdown length:', 1979);
+            lastWebhookDialogue = markdownToDialogue(webhookMarkdown);
+            console.log('nextlevel_dialogue:', lastWebhookDialogue);
+
+            progress.addSteps(1);
+            markdownResult.innerHTML = renderMarkdownTable(webhookMarkdown);
+            groundTruthActions.style.display = 'block';
+            progress.completeStep('Markdown table rendered');
+            progress.completeStep('Final webhook response received');
+        };
+
+        uploadGroundTruthBtn.addEventListener('click', () => {
+            groundTruthFileInput.click();
+        });
+
+        groundTruthFileInput.addEventListener('change', async (event) => {
+            const file = event.target.files && event.target.files[0];
+            if (!file) {
+                return;
+            }
+            try {
+                groundTruthProgress.textContent = 'Matching 0 / 0';
+                groundTruthProgress.style.display = 'block';
+                groundTruthProgressBar.value = '0';
+                groundTruthProgressBar.max = '0';
+                groundTruthProgressBar.style.display = 'block';
+                const gt = await file.text();
+                const gtLines = gt
+                    .split(/\r?\n/)
+                    .map((line) => line.trim())
+                    .filter((line) => line.length > 0);
+                groundTruthProgress.textContent = `Matching 0 / ${gtLines.length}`;
+                groundTruthProgressBar.max = String(gtLines.length);
+                console.log('GT lines count:', gtLines.length);
+                console.log('GT:', gtLines);
+
+                if (!lastFormattedDialogue) {
+                    console.log('Error: formatted_dialogue is empty');
+                    return;
+                }
+
+                const rawDialogueForMatching = lastPunctuatedDialogue || lastFormattedDialogue || '';
+                const dialogueForMatching = buildDialogueForMatching(rawDialogueForMatching);
+                const standardEntries = parseDialogueEntries(dialogueForMatching);
+                const nextLevelDialogue = lastWebhookDialogue || '';
+                const nextLevelEntries = parseDialogueEntries(nextLevelDialogue);
+                const standardMatchPrompt = `You are aligning two ordered lists of phrases from the same call.
+
+IMPORTANT: Standard phrases may contain mixed content from different speakers and may bundle multiple sentences in one line. You must match by MEANING, not by line boundaries.
+
+Task:
+For each Source Truth phrase, select ONE best matching fragment from the Standard list.
+- You may SPLIT a Standard line into smaller fragments if needed.
+- Use ONLY words that exist in Standard phrases.
+- Do NOT drop any clause from a Source phrase (e.g., if Source has "X and Y", the match must cover BOTH X and Y).
+- Keep the original order of Source phrases.
+- Standard fragments can come from the same Standard line multiple times.
+- If no good match exists, return an empty string.
+- Prefer the SHORTEST Standard fragment that matches the meaning.
+
+Output rules (STRICT):
+- Output MUST contain ONLY the pairs.
+- Each pair is exactly TWO lines, in this order:
+  1) Source Truth phrase N: <source text N>
+  2) Standard phrase N: <matched standard fragment N>
+- No extra text, no blank lines, no bullets, no numbering outside this format.
+- N must start at 1 and increment by 1 for each source phrase.
+- If no match, use empty string after the colon.
+- Do NOT skip any source phrase. Always output exactly 2 * N lines.
+- Do NOT wrap or merge pairs on the same line.
+
+Example format:
+Source Truth phrase 1: ...
+Standard phrase 1: ...
+Source Truth phrase 2: ...
+Standard phrase 2: ...
+...and so on for all source phrases.`;
+                const nextLevelPromptTemplate = `You are aligning utterances between two versions of the same phone support call.
+
+There are two inputs:
+
+1) GROUND TRUTH UTTERANCE (the "gold" source, a single line):
+[GT]
+Repeat Item
+[/GT]
+
+2) ORIGINAL DIALOGUE (from the original diarizer, with timestamps and roles):
+[DIALOGUE]
+DIALOGUE_PLACEHOLDER
+[/DIALOGUE]
+
+TASK:
+Find the single line in [DIALOGUE] that best matches the meaning and function of the [GT] utterance.
+Ignore small wording and punctuation differences.
+
+Then produce a JSON object with:
+- "source_truth": the exact text from [GT], without the [GT] tags.
+- "matched_utterance": only the spoken text from the best matching line in [DIALOGUE],
+  with the timestamp and role prefix removed (no "00:16 Agent:" etc.).
+
+OUTPUT:
+Return ONLY a valid JSON object, nothing else. No explanations or comments.
+
+Example of the required format (this is just an example, not the answer):
+
+{
+  "source_truth": "some text",
+  "matched_utterance": "some other text"
+}`;
+
+                const cleanGroundTruthLine = (line, roleLabel) => {
+                    const label = String(roleLabel || '').trim();
+                    const withLabel = label
+                        ? line.replace(new RegExp(`^\\s*${label}\\s*[:\\-]?\\s*`, 'i'), '')
+                        : line;
+                    return withLabel.replace(/^\s*(speaker\s*\d+|agent|client|customer|operator)\s*[:\-]?\s*/i, '').trim();
+                };
+
+                const gtMatches = [];
+                let standardMatches = [];
+
+                try {
+                    const rawStandardLines = rawDialogueForMatching
+                        .split(/\r?\n/)
+                        .map((line) => line.trim())
+                        .filter((line) => line.length > 0);
+                    const sentenceRegex = /[^.!?]+[.!?]+|[^.!?]+$/g;
+                    const expandedStandardLines = [];
+                    for (const line of rawStandardLines) {
+                        const match = line.match(/^(\d{2}:\d{2}\s+Speaker\s+\d+:\s*)(.*)$/);
+                        if (!match) {
+                            expandedStandardLines.push(line);
+                            continue;
+                        }
+                        const prefix = match[1];
+                        const text = match[2].trim();
+                        const sentences = text.match(sentenceRegex) || [];
+                        if (sentences.length === 0) {
+                            continue;
+                        }
+                        for (const sentence of sentences) {
+                            const cleaned = sentence.trim();
+                            if (cleaned) {
+                                expandedStandardLines.push(`${prefix}${cleaned}`);
+                            }
+                        }
+                    }
+                    const standardList = Array.from(new Set(expandedStandardLines)).join('\n');
+                    const sourceList = gtLines.join('\n');
+                    const standardPrompt = `${standardMatchPrompt}\n\nSOURCE_TRUTH_PHRASES:\n[SOURCE_LIST]\n${sourceList}\n[/SOURCE_LIST]\n\nSTANDARD_PHRASES:\n[STANDARD_LIST]\n${standardList}\n[/STANDARD_LIST]`;
+                    console.log('[Stage] Standard list match request started');
+                    const standardResponse = await fetch('/api/llm/chat-completions-local', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            messages: [{ role: 'user', content: standardPrompt }]
+                        })
+                    });
+                    console.log('[Stage] Standard list match response received');
+                    const standardPayload = await standardResponse.json();
+                    logLlmModel(standardPayload, 'Standard List Match');
+                    const standardText = standardPayload?.choices?.[0]?.message?.content || '';
+                    console.log('[Stage] Standard list match raw response:', standardText);
+                    const standardLines = standardText
+                        .split(/\r?\n/)
+                        .map((line) => line.trim())
+                        .filter((line) => line.length > 0);
+                    const matchedByIndex = new Map();
+                    let pendingStandardIndex = null;
+                    let lastSourceIndex = null;
+                    const labelPrefix = '^\\s*(?:[-*•\\d\\.\\)]+\\s*)?';
+                    const pairRegex = new RegExp(`${labelPrefix}Source Truth phrase\\s*#?\\s*(\\d+)\\s*[:\\-–—]\\s*(.*?)\\s+Standard phrase\\s*#?\\s*\\1\\s*[:\\-–—]\\s*(.*)$`, 'i');
+                    const labelRegex = new RegExp(`${labelPrefix}(Source Truth phrase|Standard phrase)\\s*#?\\s*(\\d+)\\s*[:\\-–—]?\\s*(.*)$`, 'i');
+                    const standardNoIndexRegex = new RegExp(`${labelPrefix}Standard phrase\\s*[:\\-–—]\\s*(.*)$`, 'i');
+                    const labelStartRegex = new RegExp(`${labelPrefix}(Source Truth phrase|Standard phrase)\\b`, 'i');
+
+                    for (const line of standardLines) {
+                        const pairMatch = line.match(pairRegex);
+                        if (pairMatch) {
+                            const index = Number(pairMatch[1]);
+                            matchedByIndex.set(index, (pairMatch[3] || '').trim());
+                            pendingStandardIndex = null;
+                            lastSourceIndex = null;
+                            continue;
+                        }
+
+                        const labelMatch = line.match(labelRegex);
+                        if (labelMatch) {
+                            const label = labelMatch[1].toLowerCase();
+                            const index = Number(labelMatch[2]);
+                            const text = (labelMatch[3] || '').trim();
+                            if (label.startsWith('source')) {
+                                lastSourceIndex = index;
+                                continue;
+                            }
+                            if (label.startsWith('standard')) {
+                                if (text) {
+                                    matchedByIndex.set(index, text);
+                                    pendingStandardIndex = null;
+                                } else {
+                                    pendingStandardIndex = index;
+                                }
+                                continue;
+                            }
+                        }
+
+                        const standardNoIndexMatch = line.match(standardNoIndexRegex);
+                        if (standardNoIndexMatch && lastSourceIndex !== null) {
+                            matchedByIndex.set(lastSourceIndex, (standardNoIndexMatch[1] || '').trim());
+                            lastSourceIndex = null;
+                            pendingStandardIndex = null;
+                            continue;
+                        }
+
+                        if (pendingStandardIndex !== null && !labelStartRegex.test(line)) {
+                            matchedByIndex.set(pendingStandardIndex, line);
+                            pendingStandardIndex = null;
+                            continue;
+                        }
+                    }
+                    standardMatches = gtLines.map((_, idx) => matchedByIndex.get(idx + 1) || '');
+                } catch (standardMatchError) {
+                    console.log('[Stage] Standard list match error', standardMatchError);
+                    standardMatches = gtLines.map(() => '');
+                }
+
+                for (let index = 0; index < gtLines.length; index += 1) {
+                    groundTruthProgress.textContent = `Matching ${index + 1} / ${gtLines.length}`;
+                    groundTruthProgressBar.value = String(index + 1);
+                    const gtLine = gtLines[index];
+                    const sourceRolePrompt = `Extract the speaker role from the ground truth line.
+
+Rules:
+- If the line starts with a role label (e.g., "Speaker 1:", "Speaker 2:", "Agent:", "Client:", "Customer:", "Operator:"), extract it.
+- Return ONLY a JSON object: { "role": "..." }.
+- If no role is present, return { "role": "" }.
+
+GROUND TRUTH:
+${gtLine}`;
+                    const promptNext = nextLevelPromptTemplate
+                        .replace('Repeat Item', gtLine)
+                        .replace('DIALOGUE_PLACEHOLDER', nextLevelDialogue);
+
+                    try {
+                        let sourceTruthRole = '';
+                        try {
+                            console.log(`[Stage] GT Role request started: ${index + 1}/${gtLines.length}`);
+                            const roleResponse = await fetch('/api/llm/chat-completions-local', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    messages: [{ role: 'user', content: sourceRolePrompt }]
+                                })
+                            });
+                            console.log(`[Stage] GT Role response received: ${index + 1}/${gtLines.length}`);
+                            const rolePayload = await roleResponse.json();
+                            logLlmModel(rolePayload, 'GT Role Analysis');
+                            const roleOutput = rolePayload?.choices?.[0]?.message?.content || '';
+                            const roleCleaned = roleOutput
+                                .replace(/```json\s*/i, '')
+                                .replace(/```/g, '')
+                                .trim();
+                            const roleParsed = JSON.parse(roleCleaned);
+                            sourceTruthRole = typeof roleParsed.role === 'string' ? roleParsed.role.trim() : '';
+                            console.log(`[Stage] GT Role result: ${index + 1}/${gtLines.length}`, JSON.stringify({ role: sourceTruthRole }, null, 2));
+                        } catch (roleError) {
+                            console.log(`[Stage] GT Role error: ${index + 1}/${gtLines.length}`, roleError);
+                        }
+
+                        try {
+                            const baseTruth = gtLine;
+                            const resolvedTruth = cleanGroundTruthLine(baseTruth, sourceTruthRole);
+                            const standardPhrase = standardMatches[index] || '';
+                            const standardRole = findRoleForUtterance(standardPhrase, standardEntries);
+                            const standardTime = findTimeForUtterance(standardPhrase, standardEntries);
+                            const standardDiff = diffWords(resolvedTruth, standardPhrase);
+                            const standardTokens = tokenizeWithOriginal(standardPhrase);
+                            let matchedUtterance2 = '';
+                            let nextLevelRole = '';
+                            let nextLevelTimestamp = { start: null, end: null, overlap: false };
+                            let nextLevelDiff = { missing: [], extra: [] };
+                            let nextLevelTokens = [];
+                            if (nextLevelDialogue) {
+                                try {
+                                    console.log(`[Stage] GT Analysis 2 request started: ${index + 1}/${gtLines.length}`);
+                                    const llmResponse2 = await fetch('/api/llm/chat-completions-local', {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json'
+                                        },
+                                        body: JSON.stringify({
+                                            messages: [{ role: 'user', content: promptNext }]
+                                        })
+                                    });
+                                    console.log(`[Stage] GT Analysis 2 response received: ${index + 1}/${gtLines.length}`);
+                                    const llmPayload2 = await llmResponse2.json();
+                                    logLlmModel(llmPayload2, 'GT Analysis 2');
+                                    const llmOutput2 = llmPayload2?.choices?.[0]?.message?.content || '';
+                                    const llmResult2 = llmOutput2.trim();
+                                    console.log(`[Stage] GT Analysis 2 result: ${index + 1}/${gtLines.length}`, llmResult2);
+                                    const cleanedJson2 = llmResult2
+                                        .replace(/```json\s*/i, '')
+                                        .replace(/```/g, '')
+                                        .trim();
+                                    const parsed2 = JSON.parse(cleanedJson2);
+                                    matchedUtterance2 = parsed2.matched_utterance || '';
+                                    nextLevelRole = findRoleForUtteranceNormalized(matchedUtterance2, nextLevelEntries);
+                                    nextLevelDiff = diffWords(resolvedTruth, matchedUtterance2);
+                                    nextLevelTokens = tokenizeWithOriginal(matchedUtterance2);
+                                    const standardStartSeconds = parseTimeStringSeconds(standardTime);
+                                    const matchedEntry = findBestTranscriptMatch(
+                                        matchedUtterance2,
+                                        lastMonoTranscriptEntries,
+                                        standardStartSeconds
+                                    );
+                                    if (matchedEntry) {
+                                        nextLevelTimestamp = {
+                                            start: matchedEntry.start,
+                                            end: matchedEntry.end,
+                                            overlap: Boolean(matchedEntry.overlap)
+                                        };
+                                    }
+                                } catch (llmError2) {
+                                    console.log(`[Stage] GT Analysis 2 error: ${index + 1}/${gtLines.length}`, llmError2);
+                                }
+                            }
+
+                            const mapped = {
+                                source: {
+                                    role: sourceTruthRole,
+                                    phrase: resolvedTruth
+                                },
+                                standard: {
+                                    role: standardRole,
+                                    phrase: standardPhrase,
+                                    start: parseTimeStringSeconds(standardTime),
+                                    tokens: standardTokens,
+                                    missing_words: standardDiff.missing,
+                                    extra_words: standardDiff.extra,
+                                    hallucinations: standardDiff.extra
+                                },
+                                nextlevel: {
+                                    role: nextLevelRole,
+                                    phrase: matchedUtterance2,
+                                    tokens: nextLevelTokens,
+                                    start: nextLevelTimestamp.start,
+                                    end: nextLevelTimestamp.end,
+                                    overlap: nextLevelTimestamp.overlap,
+                                    missing_words: nextLevelDiff.missing,
+                                    extra_words: nextLevelDiff.extra,
+                                    hallucinations: nextLevelDiff.extra
+                                }
+                            };
+                            gtMatches.push(mapped);
+                        } catch (parseError) {
+                            console.log('[Stage] GT Analysis JSON parse failed', parseError);
+                        }
+                    } catch (llmError) {
+                        console.log(`[Stage] GT Analysis error: ${index + 1}/${gtLines.length}`, llmError);
+                    }
+                }
+
+                if (gtMatches.length > 0) {
+                    console.log('GT match JSON:', JSON.stringify(gtMatches, null, 2));
+                    renderComparisonTable(gtMatches);
+                    renderAccuracyGauges(gtMatches);
+                }
+                groundTruthProgress.textContent = `Done: ${gtMatches.length} / ${gtLines.length}`;
+            } catch (error) {
+                console.error('[GT] Read failed', error);
+                groundTruthProgress.textContent = 'Ground truth failed';
+            } finally {
+                groundTruthProgress.style.display = 'block';
+                groundTruthProgressBar.style.display = 'block';
+                groundTruthFileInput.value = '';
+            }
+        });
+
+        copyDialogueBtn.addEventListener('click', async () => {
+            const dialogueToCopy = buildDialogueForMatching(
+                lastPunctuatedDialogue || lastFormattedDialogue || lastWebhookDialogue
+            ).trim();
+            if (!dialogueToCopy) {
+                alert('Dialogue is empty.');
+                return;
+            }
+            try {
+                await navigator.clipboard.writeText(dialogueToCopy);
+                copyDialogueBtn.textContent = 'Copied!';
+                setTimeout(() => {
+                    copyDialogueBtn.textContent = 'Copy Dialogue';
+                }, 1200);
+            } catch (copyError) {
+                console.error('[Copy dialogue]', copyError);
+            }
+        });
+
+        exportJsonBtn.addEventListener('click', () => {
+            const matches = comparisonTable.dataset.matches
+                ? JSON.parse(comparisonTable.dataset.matches)
+                : null;
+            const payload = {
+                formatted_dialogue: lastFormattedDialogue || '',
+                punctuated_dialogue: lastPunctuatedDialogue || '',
+                enhanced_dialogue: lastWebhookDialogue || '',
+                markdown_table: markdownResult.innerHTML || '',
+                transcript_entries: lastMonoTranscriptEntries,
+                overlap_segments: lastOverlapSegments,
+                comparison: matches || []
+            };
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'dialogue_export.json';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        });
+
+        importJsonBtn.addEventListener('click', () => {
+            importJsonInput.click();
+        });
+
+        importJsonInput.addEventListener('change', async (event) => {
+            const file = event.target.files && event.target.files[0];
+            if (!file) {
+                return;
+            }
+            try {
+                const text = await file.text();
+                const payload = JSON.parse(text);
+                lastFormattedDialogue = payload.formatted_dialogue || '';
+                lastPunctuatedDialogue = payload.punctuated_dialogue || '';
+                lastWebhookDialogue = payload.enhanced_dialogue || '';
+                lastMonoTranscriptEntries = Array.isArray(payload.transcript_entries) ? payload.transcript_entries : [];
+                lastOverlapSegments = Array.isArray(payload.overlap_segments) ? payload.overlap_segments : [];
+
+                if (payload.markdown_table) {
+                    markdownResult.innerHTML = payload.markdown_table;
+                }
+
+                if (Array.isArray(payload.comparison) && payload.comparison.length > 0) {
+    renderComparisonTable(payload.comparison);
+    renderAccuracyGauges(payload.comparison);
+    groundTruthActions.style.display = 'block';
+} else if (payload.formatted_dialogue || payload.punctuated_dialogue || payload.enhanced_dialogue || payload.markdown_table) {
+    groundTruthActions.style.display = 'block';
+}
+            } catch (importError) {
+                console.error('[Import JSON]', importError);
+                alert('Failed to import JSON.');
+            } finally {
+                importJsonInput.value = '';
+            }
+        });
+
+        fileInput.addEventListener('change', async () => {
+            const selectedFile = fileInput.files && fileInput.files[0];
+            fileName.textContent = selectedFile ? selectedFile.name : '';
+            markdownResult.textContent = 'Processing...';
+
+            const progress = createProgressController();
+            const renderProgress = progress.renderProgress;
+            const addSteps = progress.addSteps;
+            const completeStep = progress.completeStep;
+
             renderProgress('Waiting for file');
 
             if (!selectedFile) {
@@ -280,6 +1993,7 @@
             }
 
             try {
+                lastOverlapSegments = [];
                 try {
                     console.log('[Stage] Base64 encoding started');
                     addSteps(1);
@@ -304,7 +2018,7 @@
                     try {
                         console.log('[Stage] Diarize request started');
                         addSteps(1);
-                        const diarizeResponse = await fetch('http://100.67.135.103:5005/api/diarize', {
+                        const diarizeResponse = await fetch(`${API_BASE}/api/diarize`, {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json'
@@ -334,7 +2048,6 @@
                         return;
                     }
 
-                    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
                     let diarizeResult = 'pending';
                     const maxPolls = 120;
                     let pollsUsed = 0;
@@ -344,12 +2057,13 @@
                         try {
                             console.log(`[Stage] Status poll attempt ${attempt + 1}/120`);
                             const statusResponse = await fetch(
-                                `http://100.67.135.103:5005/api/diarize/${encodeURIComponent(jobId)}/status`
+                                `${API_BASE}/api/diarize/${encodeURIComponent(jobId)}/status`
                             );
                             const statusPayload = await statusResponse.json();
                             const status = statusPayload?.status;
 
                             if (status === 'completed') {
+                                lastOverlapSegments = statusPayload?.overlap_detection?.segments || [];
                                 diarizeResult = 'completed';
                                 break;
                             }
@@ -377,16 +2091,17 @@
 
                     console.log(`diarize result: ${diarizeResult}`);
                     if (pollsUsed < maxPolls) {
-                        stepsTotal -= (maxPolls - pollsUsed);
-                        renderProgress('Diarize status completed');
-                    }
+    addSteps(-(maxPolls - pollsUsed));
+    renderProgress('Diarize status completed');
+}
+
 
                     if (diarizeResult === 'completed') {
                         try {
                             console.log('[Stage] Formatted dialogue request started');
                             addSteps(1);
                             const formattedResponse = await fetch(
-                                `http://100.67.135.103:5005/api/diarize/${encodeURIComponent(jobId)}/formatted`
+                                `${API_BASE}/api/diarize/${encodeURIComponent(jobId)}/formatted`
                             );
                             console.log('[Stage] Formatted dialogue response received');
                             const formattedPayload = await formattedResponse.json();
@@ -397,7 +2112,24 @@
                                 .map((line) => line.trim())
                                 .filter((line) => line.length > 0);
                             console.log('dialogue with roles count:', dialogueWithRoles.length);
+                            lastFormattedDialogue = formattedDialogue;
+                            lastPunctuatedDialogue = '';
+                            isMockMode = false;
                             completeStep('Formatted dialogue received');
+
+                            try {
+                                console.log('[Stage] Punctuation fix request started');
+                                addSteps(1);
+                                const punctuatedDialogue = await fixDialoguePunctuation(formattedDialogue);
+                                console.log('[Stage] Punctuation fix response received');
+                                lastPunctuatedDialogue = punctuatedDialogue || formattedDialogue;
+                                console.log('punctuated_dialogue:', lastPunctuatedDialogue);
+                                completeStep('Punctuation fix completed');
+                            } catch (punctError) {
+                                console.log('[Stage] Punctuation fix error:', punctError);
+                                lastPunctuatedDialogue = formattedDialogue;
+                                completeStep('Punctuation fix completed');
+                            }
 
                             const promptTemplate = `You are an expert in analyzing call center dialogues.\n\n<system_context>\nYou are a Dialogue Filter & Quality Tagger.\nYour task is to extract valid speech from raw audio transcripts, tag the speaker role, and MARK low-quality segments.\n</system_context>\n\n<role_definitions>\nAGENT: Tech support (gives instructions, checks status).\nCLIENT: Customer (reports problem, confirms actions).\n</role_definitions>\n\n<system_context>\nYou are an Audio Mixing Intelligence.\nYou receive a RAW MIXED TIMELINE containing all transcription segments from two separated channels (Agent & Client).\nYour job is to DEDUPLICATE audio leakage (ghosts) and produce a clean, chronological JSON transcript.\n</system_context>\n\n<core_input_logic>\nYou are looking at a list \`mixed_timeline\`. It is sorted by time.\nIn moments of overlap, you will see multiple items with the same timestamp.\n\nPROBLEM: \"Audio Leakage\"\nSince channels were separated by AI, the Agent's channel often contains a faint echo of the Client, and vice-versa.\nThese echoes are often marked with \`[UNCLEAR]\` or contain identical text to the other speaker.\n</core_input_logic>\n\n<filtering_rules>\nFor any group of items occurring at the SAME TIME (±1 second):\n\n1. **Rule: The Mirror Test (Killing Ghosts)**\n   - IF Speaker A says \"X\" AND Speaker B says \"X\" (or \"[UNCLEAR] X\") at the same time:\n   - THEN keep the version that is CLEANER (no \`[UNCLEAR]\`) or fits the role better.\n   - DELETE the echo.\n\n2. **Rule: True Overlap (Preserving Arguments)**\n   - IF Speaker A says \"Please wait\" AND Speaker B says \"I will not!\" at the same time:\n   - AND both texts are distinct and meaningful:\n   - THEN KEEP BOTH. Do NOT merge them. Do NOT delete the second one.\n   - Output them as separate objects with the same timestamp.\n\n3. **Rule: Hallucination Check**\n   - IF a line is \`[UNCLEAR]\` AND contains aggressive/nonsense text (\"kill\", \"tube\", \"mbc\") AND has no matching real speech in the other channel:\n   - DELETE IT.\n\n4. **Rule: Clean up**\n   - If a line is kept but has \`[UNCLEAR]\`, remove the tag in the final output.\n</filtering_rules>\n\n<agent_characteristics>\n- Leads the call and gives instructions or advice (\"Try to reset your modem\", \"Power it off and on\").\n- Asks diagnostic questions (\"What speed does it show?\", \"Did you try restarting?\").\n- Guides the client step-by-step and confirms actions (\"Please check the cable\", \"Let me know when done\").\n- Uses professional tone, problem-solving language, and directive phrasing.\n</agent_characteristics>\n\n<client_characteristics>\n- Describes issues, complaints, or symptoms (\"My internet keeps dropping\").\n- Responds to agent requests and performs actions (\"One second\", \"I tried that\").\n- Asks for help or confirmation (\"What should I do?\", \"Is that correct?\").\n- Follows instructions; acknowledges results or lack of improvement.\n</client_characteristics>\n\n<agent_examples>\n1. \"Please restart your modem.\"\n2. \"What speed does it show now?\"\n3. \"Try to power off the modem and power it on again.\"\n4. \"Can you check the cable connection?\"\n5. \"Please open the admin panel and enter the IP address.\"\n6. \"I will guide you step by step.\"\n7. \"Did you try resetting your router?\"\n8. \"Let me know when you are done.\"\n9. \"Please confirm the lights are stable.\"\n10. \"Try that again and tell me the result.\"\n</agent_examples>\n\n<client_examples>\n1. \"My internet keeps dropping.\"\n2. \"It is still not working.\"\n3. \"One second, I am checking.\"\n4. \"I tried that, but it didn't help.\"\n5. \"I can't open the admin panel.\"\n6. \"What should I do?\"\n7. \"Okay, I restarted it.\"\n8. \"Yes, I see 200 now.\"\n9. \"I'm supposed to watch a movie without the problem.\"\n10. \"Is that correct?\"\n</client_examples>\n\n<hard_rules>\n- The phrase "Try also to..." is ALWAYS Agent.\n- Instructional or guiding sentences (advice, commands, setup steps, "try", "check", "enter", "connect", "configure", "you can") are Agent, even if phrased politely.\n</hard_rules>\n\nCONTEXT:\nYou are analyzing a dialogue from a call center. The dialogue below is provided as REFERENCE ONLY.\nIMPORTANT: This dialogue may contain transcription errors and missing phrases due to speaker overlaps.\nUse it only as context to understand the conversation flow, but focus on the SPECIFIC REPLICA you need to analyze.\n\nFULL DIALOGUE (for context only):\nformatted_dialogue\n\nSPECIFIC REPLICA TO ANALYZE:\nRepeat Item 2\n\nTASK:\n1. Parse the replica line in format: \"MM:SS Speaker X: [text]\"\n2. Extract the timestamp (MM:SS format)\n3. Extract the speaker label (Speaker 0 or Speaker 1)\n4. Extract the text content\n5. Analyze the text content in the context of the full dialogue to determine the role using the role definitions, filtering rules, characteristics, and examples above\n6. Replace 'Speaker 0' or 'Speaker 1' with 'Agent' or 'Client' based on your analysis\n7. Return ONLY the modified line in the same single-line format:\n   \n   Format: MM:SS [role]: [text]\n\nIMPORTANT:\n- Keep the exact same single-line format: \"MM:SS [role]: [text]\"\n- Use 'Agent' for call center employees\n- Use 'Client' for customers\n- Consider the full dialogue context, but analyze based on the specific replica's content\n- Account for possible transcription errors or overlaps - focus on the meaning and intent\n- Return ONLY the modified line, nothing else\n- Do NOT add empty lines or extra formatting\n`;
 
@@ -411,7 +2143,7 @@
                                     .replace('Repeat Item 2', replicaLine);
 
                                 try {
-                                    console.log(`[Stage] LLM request started: ${index + 1}/${dialogueWithRoles.length}`);
+                                    console.log(`[Stage] Analysis request started: ${index + 1}/${dialogueWithRoles.length}`);
                                     const llmResponse = await fetch('/api/llm/chat-completions-local', {
                                         method: 'POST',
                                         headers: {
@@ -421,19 +2153,19 @@
                                             messages: [{ role: 'user', content: prompt }]
                                         })
                                     });
-                                    console.log(`[Stage] LLM response received: ${index + 1}/${dialogueWithRoles.length}`);
+                                    console.log(`[Stage] Analysis response received: ${index + 1}/${dialogueWithRoles.length}`);
                                     const llmPayload = await llmResponse.json();
-                                    logLlmModel(llmPayload, 'Replica LLM');
+                                    logLlmModel(llmPayload, 'Replica Analysis');
                                     const llmOutput = llmPayload?.choices?.[0]?.message?.content || '';
                                     const llmResult = llmOutput.trim();
                                     updatedDialogueLines.push(llmResult);
-                                    console.log(`[Stage] LLM result: ${index + 1}/${dialogueWithRoles.length}`, llmResult);
+                                    console.log(`[Stage] Analysis result: ${index + 1}/${dialogueWithRoles.length}`, llmResult);
                                     console.log(`Processed ${index + 1} of ${dialogueWithRoles.length}`);
-                                    completeStep(`Replica LLM ${index + 1}/${dialogueWithRoles.length}`);
+                                    completeStep(`Replica Analysis ${index + 1}/${dialogueWithRoles.length}`);
                                 } catch (llmError) {
-                                    console.log(`[Stage] LLM error: ${index + 1}/${dialogueWithRoles.length}`, llmError);
+                                    console.log(`[Stage] Analysis error: ${index + 1}/${dialogueWithRoles.length}`, llmError);
                                     console.log(`Processed ${index + 1} of ${dialogueWithRoles.length}`);
-                                    completeStep(`Replica LLM ${index + 1}/${dialogueWithRoles.length}`);
+                                    completeStep(`Replica Analysis ${index + 1}/${dialogueWithRoles.length}`);
                                 }
                             }
 
@@ -468,7 +2200,7 @@
                                 const splitFormData = new FormData();
                                 splitFormData.append('audio', selectedFile);
 
-                                const splitResponse = await fetch('http://localhost:5005/api/separate-audio', {
+                                const splitResponse = await fetch(`${API_BASE}/api/separate-audio`, {
                                     method: 'POST',
                                     body: splitFormData
                                 });
@@ -492,8 +2224,10 @@
                                     const fileBlob = await fileResponse.blob();
                                     const uploadFormData = new FormData();
                                     uploadFormData.append('audio', fileBlob, 'audio.wav');
+                                    uploadFormData.append('language', 'en');
 
-                                    const uploadResponse = await fetch('http://localhost:5005/api/diarize-and-transcribe', {
+
+                                    const uploadResponse = await fetch(`${API_BASE}/api/diarize-and-transcribe`, {
                                         method: 'POST',
                                         body: uploadFormData
                                     });
@@ -501,6 +2235,26 @@
                                     console.log(`[Stage] ${label} upload completed (status ${uploadResponse.status})`);
                                     const transcriptText = await uploadResponse.text();
                                     console.log(`${label}:`, transcriptText);
+                                    try {
+                                        const transcriptPayload = JSON.parse(transcriptText);
+                                        const transcriptLines = transcriptPayload?.transcript || [];
+                                        if (label === 'File1Transcript') {
+                                            const file1Entries = parseMonoTranscriptLines(transcriptLines, 'file1');
+                                            lastMonoTranscriptEntries = computeOverlaps([
+                                                ...lastMonoTranscriptEntries.filter((entry) => entry.source !== 'file1'),
+                                                ...file1Entries
+                                            ], lastOverlapSegments);
+                                        }
+                                        if (label === 'File2Transcript') {
+                                            const file2Entries = parseMonoTranscriptLines(transcriptLines, 'file2');
+                                            lastMonoTranscriptEntries = computeOverlaps([
+                                                ...lastMonoTranscriptEntries.filter((entry) => entry.source !== 'file2'),
+                                                ...file2Entries
+                                            ], lastOverlapSegments);
+                                        }
+                                    } catch (parseError) {
+                                        console.log(`[Stage] ${label} transcript parse failed`, parseError);
+                                    }
                                     completeStep(`${label} transcript ready`);
                                     return transcriptText;
                                 };
@@ -547,12 +2301,16 @@
                                     }
 
                                     console.log('[Stage] Webhook markdown length:', webhookMarkdown.length);
+                                    lastWebhookDialogue = markdownToDialogue(webhookMarkdown);
+                                    console.log('nextlevel_dialogue:', lastWebhookDialogue);
 
                                     addSteps(1);
                                     if (webhookMarkdown) {
                                         markdownResult.innerHTML = renderMarkdownTable(webhookMarkdown);
+                                        groundTruthActions.style.display = 'block';
                                     } else {
                                         markdownResult.innerHTML = '<div>No webhook table received.</div>';
+                                        groundTruthActions.style.display = 'none';
                                     }
                                     completeStep('Markdown table rendered');
                                     completeStep('Final webhook response received');
