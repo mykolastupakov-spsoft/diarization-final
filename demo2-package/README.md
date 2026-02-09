@@ -63,6 +63,22 @@ https://spsoft.app.n8n.cloud/webhook/diarization-send
 ```
 This URL is called from `public/demo2_user.html`.
 
+## Transcription engine switching (env)
+Default engine is local Whisper. You can switch engines with env vars:
+
+```
+# Speechmatics
+TRANSCRIPTION_ENGINE=speechmatics
+
+# Groq Whisper (cloud)
+TRANSCRIPTION_ENGINE=whisper_cloud
+```
+
+Notes:
+- `TRANSCRIPTION_ENGINE=speechmatics` affects `/api/diarize` and `/api/diarize-and-transcribe`.
+- `TRANSCRIPTION_ENGINE=whisper_cloud` (Groq) affects `/api/diarize-and-transcribe` only.
+- You can also override per request with `transcriber=local|speechmatics|groq` in form-data.
+
 ## Speechmatics (optional)
 If you want to use Speechmatics transcription instead of local Whisper, set the API key:
 ```
@@ -75,10 +91,7 @@ If you want to use cloud Whisper via Groq (for `/api/diarize-and-transcribe`), s
 ```
 GROQ_API_KEY=your_groq_key_here
 ```
-Then either send `transcriber=groq` in the form-data request or set:
-```
-TRANSCRIPTION_ENGINE=whisper_cloud
-```
+Then either send `transcriber=groq` in the form-data request or set `TRANSCRIPTION_ENGINE=whisper_cloud`.
 
 ## Local LLM (optional, for in-page post-processing)
 The UI calls `/api/llm/chat-completions-local`, which proxies to a local OpenAI-compatible server.
