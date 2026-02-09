@@ -117,6 +117,10 @@ Final post-processing webhook:
 https://spsoft.app.n8n.cloud/webhook/diarization-send
 ```
 This URL is called from `public/demo2_user.html`.
+The workflow behind it (n8n, builds the final dialogue table):
+```
+https://spsoft.app.n8n.cloud/workflow/7s7gIt3tY5XXAoBh
+```
 
 ## Transcription engine switching (env)
 Default engine is local Whisper. You can switch engines with env vars:
