@@ -70,6 +70,16 @@ SPEECHMATICS_API_KEY=your_key_here
 ```
 The backend reads this from `.env` (copy `env.example`).
 
+## Groq Whisper (optional, cloud)
+If you want to use cloud Whisper via Groq (for `/api/diarize-and-transcribe`), set:
+```
+GROQ_API_KEY=your_groq_key_here
+```
+Then either send `transcriber=groq` in the form-data request or set:
+```
+TRANSCRIPTION_ENGINE=whisper_cloud
+```
+
 ## Local LLM (optional, for in-page post-processing)
 The UI calls `/api/llm/chat-completions-local`, which proxies to a local OpenAI-compatible server.
 Set in `.env` (copy from `env.example`):
