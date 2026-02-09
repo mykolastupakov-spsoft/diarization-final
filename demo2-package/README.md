@@ -63,6 +63,13 @@ https://spsoft.app.n8n.cloud/webhook/diarization-send
 ```
 This URL is called from `public/demo2_user.html`.
 
+## Speechmatics (optional)
+If you want to use Speechmatics transcription instead of local Whisper, set the API key:
+```
+SPEECHMATICS_API_KEY=your_key_here
+```
+The backend reads this from `.env` (copy `env.example`).
+
 ## Local LLM (optional, for in-page post-processing)
 The UI calls `/api/llm/chat-completions-local`, which proxies to a local OpenAI-compatible server.
 Set in `.env` (copy from `env.example`):
