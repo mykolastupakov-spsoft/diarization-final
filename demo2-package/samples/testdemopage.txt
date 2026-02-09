@@ -1,0 +1,29 @@
+Agent: Hello, thank you for calling Acme Support. How can I assist you today?
+
+Client: Hi, I'm having trouble with my internet connection; it keeps dropping.  
+
+Agent: I'm sorry to hear that. May I have your account number to look up your details?
+
+Client: Sure, it's 742-859-3210.
+
+Agent: Thank you. I see a recent outage in your area; it might be causing the drops.
+
+Client: Oh, I didn't know that. Do you know when it'll be fixed?
+
+Agent: The tech team estimates restoration within the next two hours.
+
+Client: Alright, thanks. In the meantime, is there anything I can do to improve the connection?
+
+Agent: Yes, try rebooting your modem by unplugging it for 30 seconds and plugging it back in.
+
+Client: Okay, I'll do that right now.
+
+Agent: Great, let me know if the connection stabilizes after the reboot.
+
+Client: It looks like it's working better now, thank you for the help.
+
+Agent: You're welcome! I'll keep the ticket open for an hour to ensure the issue stays resolved.
+
+Client: Sounds good. I appreciate the assistance today.
+
+Agent: Thank you for calling Acme Support. Have a great day!
