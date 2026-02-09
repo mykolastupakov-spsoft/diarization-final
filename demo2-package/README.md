@@ -2,6 +2,12 @@
 
 This package contains only the Demo2 user page and the Flask backend used by it.
 
+## Stack
+- UI: static HTML + JS (`public/demo2_user.html`)
+- Backend: Python Flask (diarization + transcription)
+- UI server: Node.js + Express (serves the page + local LLM proxy)
+- Models: SpeechBrain (speaker embeddings) + Whisper (transcription)
+
 ## What's inside
 - `app_demo2.py` - Flask backend for diarization + transcription.
 - `server.js` - Node UI server that serves the Demo2 user page and proxies local LLM requests.
@@ -9,14 +15,14 @@ This package contains only the Demo2 user page and the Flask backend used by it.
 - `samples/` - Audio samples for manual testing.
 
 ## Requirements
-- Python 3.10+ (recommended 3.11)
+- Python 3.11+ (recommended 3.11)
 - Node.js 18+
 
-## Setup
+## Install
 
 ### Python (Flask backend)
 ```bash
-python -m venv .venv
+python3.11 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
@@ -44,6 +50,18 @@ If Flask is running on a different host/port, open the UI with a query param:
 ```
 http://localhost:3000/?api_base=http://HOST:5005
 ```
+
+## How to upload a file
+1. Open `http://localhost:3000/`.
+2. Click "Upload file" and select an audio file (wav, mp3, m4a).
+3. Wait for progress and the final markdown table.
+
+## Webhook
+Final post-processing webhook:
+```
+https://spsoft.app.n8n.cloud/webhook/diarization-send
+```
+This URL is called from `public/demo2_user.html`.
 
 ## Local LLM (optional, for in-page post-processing)
 The UI calls `/api/llm/chat-completions-local`, which proxies to a local OpenAI-compatible server.
