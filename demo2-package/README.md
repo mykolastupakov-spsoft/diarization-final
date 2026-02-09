@@ -56,6 +56,32 @@ http://localhost:3000/?api_base=http://HOST:5005
 2. Click "Upload file" and select an audio file (wav, mp3, m4a).
 3. Wait for progress and the final markdown table.
 
+## Ground truth scoring (upload .txt/.md)
+The UI lets you upload a ground truth file to compare against:
+- Format: one utterance per line (optional role prefix like `Speaker 1:`, `Agent:`, `Client:`).
+- The UI parses lines, trims empty ones, and compares each line to two outputs:
+  - "Standard" = the original formatted diarization (`formatted_dialogue`).
+  - "NextLevel" = the webhook table returned from n8n.
+
+How matching works:
+- Standard list is expanded into sentence fragments so one long line can match multiple GT lines.
+- A local LLM (`/api/llm/chat-completions-local`) aligns each GT line to the best Standard fragment by meaning.
+- For NextLevel, the local LLM picks the closest matching line by meaning from the webhook dialogue.
+- If the LLM fails, a token-overlap fallback is used.
+
+Scoring:
+- For each GT line, diffs are computed:
+  - `missing_words` = GT words not present in the matched phrase.
+  - `extra_words` = words present in the match but not in GT.
+- Accuracy (standard/nextlevel):
+  - `total = source_word_count + extra_words + overlap_flag`
+  - `correct = (source_word_count - missing_words) + overlap_correct`
+- Role accuracy: compares GT role vs NextLevel role.
+
+Notes:
+- The GT comparison uses the local LLM proxy, so it requires a working local LLM.
+- The table highlights missing/extra words and role mismatches.
+
 ## Algorithm details (diarization + transcription)
 Below is a high-level overview of how the pipeline works in `app_demo2.py`.
 
